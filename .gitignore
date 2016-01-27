@@ -1,4 +1,5 @@
-AlphaAGH
+bin
+objs
 *.o
 *.mod
 *.txt
