@@ -72,6 +72,7 @@ web: all
 binary: FFLAGS := $(FFLAGS) -D "BINARY"
 
 binary: all
+
 # Compile AlphaAGH
 $(TARGETDIR)AlphaAGH$(exe): $(SRCDIR)AlphaAGH.f90
 	@echo "Compiling AlphaAGH..."
@@ -80,12 +81,12 @@ $(TARGETDIR)AlphaAGH$(exe): $(SRCDIR)AlphaAGH.f90
 
 # Cleaning
 sparklinglyclean: veryclean
-	rm -rf TARGETDIR
+	$(DEL) TARGETDIR
 
 veryclean: clean
 	$(DEL) $(TARGETDIR)AlphaAGH$(exe)
 
 clean:
-	$(DEL) -rf $(BUILDDIR) *$(obj) *.mod *.dwarf *.i90 *__genmod* *~
+	$(DEL) $(BUILDDIR) *$(obj) *.mod *.dwarf *.i90 *__genmod* *~
 
 .PHONY: make veryclean all
