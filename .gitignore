@@ -3,3 +3,4 @@ objs
 *.o
 *.mod
 *.txt
+*.i90
