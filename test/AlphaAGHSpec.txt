@@ -1,0 +1,36 @@
+############################# Input parameters ###########################
+GenotypeFile         ,Genotype.txt
+PedigreeFile         ,Pedigree.txt
+WeightFile           ,None
+NumberOfTraits       ,1
+NumberOfSnp	         ,3
+InversionOfG         ,Ordinary
+DiagonalFudgeFactor  ,0.001
+############################# Matrices to be constructed #################
+MakeG        ,Yes
+TypeG        ,Nejati-Javaremi VanRaden
+MakeGInverse ,Yes
+MakeA        ,Yes
+MakeAInverse ,Yes
+MakeH        ,No
+MakeHInverse ,No
+############################# AlphaSim interaction options ###############
+UsePreviousAllFreq ,Off
+AllFreqSelCycle    ,1
+############################# Output options #############################
+OutputPrecision    ,20,10
+GFullMat           ,Yes
+GIJA               ,Yes
+InverseGFullMat    ,Yes
+InverseGIJA        ,Yes
+AmatFullMat        ,Yes
+AmatIJA            ,Yes
+InverseAmatFullMat ,Yes
+InverseAmatIJA     ,Yes
+HmatFullMat        ,No
+HmatIJA            ,No
+InverseHmatFullMat ,No
+InverseHmatIJA     ,No
+
+
+
