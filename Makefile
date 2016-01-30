@@ -16,8 +16,12 @@ ifeq ($(OS), Windows_NT)
 	BUILDDIR    :=
 	TARGETDIR   :=
 	OSFLAG := "OS_WIN"
-	FFLAGS := $(FFLAGS) /static /i8 /fpp  /Qmkl /D $(OSFLAG)
-	ABOPT := -static  -Qmkl
+	# TODO: What is the MKL path on Windoze?
+	MKLROOT := #???
+	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	MKLINC := -I$(MKLROOT)/include
+	FFLAGS := $(FFLAGS) /static /i8 /fpp  /Qmkl /D $(OSFLAG) $(MKLLIB) $(MKLINC)
+	ABOPT := -static  -Qmkl # not used!
 	obj := .obj
 
 	MAKEDIR :=
@@ -33,13 +37,20 @@ else
 	TARGETDIR   := bin/
 	obj := .o
 	OSFLAG := "OS_UNIX"
-	ABOPT := -mkl -static-intel -openmp-link=static
+	# TODO: can we make this generic?
+	MKLROOT := /opt/intel/mkl
+	MKLROOT := /opt/intel/composer_xe_2013_sp1.4.201/mkl
+	# On Eddie
+	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
+	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	MKLINC := -I$(MKLROOT)/include
+	ABOPT := -mkl -static-intel -openmp-link=static # not used!
 	exe :=
-	FFLAGS:= $(FFLAGS) -mkl -i8 -static-intel -fpp -openmp-link=static  -module $(BUILDDIR) -D $(OSFLAG)
+	FFLAGS:= $(FFLAGS) -mkl -i8 -static-intel -fpp -openmp-link=static  -module $(BUILDDIR) -D $(OSFLAG) $(MKLLIB) $(MKLINC)
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
-  # Linux only
+	# Linux only
 	ifeq ($(uname), Linux)
 		FFLAGS := $(FFLAGS) -static -static-libgcc -static-libstdc++
 	endif

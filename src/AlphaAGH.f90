@@ -25,7 +25,9 @@
 #DEFINE RENAME "MOVE /Y"
 #endif
 
-!###########################################################################################################################################################
+!TODO: write output subroutines and call them in different places
+
+!#########################################################################
 
 module GlobalAGH
 
@@ -38,11 +40,11 @@ module GlobalAGH
     character(len=20) :: OutputFormat
 
     double precision,allocatable,dimension(:) :: AlleleFreq,Pmat
-    double precision,allocatable,dimension(:,:) :: Weights,Zmat,tpose,Genos,Amat,invAmat
-    double precision,allocatable,dimension(:,:,:) :: WeightStand,Gmat,invGmat
+    double precision,allocatable,dimension(:,:) :: Weights,Zmat,tpose,Genos,Amat,InvAmat
+    double precision,allocatable,dimension(:,:,:) :: WeightStand,Gmat,InvGmat
 
     integer :: InvOut,GFullMat,GIJA,IGFullMat,IGIJA,AFullMat,AIJA,IAFullMat,IAIJA,HFullMat,HIJA,IHFullMat,IHIJA
-    integer :: GMake,GinvMake,AMake,AinvMake,HMake,HinvMake,GType
+    integer :: GMake,GInvMake,AMake,AInvMake,HMake,HInvMake,GType
 
     real(kind=4),allocatable :: xnumrelmatHold(:)
     integer :: NRMmem, shell, shellmax, shellWarning
@@ -53,12 +55,15 @@ module GlobalAGH
 
 end module GlobalAGH
 
-!###########################################################################################################################################################
+!#########################################################################
 
 program AlphaG
 
     use GlobalAGH
+
     implicit none
+
+    include "mkl_vml.f90"
 
     real :: start, finish
 
@@ -68,7 +73,7 @@ program AlphaG
     call ReadParam
     call ReadData
 
-    if ((GMake==1).or.(HMake==1).or.(HinvMake==1)) then
+    if ((GMake==1).or.(HMake==1).or.(HInvMake==1)) then
         if (GType==1) then
             call MakeGVanRaden
         endif
@@ -81,7 +86,7 @@ program AlphaG
         call MakeAMatrix
     endif
 
-    if ((AinvMake==1).or.(HinvMake==1)) then
+    if ((AInvMake==1).or.(HInvMake==1)) then
         call MakeInvAMatrix
     endif
 
@@ -92,7 +97,7 @@ program AlphaG
 
 end program AlphaG
 
-!###########################################################################################################################################################
+!#########################################################################
 
 subroutine ReadParam
     use GlobalAGH
@@ -100,7 +105,7 @@ subroutine ReadParam
 
     integer :: i,j,OutputPositions,OutputDigits
 
-    character(len=1000) :: dumC,GenotypeFile,PedigreeFile,WeightFile,InversionRoutine,MakeG,TypeG,MakeGinv,MakeA,MakeAinv,MakeH,MakeHinv,TmpUsePreviousAllFreq
+    character(len=1000) :: dumC,GenotypeFile,PedigreeFile,WeightFile,InversionRoutine,MakeG,TypeG,MakeGInv,MakeA,MakeAInv,MakeH,MakeHInv,TmpUsePreviousAllFreq
     character(len=1000) :: GFullMatC,GIJAC,InverseGFullMatC,InverseGIJA,AmatFullMat,AmatIJA,InverseAmatFullMat,InverseAmatIJA,HmatFullMat,HmatIJA,InverseHmatFullMat,InverseHmatIJA
     character(len=200) :: OutputPositionsC,OutputDigitsC
 
@@ -133,31 +138,31 @@ subroutine ReadParam
     if (trim(TypeG)=="VanRaden")        GType=1
     if (trim(TypeG)=="Nejati-Javaremi") GType=2
 
-    GinvMake=0
-    read(11,*) dumC,MakeGinv
-    if (trim(MakeGinv)=="Yes") GinvMake=1
-    if (trim(MakeGinv)=="No")  GinvMake=2
+    GInvMake=0
+    read(11,*) dumC,MakeGInv
+    if (trim(MakeGInv)=="Yes") GInvMake=1
+    if (trim(MakeGInv)=="No")  GInvMake=2
 
     AMake=0
     read(11,*) dumC,MakeA
     if (trim(MakeA)=="Yes") AMake=1
     if (trim(MakeA)=="No")  AMake=2
 
-    AinvMake=0
-    read(11,*) dumC,MakeAinv
-    if (trim(MakeAinv)=="Yes") AinvMake=1
-    if (trim(MakeAinv)=="No")  AinvMake=2
+    AInvMake=0
+    read(11,*) dumC,MakeAInv
+    if (trim(MakeAInv)=="Yes") AInvMake=1
+    if (trim(MakeAInv)=="No")  AInvMake=2
 
     HMake=0
     read(11,*) dumC,MakeH
     if (trim(MakeH)=="Yes") HMake=1
     if (trim(MakeH)=="No")  HMake=2
 
-    HinvMake=0
-    read(11,*) dumC,MakeHinv
-    if (trim(MakeHinv)=="Yes") HinvMake=1
-    if (trim(MakeHinv)=="No")  HinvMake=2
-    if (HinvMake==1) GinvMake=1
+    HInvMake=0
+    read(11,*) dumC,MakeHInv
+    if (trim(MakeHInv)=="Yes") HInvMake=1
+    if (trim(MakeHInv)=="No")  HInvMake=2
+    if (HInvMake==1) GInvMake=1
 
     read(11,*) dumC			! Option for G matrices to use inside AlphaDrop
 
@@ -315,17 +320,17 @@ subroutine ReadParam
 
     if (trim(GenotypeFile)=='None') then
         GMake=2
-        GinvMake=2
+        GInvMake=2
     endif
 
     if (trim(PedigreeFile)=='None') then
         AMake=2
-        AinvMake=2
+        AInvMake=2
     endif
 
 end subroutine ReadParam
 
-!###########################################################################################################################################################
+!#########################################################################
 
 subroutine ReadData
     use GlobalAGH
@@ -400,7 +405,7 @@ subroutine ReadData
 
 end subroutine ReadData
 
-!###########################################################################################################################################################
+!#########################################################################
 
 subroutine MakeInvAMatrix
     use GlobalAGH
@@ -410,7 +415,7 @@ subroutine MakeInvAMatrix
     double precision :: Inbreeding(0:nAnisP),Dii(0:nAnisP)
     character(len=1000) :: nChar,fmt
 
-    allocate(invAmat(0:nAnisP,0:nAnisP))
+    allocate(InvAmat(0:nAnisP,0:nAnisP))
 
     print*, "Start calculating inbreeding coefficients"
     call dinbreeding(RecPed(0:nAnisP,1),RecPed(0:nAnisP,2),RecPed(0:nAnisP,3),Inbreeding,nAnisP)
@@ -432,19 +437,19 @@ subroutine MakeInvAMatrix
         endif
     enddo
 
-    invAmat=0
+    InvAmat=0
     do i=1,nAnisP
-        invAmat(i,i)=1/Dii(i)
+        InvAmat(i,i)=1/Dii(i)
         if (RecPed(i,2)/=0) then
-            invAmat(i,RecPed(i,2))=invAmat(i,RecPed(i,2))+(-1/Dii(i))/2
-            invAmat(i,RecPed(i,3))=invAmat(i,RecPed(i,3))+(-1/Dii(i))/2
-            invAmat(RecPed(i,2),i)=invAmat(RecPed(i,2),i)+(-1/Dii(i))/2
-            invAmat(RecPed(i,3),i)=invAmat(RecPed(i,3),i)+(-1/Dii(i))/2
+            InvAmat(i,RecPed(i,2))=InvAmat(i,RecPed(i,2))+(-1/Dii(i))/2
+            InvAmat(i,RecPed(i,3))=InvAmat(i,RecPed(i,3))+(-1/Dii(i))/2
+            InvAmat(RecPed(i,2),i)=InvAmat(RecPed(i,2),i)+(-1/Dii(i))/2
+            InvAmat(RecPed(i,3),i)=InvAmat(RecPed(i,3),i)+(-1/Dii(i))/2
 
-            invAmat(RecPed(i,2),RecPed(i,2))=invAmat(RecPed(i,2),RecPed(i,2))+((1/Dii(i))/4)
-            invAmat(RecPed(i,3),RecPed(i,3))=invAmat(RecPed(i,3),RecPed(i,3))+((1/Dii(i))/4)
-            invAmat(RecPed(i,2),RecPed(i,3))=invAmat(RecPed(i,2),RecPed(i,3))+((1/Dii(i))/4)
-            invAmat(RecPed(i,3),RecPed(i,2))=invAmat(RecPed(i,3),RecPed(i,2))+((1/Dii(i))/4)
+            InvAmat(RecPed(i,2),RecPed(i,2))=InvAmat(RecPed(i,2),RecPed(i,2))+((1/Dii(i))/4)
+            InvAmat(RecPed(i,3),RecPed(i,3))=InvAmat(RecPed(i,3),RecPed(i,3))+((1/Dii(i))/4)
+            InvAmat(RecPed(i,2),RecPed(i,3))=InvAmat(RecPed(i,2),RecPed(i,3))+((1/Dii(i))/4)
+            InvAmat(RecPed(i,3),RecPed(i,2))=InvAmat(RecPed(i,3),RecPed(i,2))+((1/Dii(i))/4)
         endif
     enddo
     print*, "Finished making A inverse"
@@ -455,7 +460,7 @@ subroutine MakeInvAMatrix
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAFullMatrix.txt",status="unknown")
         do m=1,nAnisP
-            write(202,fmt) Id(m),invAmat(m,1:nAnisP)
+            write(202,fmt) Id(m),InvAmat(m,1:nAnisP)
         enddo
         close(202)
         print*, "End writing A inverse full matrix"
@@ -467,17 +472,16 @@ subroutine MakeInvAMatrix
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                write(202,fmt) Id(m),Id(n),invAmat(m,n)
+                write(202,fmt) Id(m),Id(n),InvAmat(m,n)
             enddo
         enddo
         close(202)
         print*, "End writing A inverse ija"
     endif
 
-
 end subroutine MakeInvAMatrix
 
-!###########################################################################################################################################################
+!#########################################################################
 
 subroutine MakeAMatrix
     use GlobalAGH
@@ -526,13 +530,13 @@ subroutine MakeAMatrix
 
 end subroutine MakeAMatrix
 
-!###########################################################################################################################################################
+!#########################################################################
 
 subroutine MakeGVanRaden
     use GlobalAGH
     implicit none
 
-    integer :: i,j,k,l,m,n,nMissing,dumI,WhichMat,errorflag
+    integer :: i,j,k,l,m,n,nMissing,dumI,WhichMat!,errorflag
     double precision :: TmpWt(nSnp),TmpVal(1),Denom
     character(len=1000) :: filout,nChar,fmt
 
@@ -683,11 +687,15 @@ subroutine MakeGVanRaden
                 close(202)
             endif
 
-            if (GinvMake==1) then
-                allocate(invGmat(nAnisG,nAnisG,nGMats))
+            if (GInvMake==1) then
+                allocate(InvGmat(nAnisG,nAnisG,nGMats))
 
                 print*, "Start inverting G - VanRaden"
-                if (InvOut==1) call FINDInv(Gmat(:,:,WhichMat),invGmat(:,:,WhichMat),nAnisG,errorflag)
+                if (InvOut==1) then
+                    InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
+                    call invert(InvGmat(:,:,WhichMat),nAnisG,.true.)
+                    !call FINDInv(Gmat(:,:,WhichMat),InvGmat(:,:,WhichMat),nAnisG,errorflag)
+                endif
                 print*, "Finished inverting G - VanRaden"
 
                 if (IGFullMat==1) then
@@ -696,7 +704,7 @@ subroutine MakeGVanRaden
                     write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
                     open(unit=202,file=trim(filout),status="unknown")
                     do m=1,nAnisG
-                        write(202,fmt) IdGeno(m),invGMat(m,:,WhichMat)
+                        write(202,fmt) IdGeno(m),InvGMat(m,:,WhichMat)
                     enddo
                     close(202)
                 endif
@@ -707,7 +715,7 @@ subroutine MakeGVanRaden
                     open(unit=202,file=trim(filout),status="unknown")
                     do m=1,nAnisG
                         do n=1,m
-                            write(202,fmt) IdGeno(m),IdGeno(n),invGMat(m,n,WhichMat)
+                            write(202,fmt) IdGeno(m),IdGeno(n),InvGMat(m,n,WhichMat)
                         enddo
                     enddo
                     close(202)
@@ -722,13 +730,13 @@ subroutine MakeGVanRaden
 
 end subroutine MakeGVanRaden
 
-!#############################################################################################################################################################################################################################
+!#########################################################################
 
 subroutine MakeGNejatiJavaremi
     use GlobalAGH
     implicit none
 
-    integer :: i,j,l,m,n,errorflag
+    integer :: i,j,l,m,n!,errorflag
     character(len=1000) :: nChar,fmt
 
     allocate(Gmat(nAnisG,nAnisG,1))
@@ -780,11 +788,15 @@ subroutine MakeGNejatiJavaremi
         close(202)
     endif
 
-    if (GinvMake==1) then
-        allocate(invGmat(nAnisG,nAnisG,1))
+    if (GInvMake==1) then
+        allocate(InvGmat(nAnisG,nAnisG,1))
 
         print*, "Start inverting G - Nejati-Javaremi"
-        if (InvOut==1) call FINDInv(Gmat(:,:,1),invGmat(:,:,1),nAnisG,errorflag)
+        if (InvOut==1) then
+            InvGmat(:,:,1)=Gmat(:,:,1)
+            call invert(InvGmat(:,:,1),nAnisG,.true.)
+            !call FINDInv(Gmat(:,:,1),InvGmat(:,:,1),nAnisG,errorflag)
+        endif
         print*, "Finished inverting G - Nejati-Javaremi"
 
         if (IGFullMat==1) then
@@ -792,7 +804,7 @@ subroutine MakeGNejatiJavaremi
             fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
             open(unit=202,file="InvGFullMatrix1-1.txt",status="unknown")
             do m=1,nAnisG
-                write(202,fmt) IdGeno(m),invGMat(m,:,1)
+                write(202,fmt) IdGeno(m),InvGMat(m,:,1)
             enddo
             close(202)
         endif
@@ -802,7 +814,7 @@ subroutine MakeGNejatiJavaremi
             open(unit=202,file="InvGija1-1.txt",status="unknown")
             do m=1,nAnisG
                 do n=1,m
-                    write(202,fmt) IdGeno(m),IdGeno(n),invGMat(m,n,1)
+                    write(202,fmt) IdGeno(m),IdGeno(n),InvGMat(m,n,1)
                 enddo
             enddo
             close(202)
@@ -814,7 +826,7 @@ subroutine MakeGNejatiJavaremi
 
 end subroutine MakeGNejatiJavaremi
 
-!#############################################################################################################################################################################################################################
+!#########################################################################
 
 subroutine CountInData
     use GlobalAGH
@@ -851,7 +863,7 @@ subroutine CountInData
 
 end subroutine CountInData
 
-!#############################################################################################################################################################################################################################
+!#########################################################################
 
 subroutine dinbreeding(ianim,isire,idam,f,n)
     !c     inbreeding program from Meuwissen and Luo (1992)
@@ -929,7 +941,7 @@ subroutine dinbreeding(ianim,isire,idam,f,n)
 
 end subroutine dinbreeding
 
-!#############################################################################################################################################################################################################################
+!#########################################################################
 
 subroutine PVseq(nObs,nAnisPedigree)
     use GlobalAGH
@@ -1605,7 +1617,46 @@ SUBROUTINE FINDInv(matrix, inverse, n, errorflag)
     errorflag = 0
 END SUBROUTINE FINDinv
 
-!###########################################################################################################
+!#########################################################################
+
+subroutine invert(x,n,sym)
+
+  ! Interface to call inverse subroutines from BLAS/LAPACK libraries
+
+  ! x symmetric positive-definite matrix to be inverted
+  ! n matrix dimension
+  ! sym return lower-triangular (sym=.false) or full matrix (sym=.true.)
+
+  implicit none
+  integer :: n,i,j,info
+  real(8) :: x(n,n)
+  logical :: sym
+
+  ! Computes the Cholesky factorization of a symmetric positive definite matrix
+  ! https://software.intel.com/en-us/node/468690
+  call dpotrf('L',n,x,n,info)
+  if (info /= 0) then
+    print*,'Matrix not positive-definite - info',info
+    stop
+  endif
+
+  ! Computes the inverse of a symmetric positive definite matrix,
+  !   using the Cholesky factorization computed by dpotrf()
+  ! https://software.intel.com/en-us/node/468824
+  call dpotri('L',n,x,n,info)
+  if (info /= 0) then
+   print*,'Matrix not positive-definite - info',info
+   stop
+  endif
+
+  ! Fills the upper triangle
+  if (sym) then
+    forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
+  endif
+
+end subroutine invert
+
+!#########################################################################
 
 subroutine Titles
    print*, ""
@@ -1622,4 +1673,4 @@ subroutine Titles
    print*, ""
 end subroutine Titles
 
-!#############################################################################################################################################################################################################################
+!#########################################################################
