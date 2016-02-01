@@ -33,7 +33,7 @@ module GlobalAGH
 
     integer,parameter :: lengan=20
 
-    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle
+    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols
     integer :: PedigreePresent,WeightYes1No0,nGMats
     integer :: GlobalExtraAnimals		!Change John Hickey
     double precision :: DiagFudge
@@ -117,6 +117,7 @@ subroutine ReadParam
     read(11,*) dumC,WeightFile
     read(11,*) dumC,nTrait
     read(11,*) dumC,nSnp
+    read(11,*) dumC,nCols  !SMHE: I am so, so sorry. Sorry for adding an extra option.
 
     InvOut=0
     read(11,*) dumC,InversionRoutine
@@ -347,24 +348,29 @@ subroutine ReadData
     allocate(RecodeIdGeno(nAnisG))
 
     if (PedigreePresent==0) then
-        allocate(RecPed(0:nAnisG,3))
+        allocate(RecPed(0:nAnisG,4))
         nAnisP=nAnisG
         RecPed(:,:)=0
         do i=1,nAnisP
             RecPed(i,1)=i
+            RecPed(i,4)=1
         enddo
     else
-        allocate(Ped(nAnisRawPedigree,3))
+
+        allocate(Ped(nAnisRawPedigree,nCols))
+        if (nCols.eq.4) Ped(:,4) = '1'
         do i=1,nAnisRawPedigree
             read(102,*) ped(i,:)
         enddo
         call PVseq(nAnisRawPedigree,nAnisP)
 
-        allocate(RecPed(0:nAnisP,3))
+        allocate(RecPed(0:nAnisP,4))
 
         RecPed(0,:)=0
+        RecPed(:,4)=1
         do i=1,nAnisP
             RecPed(i,1)=i
+            if (nCols.eq.4) read(Ped(i,4), '(i)') RecPed(i,4) 
         enddo
         RecPed(1:nAnisP,2)=seqsire(1:nAnisP)
         RecPed(1:nAnisP,3)=seqdam(1:nAnisP)
@@ -411,9 +417,10 @@ subroutine MakeInvAMatrix
     use GlobalAGH
     implicit none
 
-    integer :: i,m,n
+    integer :: i,m,n,s
     double precision :: Inbreeding(0:nAnisP),Dii(0:nAnisP)
     character(len=1000) :: nChar,fmt
+    logical :: AnimToWrite(nAnisP)
 
     allocate(InvAmat(0:nAnisP,0:nAnisP))
 
@@ -455,12 +462,17 @@ subroutine MakeInvAMatrix
     print*, "Finished making A inverse"
 
     if (IAFullMat==1) then
-        print*, "Start writing A inverse full matrix"
-        write(nChar,*) nAnisP
+    		AnimToWrite = RecPed(1:nAnisP,4) == 1
+    		s = COUNT(AnimToWrite)
+    		
+    		write(*,'(a40,i6,a11)') " Start writing A inverse full matrix for", s," individuals"
+        write(nChar,*) s
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAFullMatrix.txt",status="unknown")
         do m=1,nAnisP
-            write(202,fmt) Id(m),InvAmat(m,1:nAnisP)
+        		if (AnimToWrite(m)) then
+        			write(202,fmt) Id(m), pack(InvAmat(m,1:nAnisP), AnimToWrite)
+	          endif
         enddo
         close(202)
         print*, "End writing A inverse full matrix"
@@ -472,7 +484,7 @@ subroutine MakeInvAMatrix
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                write(202,fmt) Id(m),Id(n),InvAmat(m,n)
+                if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1) write(202,fmt) Id(m),Id(n),InvAmat(m,n)
             enddo
         enddo
         close(202)
@@ -487,9 +499,10 @@ subroutine MakeAMatrix
     use GlobalAGH
     implicit none
 
-    integer :: i,j,m,n
+    integer :: i,j,m,n,s
     character(len=1000) :: nChar,fmt
-
+    logical :: AnimToWrite(nAnisP)
+		
     allocate(Amat(0:nAnisP,0:nAnisP))
 
     print*, "Start making A"
@@ -504,24 +517,29 @@ subroutine MakeAMatrix
     print*, "Finished making A"
 
     if (AFullMat==1) then
-        print*, "Start writing A full matrix"
-        write(nChar,*) nAnisP
+    		AnimToWrite = RecPed(1:nAnisP,4) == 1
+    		s = COUNT(AnimToWrite)
+    		
+    		write(*,'(a32,i6,a11)') " Start writing A full matrix for", s," individuals"
+        write(nChar,*) s
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="AFullMatrix.txt",status="unknown")
         do m=1,nAnisP
-            write(202,fmt) Id(m),Amat(m,1:nAnisP)
+        		if (AnimToWrite(m)) then
+        			write(202,fmt) Id(m), pack(Amat(m,1:nAnisP), AnimToWrite)
+	          endif
         enddo
         close(202)
         print*, "End writing A full matrix"
     endif
 
     if (AIJA==1) then
-        print*, "Start writing A ija"
+        write(*,'(a24,i6,a11)') " Start writing A ija for", s," individuals"
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                write(202,fmt) Id(m),Id(n),Amat(m,n)
+            	  if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1)  write(202,fmt) Id(m),Id(n),Amat(m,n)
             enddo
         enddo
         close(202)
