@@ -858,7 +858,7 @@ subroutine CountInData
             endif
         enddo
         rewind(102)
-        print*, " ",nAnisRawPedigree," individuals in the pedigree file"
+        write(*,'(a2,i6,a33)') "   ",nAnisRawPedigree," individuals in the pedigree file"
     endif
 
 end subroutine CountInData
