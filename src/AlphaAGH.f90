@@ -34,21 +34,24 @@ module GlobalAGH
     integer,parameter :: lengan=20
 
     integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols
+    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
     integer :: PedigreePresent,WeightYes1No0,nGMats
     integer :: GlobalExtraAnimals		!Change John Hickey
     double precision :: DiagFudge
     character(len=20) :: OutputFormat
 
-    double precision,allocatable,dimension(:) :: AlleleFreq,Pmat
+    double precision,allocatable,dimension(:) :: AlleleFreq,Pmat,Adiag
     double precision,allocatable,dimension(:,:) :: Weights,Zmat,tpose,Genos,Amat,InvAmat
     double precision,allocatable,dimension(:,:,:) :: WeightStand,Gmat,InvGmat
+		integer,allocatable,dimension(:) :: MapAnimal
+		logical,allocatable,dimension(:) :: MapToG
 
     integer :: InvOut,GFullMat,GIJA,IGFullMat,IGIJA,AFullMat,AIJA,IAFullMat,IAIJA,HFullMat,HIJA,IHFullMat,IHIJA
     integer :: GMake,GInvMake,AMake,AInvMake,HMake,HInvMake,GType
 
     real(kind=4),allocatable :: xnumrelmatHold(:)
     integer :: NRMmem, shell, shellmax, shellWarning
-    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),RecodeIdGeno(:),dooutput(:)
+    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),GinA(:),AinG(:),dooutput(:)!,RecodeIdGeno(:)
     character*(lengan),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
     logical ::  UseAllFreqFromPrevSelCycle
@@ -73,6 +76,14 @@ program AlphaG
     call ReadParam
     call ReadData
 
+    if ((AMake==1).or.(HMake==1)) then
+        call MakeAMatrix
+    endif
+
+    if ((AInvMake==1).or.(HInvMake==1)) then
+        call MakeInvAMatrix
+    endif
+
     if ((GMake==1).or.(HMake==1).or.(HInvMake==1)) then
         if (GType==1) then
             call MakeGVanRaden
@@ -81,14 +92,11 @@ program AlphaG
             call MakeGNejatiJavaremi
         endif
     endif
-
-    if ((AMake==1).or.(HMake==1)) then
-        call MakeAMatrix
+    
+    if (HInvMake == 1) then
+    	call MakeHInv
     endif
 
-    if ((AInvMake==1).or.(HInvMake==1)) then
-        call MakeInvAMatrix
-    endif
 
     call cpu_time(finish)
     print *," "
@@ -163,7 +171,11 @@ subroutine ReadParam
     read(11,*) dumC,MakeHInv
     if (trim(MakeHInv)=="Yes") HInvMake=1
     if (trim(MakeHInv)=="No")  HInvMake=2
-    if (HInvMake==1) GInvMake=1
+    if (HInvMake==1) then
+    	AMake=1
+    	AInvMake=1
+    	GMake=1
+    endif
 
     read(11,*) dumC			! Option for G matrices to use inside AlphaDrop
 
@@ -346,7 +358,7 @@ subroutine ReadData
     allocate(Genos(nAnisG,nSnp))
     allocate(Zmat(nAnisG,nSnp))
     allocate(IdGeno(nAnisG))
-    allocate(RecodeIdGeno(nAnisG))
+    !allocate(RecodeIdGeno(nAnisG))
 
     if (PedigreePresent==0) then
         allocate(RecPed(0:nAnisG,4))
@@ -400,23 +412,45 @@ subroutine ReadData
         read(101,*) IdGeno(i),Genos(i,:)
     enddo
 
+		allocate(AinG(1:nAnisP))
+		allocate(GinA(1:nAnisG))
+		allocate(MapAnimal(1:(nAnisP+nAnisG)))
+		allocate(MapToG(1:(nAnisP+nAnisG)))
+		GinA = 0
+		AinG = .false.
+		MapAnimal = 0
+		MapToG = .false.
+		nAnisH = nAnisP
+		!MapAnimal(1:nAnisP) = ( i, i=1, nAnisP )
+		do i=1,nAnisP
+			MapAnimal(i) = i
+		enddo
+		
+		
     if (PedigreePresent==0) then
-        do i=1,nAnisG
-            RecodeIdGeno(i)=i
-        enddo
+        !do i=1,nAnisG
+        !    RecodeIdGeno(i)=i
+        !enddo
     else
         do i=1,nAnisG
             GenoInPed=0
             do j=1,nAnisP
                 if (trim(IdGeno(i))==trim(Id(j))) then
-                    RecodeIdGeno(i)=j
+                    !RecodeIdGeno(i)=j
+                    GinA(i) = j
+                    AinG(j) = i
+                    MapToG(j) = .true.
+                    MapAnimal(j) = i
                     GenoInPed=1
                     exit
                 endif
             enddo
             if (GenoInPed==0) then
+            		nAnisH = nAnisH + 1
+            		MapAnimal(nAnisH) = i
+            		MapToG(nAnisH) = .true.
                 print*, "Genotyped individual not in pedigree file - ",trim(IdGeno(i))
-                stop
+                !stop
             endif
         enddo
     endif
@@ -511,6 +545,8 @@ subroutine MakeInvAMatrix
         print*, "End writing A inverse ija"
     endif
 
+		if (HInvMake /= 1) deallocate(InvAmat)
+
 end subroutine MakeInvAMatrix
 
 !#########################################################################
@@ -519,21 +555,33 @@ subroutine MakeAMatrix
     use GlobalAGH
     implicit none
 
-    integer :: i,j,m,n,s
+    integer :: i,j,k,m,n,s,div
+    double precision :: Amatavg
     character(len=1000) :: nChar,fmt
     logical :: AnimToWrite(nAnisP)
 		
     allocate(Amat(0:nAnisP,0:nAnisP))
+    allocate(Adiag(0:count(AinG /= 0)))
 
     print*, "Start making A"
     Amat=0
+    Amatavg=0
+    div=count(AinG /= 0)**2
+    k = 0
     do i=1,nAnisP
         Amat(i,i)=1+Amat(RecPed(i,2),RecPed(i,3))/2
+        if (AinG(i) /= 0) then 
+        	Amatavg=Amatavg+Amat(i,i)/div
+        	k = k + 1
+        	Adiag(k)=Amat(i,i)
+        endif
         do j=i+1,nAnisP
             Amat(i,j)=(Amat(i,RecPed(j,2))+Amat(i,RecPed(j,3)))/2
             Amat(j,i)=Amat(i,j)
+            if (AinG(i) /= 0 .and. AinG(j) /= 0) Amatavg=Amatavg+Amat(i,j)*2/div
         enddo
     enddo
+    Adiag(0) = Amatavg
     print*, "Finished making A"
 
     if (AFullMat==1) then
@@ -565,6 +613,8 @@ subroutine MakeAMatrix
         close(202)
         print*, "End writing A ija"
     endif
+    
+    if (HMake /= 1)  deallocate(Amat)
 
 end subroutine MakeAMatrix
 
@@ -579,7 +629,8 @@ subroutine MakeGVanRaden
     character(len=1000) :: filout,nChar,fmt
 
     allocate(Gmat(nAnisG,nAnisG,nGMats))
-    allocate(tpose(nSnp,nAnisG))
+    allocate(tpose(nSnp,nAnisG))    
+
 
     print*, "Start making G - VanRaden"
     !Calculate Allele Freq
@@ -668,7 +719,6 @@ subroutine MakeGVanRaden
     WhichMat=0
     do i=1,nTrait
         do j=i,nTrait
-
             WhichMat=WhichMat+1
 
             !Get Denom
@@ -780,6 +830,7 @@ subroutine MakeGNejatiJavaremi
     allocate(Gmat(nAnisG,nAnisG,1))
     allocate(tpose(nSnp,nAnisG))
 
+
     print*, "Start making G - Nejati-Javaremi"
 
     !Make Z
@@ -796,7 +847,6 @@ subroutine MakeGNejatiJavaremi
     !Make G matrices
     tpose=transpose(Zmat)
     GMat(:,:,1)=matmul(Zmat,tpose)
-
     do l=1,nAnisG
         do m=1,l
             GMat(l,m,1)=GMat(l,m,1)/nSnp + 1.0
@@ -863,6 +913,128 @@ subroutine MakeGNejatiJavaremi
     print*, "Finished making G - Nejati-Javaremi"
 
 end subroutine MakeGNejatiJavaremi
+
+!#########################################################################
+
+subroutine MakeHinv
+! Feature added by Stefan Hoj-Edwards, aka The Handsome One, February 2016
+! Making the Inverse H matrix ala Christensen 2012 requires:
+! Scaling G to A22 (subset of A that is covered by G) by linear regression.
+! Inverting the scaled G.
+! Replacing subset of inverse A with inverted, scaled G.
+
+! Prerequisite and assumptions for this subroutine:
+! There is given both a pedigree and genotype file, and there is an overlap
+! of animals between two data sets.
+! Diagonals of from both A have been collected during MakeA and MakeG,
+! as well as average of A22 .
+! Gmat is already calculated and loaded in memory.
+! Ainv is calculated an loaded into memory.
+!
+! Further assumes that animals are ordered the same in both A and G.
+
+	use GlobalAGH
+	implicit none
+	
+	integer :: i,j,k,div
+	double precision :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean
+	character(len=1000) :: nChar,fmt1, fmt2,filout
+  real,allocatable,dimension(:) :: Gdiag, InvHmat
+  character*(lengan),allocatable,dimension(:) :: Ids
+  
+  if (PedigreePresent == 0 .or. (GMake == 2 .and. GInvMake == 2)) then ! Latter half is in lieu of 'GenotypePresent'.
+  	print *, "Both pedigree and genotype should be present to create H matrix."
+  	return
+  endif
+
+  write(*, '(" Start creating inverted H for "i0" animals")') nAnisH
+
+  
+  allocate(Gdiag(0:count(GinA /= 0)))
+  
+	Gdiag=0
+	Gmatavg=0
+	div=count(GinA /= 0)**2
+	k = 0
+	do i=1,nAnisG
+		do j=1,nAnisG
+			if (GinA(i) /= 0 .and. GinA(j) /= 0) Gmatavg=Gmatavg + Gmat(i,j,1)/div
+		enddo
+		if (GinA(i) /= 0) then
+		  k = k+1
+		  Gdiag(k) = Gmat(i,i,1)
+		endif
+	enddo
+	Gdiag(0) = Gmatavg
+	
+	
+	! Now do simple linear regression
+	nom = 0
+	denom = 0
+	Gmean = sum(Gdiag) / size(Gdiag, 1)
+	Amean = sum(Adiag) / size(Adiag, 1)
+	do i=0,ubound(Adiag, 1)
+    nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
+    denom = denom + (Adiag(i) - Amean) ** 2
+  enddo
+  slope = nom / denom
+  intercept = Amean - slope * Gmean
+  
+  ! Scale G and invert it in-place.
+  Gmat(:,:,1) = slope * Gmat(:,:,1) + intercept
+  write(*, '(a,f8.4,a,f8.4)'), " G* = G x ", slope, " + ", intercept
+  call invert(Gmat(:,:,1),size(Gmat, 1),.true.)
+  
+  ! Make Hinv
+  allocate(InvHmat(1:nAnisH))
+!  allocate(InvHmat(1:nAnisH,1:nAnisH))
+  allocate(Ids(1:nAnisH))
+
+  
+  if (IHFullMat == 1) then
+  		write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') 1,1 !i,j
+			write(nChar,*) nAnisH
+			fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+			open(unit=202,file=trim(filout),status="unknown")
+  endif
+  
+  if (IHIJA == 1) then
+  		write(filout,'("InvHija"i0,"-"i0".txt")') 1,1 !i,j
+			fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
+			open(unit=204,file=trim(filout),status="unknown")  
+  endif
+  
+  print *, MapAnimal
+  print *, MapToG
+  do i=1,nAnisH
+  	if (MapToG(i)) then
+  		Ids(i) = IdGeno(MapAnimal(i))
+  	else
+			Ids(i) = Id(MapAnimal(i))
+  	endif
+  enddo
+  
+  print *, Gmat
+  
+  do i=1,nAnisH
+    InvHmat = 0
+		do j=1,nAnisH
+			if (MapToG(i) .and. MapToG(j)) then
+				InvHmat(j) = Gmat(MapAnimal(i),MapAnimal(j),1)
+			elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
+				InvHmat(j) = InvAmat(i,j)
+			endif
+			if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), InvHmat(j) 
+  	enddo
+  	if (IHFullMat == 1) write(202,fmt1) Ids(i),InvHmat(:)
+  enddo 
+  
+  if (IHFullMat == 1) close(202)
+  if (IHIJA == 1) close(204)
+  
+  deallocate(InvHmat)
+  
+end subroutine
 
 !#########################################################################
 

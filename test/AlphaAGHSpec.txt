@@ -13,12 +13,12 @@ MakeGInverse ,Yes
 MakeA        ,Yes
 MakeAInverse ,Yes
 MakeH        ,No
-MakeHInverse ,No
+MakeHInverse ,Yes
 ############################# AlphaSim interaction options ###############
 UsePreviousAllFreq ,Off
 AllFreqSelCycle    ,1
 ############################# Output options #############################
-OutputPrecision    ,20,10
+OutputPrecision    ,15,5
 GFullMat           ,Yes
 GIJA               ,Yes
 InverseGFullMat    ,Yes
@@ -29,8 +29,8 @@ InverseAmatFullMat ,Yes
 InverseAmatIJA     ,Yes
 HmatFullMat        ,No
 HmatIJA            ,No
-InverseHmatFullMat ,No
-InverseHmatIJA     ,No
+InverseHmatFullMat ,Yes
+InverseHmatIJA     ,Yes
 
 
 
