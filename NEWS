@@ -1,0 +1,5 @@
+Changes since initial commit
+
+  * Fix issue 1: Output A and Ainv for subset of animals. --> Pedigree file can be three columns.
+  * (Fix issue 2: Makes H-matrix **NB:** Not quite yet... --> More output files.)
+  * (Fix issue 3: Directly specify allele frequencies. --> Change to spec file. **Affects AlphaSim**)
