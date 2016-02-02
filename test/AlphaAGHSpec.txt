@@ -12,13 +12,13 @@ TypeG        ,Nejati-Javaremi VanRaden
 MakeGInverse ,Yes
 MakeA        ,Yes
 MakeAInverse ,Yes
-MakeH        ,No
+MakeH        ,Yes
 MakeHInverse ,Yes
 ############################# AlphaSim interaction options ###############
 UsePreviousAllFreq ,Off
 AllFreqSelCycle    ,1
 ############################# Output options #############################
-OutputPrecision    ,15,5
+OutputPrecision    ,20,8
 GFullMat           ,Yes
 GIJA               ,Yes
 InverseGFullMat    ,Yes
@@ -27,8 +27,8 @@ AmatFullMat        ,Yes
 AmatIJA            ,Yes
 InverseAmatFullMat ,Yes
 InverseAmatIJA     ,Yes
-HmatFullMat        ,No
-HmatIJA            ,No
+HmatFullMat        ,Yes
+HmatIJA            ,Yes
 InverseHmatFullMat ,Yes
 InverseHmatIJA     ,Yes
 
