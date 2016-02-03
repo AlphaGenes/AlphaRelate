@@ -33,7 +33,7 @@ module GlobalAGH
 
     integer,parameter :: lengan=20
 
-    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle
+    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols
     integer :: PedigreePresent,WeightYes1No0,nGMats
     integer :: GlobalExtraAnimals		!Change John Hickey
     double precision :: DiagFudge
@@ -48,7 +48,7 @@ module GlobalAGH
 
     real(kind=4),allocatable :: xnumrelmatHold(:)
     integer :: NRMmem, shell, shellmax, shellWarning
-    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),RecodeIdGeno(:)
+    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),RecodeIdGeno(:),dooutput(:)
     character*(lengan),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
     logical ::  UseAllFreqFromPrevSelCycle
@@ -117,6 +117,7 @@ subroutine ReadParam
     read(11,*) dumC,WeightFile
     read(11,*) dumC,nTrait
     read(11,*) dumC,nSnp
+    !read(11,*) dumC,nCols  !SMHE: I am so, so sorry. Sorry for adding an extra option.
 
     InvOut=0
     read(11,*) dumC,InversionRoutine
@@ -336,8 +337,9 @@ subroutine ReadData
     use GlobalAGH
     implicit none
 
-    integer :: i,j,GenoInPed
+    integer :: i,j,stat,GenoInPed,fourthColumn
     character(len=1000) :: dumC
+    character(lengan), dimension(1:3) :: pedline
 
     call CountInData
 
@@ -347,27 +349,51 @@ subroutine ReadData
     allocate(RecodeIdGeno(nAnisG))
 
     if (PedigreePresent==0) then
-        allocate(RecPed(0:nAnisG,3))
+        allocate(RecPed(0:nAnisG,4))
         nAnisP=nAnisG
         RecPed(:,:)=0
         do i=1,nAnisP
             RecPed(i,1)=i
+            RecPed(i,4)=1
         enddo
     else
-        allocate(Ped(nAnisRawPedigree,3))
+
+				! Attempt to magically detect whether there are three or four columns:
+				read(102, '(a)', iostat=stat) dumC
+				if (stat /= 0) then
+					print *, 'Problems reading Pedigree file.'
+					!print *, stat, dumC
+					stop 1
+				endif
+				rewind(102)
+				
+				! Test if the line contains three or four columns
+				fourthColumn = -99
+				read(dumC, *, iostat=stat) pedline, fourthColumn
+				if (stat .eq. -1 .or. fourthColumn .eq. -99) then
+					nCols = 3
+				else
+					nCols = 4
+				endif
+				!print *, nCols, pedline, fourthColumn
+				
+        allocate(Ped(nAnisRawPedigree,4))
+        Ped(:,4) = '1'
         do i=1,nAnisRawPedigree
-            read(102,*) ped(i,:)
+            read(102,*) ped(i,1:nCols)
         enddo
         call PVseq(nAnisRawPedigree,nAnisP)
-
-        allocate(RecPed(0:nAnisP,3))
+        
+        allocate(RecPed(0:nAnisP,4))
 
         RecPed(0,:)=0
+        RecPed(:,4)=1
         do i=1,nAnisP
             RecPed(i,1)=i
         enddo
         RecPed(1:nAnisP,2)=seqsire(1:nAnisP)
         RecPed(1:nAnisP,3)=seqdam(1:nAnisP)
+        RecPed(1:nAnisP,4)=dooutput(1:nAnisP)        
     endif
 
     do i=1,nAnisG
@@ -411,9 +437,10 @@ subroutine MakeInvAMatrix
     use GlobalAGH
     implicit none
 
-    integer :: i,m,n
+    integer :: i,m,n,s
     double precision :: Inbreeding(0:nAnisP),Dii(0:nAnisP)
     character(len=1000) :: nChar,fmt
+    logical :: AnimToWrite(nAnisP)
 
     allocate(InvAmat(0:nAnisP,0:nAnisP))
 
@@ -455,12 +482,17 @@ subroutine MakeInvAMatrix
     print*, "Finished making A inverse"
 
     if (IAFullMat==1) then
-        print*, "Start writing A inverse full matrix"
-        write(nChar,*) nAnisP
+    		AnimToWrite = RecPed(1:nAnisP,4) == 1
+    		s = COUNT(AnimToWrite)
+    		
+    		write(*,'(a40,i6,a11)') " Start writing A inverse full matrix for", s," individuals"
+        write(nChar,*) s
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAFullMatrix.txt",status="unknown")
         do m=1,nAnisP
-            write(202,fmt) Id(m),InvAmat(m,1:nAnisP)
+        		if (AnimToWrite(m)) then
+        			write(202,fmt) Id(m), pack(InvAmat(m,1:nAnisP), AnimToWrite)
+	          endif
         enddo
         close(202)
         print*, "End writing A inverse full matrix"
@@ -472,7 +504,7 @@ subroutine MakeInvAMatrix
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                write(202,fmt) Id(m),Id(n),InvAmat(m,n)
+                if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1) write(202,fmt) Id(m),Id(n),InvAmat(m,n)
             enddo
         enddo
         close(202)
@@ -487,9 +519,10 @@ subroutine MakeAMatrix
     use GlobalAGH
     implicit none
 
-    integer :: i,j,m,n
+    integer :: i,j,m,n,s
     character(len=1000) :: nChar,fmt
-
+    logical :: AnimToWrite(nAnisP)
+		
     allocate(Amat(0:nAnisP,0:nAnisP))
 
     print*, "Start making A"
@@ -504,24 +537,29 @@ subroutine MakeAMatrix
     print*, "Finished making A"
 
     if (AFullMat==1) then
-        print*, "Start writing A full matrix"
-        write(nChar,*) nAnisP
+    		AnimToWrite = RecPed(1:nAnisP,4) == 1
+    		s = COUNT(AnimToWrite)
+    		
+    		write(*,'(a32,i6,a11)') " Start writing A full matrix for", s," individuals"
+        write(nChar,*) s
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="AFullMatrix.txt",status="unknown")
         do m=1,nAnisP
-            write(202,fmt) Id(m),Amat(m,1:nAnisP)
+        		if (AnimToWrite(m)) then
+        			write(202,fmt) Id(m), pack(Amat(m,1:nAnisP), AnimToWrite)
+	          endif
         enddo
         close(202)
         print*, "End writing A full matrix"
     endif
 
     if (AIJA==1) then
-        print*, "Start writing A ija"
+        write(*,'(a24,i6,a11)') " Start writing A ija for", s," individuals"
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                write(202,fmt) Id(m),Id(n),Amat(m,n)
+            	  if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1)  write(202,fmt) Id(m),Id(n),Amat(m,n)
             enddo
         enddo
         close(202)
@@ -858,7 +896,7 @@ subroutine CountInData
             endif
         enddo
         rewind(102)
-        print*, " ",nAnisRawPedigree," individuals in the pedigree file"
+        write(*,'(a2,i6,a33)') "   ",nAnisRawPedigree," individuals in the pedigree file"
     endif
 
 end subroutine CountInData
@@ -951,7 +989,7 @@ subroutine PVseq(nObs,nAnisPedigree)
     character(LEN=lengan), ALLOCATABLE :: holdid(:), SortedId(:), SortedSire(:), SortedDam(:)
     character(LEN=lengan)              :: IDhold
     integer, ALLOCATABLE               :: SortedIdIndex(:), SortedSireIndex(:), SortedDamIndex(:)
-    integer, ALLOCATABLE               :: OldN(:), NewN(:), holdsire(:), holddam(:)
+    integer, ALLOCATABLE               :: OldN(:), NewN(:), holdsire(:), holddam(:), holdoutput(:)
     INTEGER :: mode    ! mode=1 to generate dummy ids where one parent known.  Geneprob->1  Matesel->0
     INTEGER :: i, j, newid, itth, itho, ihun, iten, iunit
     integer :: nsires, ndams, newsires, newdams, nbisexuals, flag
@@ -962,13 +1000,15 @@ subroutine PVseq(nObs,nAnisPedigree)
 
     mode=1
 
-    allocate(id(0:nobs),sire(nobs),dam(nobs),seqid(nobs),seqsire(nobs),seqdam(nobs))
+    allocate(id(0:nobs),sire(nobs),dam(nobs),dooutput(nobs),seqid(nobs),seqsire(nobs),seqdam(nobs),seqoutput(nobs))
 
     do i=1,nobs
         id(i)=ped(i,1)
         sire(i)=ped(i,2)
         dam(i)=ped(i,3)
-    enddo
+        read(Ped(i,4), '(i)') dooutput(i) 
+    enddo      
+      
 
     nAnisPedigree=nObs
     path=".\"
@@ -1028,13 +1068,15 @@ subroutine PVseq(nObs,nAnisPedigree)
         enddo
         Noffset = INT(Noffset/2)
     enddo
-
+		
+		! Count number of unique sires
     nsires=0
     IF(SortedId(1) /= '0') nsires=1
     do i=2,nobs
         IF(SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') nsires=nsires+1
     enddo
 
+		! Collect vector of unique sires in sorted order
     ALLOCATE  (SortedSire(0:nsires), SortedSireIndex(nsires))
     SortedSire(0) = '0'
     nsires=0
@@ -1109,9 +1151,11 @@ subroutine PVseq(nObs,nAnisPedigree)
                     IDhold=SortedId(i)
                     SortedId(i)=SortedId(i + Noffset)
                     SortedId(i + Noffset)=IDhold
+                    
                     ihold=SortedIdIndex(i)
                     SortedIdIndex(i)=SortedIdIndex(i + Noffset)
                     SortedIdIndex(i + Noffset)=ihold
+                                        
                     Switch = i
                 endif
             enddo
@@ -1354,22 +1398,35 @@ subroutine PVseq(nObs,nAnisPedigree)
         deallocate (id)
         ALLOCATE(id(nobs+iextra))
         id(1+iextra:nobs+iextra)=SortedId(1:nobs)
+        
+        ! Do sires
         SortedId(1:nobs)=sire(1:nobs)
         deallocate (sire)
         ALLOCATE(sire(nobs+iextra))
         sire(1+iextra:nobs+iextra)=SortedId(1:nobs)
-        SortedId(1:nobs)=dam(1:nobs)
-        deallocate (dam)
-        ALLOCATE(dam(nobs+iextra))
-        dam(1+iextra:nobs+iextra)=SortedId(1:nobs)
         SortedIdIndex(1:nobs)=seqsire(1:nobs)
         deallocate (seqsire)
         ALLOCATE(seqsire(nobs+iextra))
         seqsire(1+iextra:nobs+iextra)=SortedIdIndex(1:nobs)
+				
+        ! Do dams
+        SortedId(1:nobs)=dam(1:nobs)
+        deallocate (dam)
+        ALLOCATE(dam(nobs+iextra))
+        dam(1+iextra:nobs+iextra)=SortedId(1:nobs)
         SortedIdIndex(1:nobs)=seqdam(1:nobs)
         deallocate (seqdam)
         ALLOCATE(seqdam(nobs+iextra))
         seqdam(1+iextra:nobs+iextra)=SortedIdIndex(1:nobs)
+        
+        ! Do output switch, but use seqoutput as placeholder instead of SortedID
+        !allocate(seqoutput(1:nobs))
+        seqoutput(1:nobs) = dooutput(1:nobs)
+        deallocate(dooutput)
+        allocate(dooutput(nobs+iextra))
+        dooutput(1+iextra:nobs+iextra)=seqoutput(1:nobs)
+        if (nCols .eq. 4) dooutput(1:iextra) = 0
+        if (nCols .eq. 3) dooutput(1:iextra) = 1
     endif
 
     !PRINT*, ' Inserting unlisted base parents ...'
@@ -1422,7 +1479,7 @@ subroutine PVseq(nObs,nAnisPedigree)
 
     !PRINT*, ' Re-Ordering pedigree ...'
     Allocate ( OldN(0:nobs), NewN(0:nobs) )
-    ALLOCATE ( holdid(0:nobs), holdsire(nobs), holddam(nobs) )
+    ALLOCATE ( holdid(0:nobs), holdsire(nobs), holddam(nobs), holdoutput(nobs) )
 
     OldN(0) = 0
     NewN=0
@@ -1432,6 +1489,7 @@ subroutine PVseq(nObs,nAnisPedigree)
     holdid(1:nobs) = ID(1:nobs)
     holdsire = seqsire
     holddam = seqdam
+    holdoutput(1:nobs) = dooutput(1:nobs)
 
     !Find base ancestors ...
     kn = 0
@@ -1490,6 +1548,7 @@ subroutine PVseq(nObs,nAnisPedigree)
     NewN(0) = 0
     do i = 1, nobs
         ID(i) = holdid(OldN(i))
+        dooutput(i) = holdoutput(OldN(i))
     enddo
 
     do i = 1, nobs

@@ -70,7 +70,7 @@ debuglong: FFLAGS:= -i8 -traceback -g -debug all -fpp -ftrapuv -module $(BUILDDI
 debuglong: all
 
 # With memory checks
-debug: FFLAGS:= -i8 -traceback -g -D VERS=""commit-$(VERSION)"" -D $(OSFLAG) -debug all -warn -check bounds -check format \
+debug: FFLAGS:= $(FFLAGS) -i8 -traceback -g -D VERS=""commit-$(VERSION)"" -D $(OSFLAG) -debug all -warn -check bounds -check format \
 		-check output_conversion -check pointers -check uninit -fpp -module $(BUILDDIR)
 
 debug: all
