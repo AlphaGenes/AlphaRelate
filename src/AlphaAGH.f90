@@ -33,7 +33,6 @@ module GlobalAGH
 
     integer,parameter :: lengan=20
 
-    integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols
     integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
     integer :: PedigreePresent,WeightYes1No0,nGMats
     integer :: GlobalExtraAnimals		!Change John Hickey
@@ -945,6 +944,7 @@ subroutine MakeH
 	character(len=1000) :: nChar,fmt1, fmt2,filout
   real,allocatable,dimension(:) :: Gdiag, Hrow
   character*(lengan),allocatable,dimension(:) :: Ids
+  logical,allocatable,dimension(:) :: AnimToWrite
   
   if (PedigreePresent == 0 .or. (GMake == 2 .and. GInvMake == 2)) then ! Latter half is in lieu of 'GenotypePresent'.
   	print *, "Both pedigree and genotype should be present to create H matrix."
@@ -990,16 +990,23 @@ subroutine MakeH
   
   
   ! Make H and/or Hinv
-  allocate(Hrow(1:nAnisH))
+  !allocate(Hrow(1:nAnisH))
   allocate(Ids(1:nAnisH))
+  allocate(AnimToWrite(1:nAnisH))
   
 	do i=1,nAnisH
 		if (MapToG(i)) then
 			Ids(i) = IdGeno(MapAnimal(i))
+			AnimToWrite(i) = .true.
 		else
 			Ids(i) = Id(MapAnimal(i))
+			AnimToWrite(i) = RecPed(MapAnimal(i),4)
 		endif
 	enddo
+	
+	!print *,AnimToWrite
+	!print *,MapAnimal
+	allocate(Hrow(1:count(AnimToWrite)))
   
   
   if (HMake == 1 .and. (HFullMat == 1 .or. HIJA == 1)) then
@@ -1019,14 +1026,18 @@ subroutine MakeH
 		endif
 		
 		do i=1,nAnisH
+			if (AnimToWrite(i) .eq. .false.) cycle
 			Hrow = 0
+			k = 0
 			do j=1,nAnisH
+				if (AnimToWrite(j) .eq. .false.) cycle
+			  k = k + 1			  
 				if (MapToG(i) .and. MapToG(j)) then
-					Hrow(j) = Gmat(MapAnimal(i),MapAnimal(j),1)
+					Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),1)
 				elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
-					Hrow(j) = Amat(i,j)
+					Hrow(k) = Amat(i,j)
 				endif
-				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(j) 
+				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
 			enddo
 			if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
 		enddo 
@@ -1059,14 +1070,18 @@ subroutine MakeH
 		endif
 	
 		do i=1,nAnisH
+			if (AnimToWrite(i) .eq. .false.) cycle
 			Hrow = 0
+			k = 0
 			do j=1,nAnisH
-				if (MapToG(i) .and. MapToG(j)) then
-					Hrow(j) = Gmat(MapAnimal(i),MapAnimal(j),1)
+				if (AnimToWrite(j) .eq. .false.) cycle
+			  k = k + 1				
+			  if (MapToG(i) .and. MapToG(j)) then
+					Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),1)
 				elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
-					Hrow(j) = InvAmat(i,j)
+					Hrow(k) = InvAmat(i,j)
 				endif
-				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(j) 
+				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
 			enddo
 			if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
 		enddo 
