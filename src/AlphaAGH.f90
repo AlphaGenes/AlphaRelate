@@ -166,8 +166,10 @@ subroutine ReadParam
     if (trim(MakeH)=="Yes") HMake=1
     if (trim(MakeH)=="No")  HMake=2
     if (HMake==1) then
-    	AMake = 1
-    	GMake = 1
+    	print *, 'Unfortunately, the normal H matrix has not been properly implemented yet.'
+    	HMake = 2
+    	!AMake = 1
+    	!GMake = 1
     endif
 
     HInvMake=0
@@ -337,11 +339,15 @@ subroutine ReadParam
     if (trim(GenotypeFile)=='None') then
         GMake=2
         GInvMake=2
+        HMake=2
+        HInvMake=2
     endif
 
     if (trim(PedigreeFile)=='None') then
         AMake=2
         AInvMake=2
+        HMake=2
+        HInvMake=2        
     endif
 
 end subroutine ReadParam
@@ -617,7 +623,7 @@ subroutine MakeAMatrix
         print*, "End writing A ija"
     endif
     
-    if (HMake /= 1)  deallocate(Amat)
+    if (HMake /= 1 .and. HInvMake /= 1)  deallocate(Amat)
 
 end subroutine MakeAMatrix
 
@@ -939,61 +945,19 @@ subroutine MakeH
 	use GlobalAGH
 	implicit none
 	
-	integer :: i,j,k,div
+	integer :: i,j,k,m,div,t1,t2,whichMat
 	double precision :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean
 	character(len=1000) :: nChar,fmt1, fmt2,filout
-  real,allocatable,dimension(:) :: Gdiag, Hrow
+  double precision,allocatable :: Gdiag(:), Hrow(:), A22Inv(:,:)
   character*(lengan),allocatable,dimension(:) :: Ids
-  logical,allocatable,dimension(:) :: AnimToWrite
-  
-  if (PedigreePresent == 0 .or. (GMake == 2 .and. GInvMake == 2)) then ! Latter half is in lieu of 'GenotypePresent'.
-  	print *, "Both pedigree and genotype should be present to create H matrix."
-  	return
-  endif
-  
-  allocate(Gdiag(0:count(GinA /= 0)))
-  
-  write(*, '(" Starting on H matrix, using "i0" animals found in both matrices")') count(GinA /= 0)
-	Gdiag=0
-	Gmatavg=0
-	div=count(GinA /= 0)**2
-	k = 0
-	do i=1,nAnisG
-		do j=1,nAnisG
-			if (GinA(i) /= 0 .and. GinA(j) /= 0) Gmatavg=Gmatavg + Gmat(i,j,1)/div
-		enddo
-		if (GinA(i) /= 0) then
-		  k = k+1
-		  Gdiag(k) = Gmat(i,i,1)
-		endif
-	enddo
-	Gdiag(0) = Gmatavg
-	
-	
-	! Now do simple linear regression
-	nom = 0
-	denom = 0
-	Gmean = sum(Gdiag) / size(Gdiag, 1)
-	Amean = sum(Adiag) / size(Adiag, 1)
-	do i=0,ubound(Adiag, 1)
-    nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
-    denom = denom + (Adiag(i) - Amean) ** 2
-  enddo
-  slope = nom / denom
-  intercept = Amean - slope * Gmean
-  
-  ! Scale G and invert it in-place.
-  Gmat(:,:,1) = slope * Gmat(:,:,1) + intercept
-  print *, 'Scaling of G:'
-  write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
-  
-  
-  
-  ! Make H and/or Hinv
-  !allocate(Hrow(1:nAnisH))
-  allocate(Ids(1:nAnisH))
-  allocate(AnimToWrite(1:nAnisH))
-  
+  logical,allocatable,dimension(:) :: AnimToWrite, AhasG
+  integer,allocatable :: SmallMap(:)
+   
+	! Make H and/or Hinv
+	!allocate(Hrow(1:nAnisH))
+	allocate(Ids(1:nAnisH))
+	allocate(AnimToWrite(1:nAnisH))
+
 	do i=1,nAnisH
 		if (MapToG(i)) then
 			Ids(i) = IdGeno(MapAnimal(i))
@@ -1003,94 +967,166 @@ subroutine MakeH
 			AnimToWrite(i) = RecPed(MapAnimal(i),4)
 		endif
 	enddo
-	
-	!print *,AnimToWrite
-	!print *,MapAnimal
+
+	! Make A22 inversion
+	allocate(AhasG(nAnisP))
+	AhasG = .false.
+	where(AinG /= 0) AhasG = .true.
+  allocate(A22Inv(1:count(AhasG),1:count(AhasG)))
+  allocate(SmallMap(1:nAnisP))
+  SmallMap = 0
+  k = 0
+  do i=1,nAnisP
+  	if (AhasG(i) .eq. .false.) cycle
+  	k = k + 1
+  	SmallMap(i) = k
+  	m = 0
+  	do j=1,nAnisP
+  		if (AhasG(j) .eq. .false.) cycle
+			m = m + 1
+			A22Inv(k,m) = Amat(i,j)
+	  enddo
+	enddo
+  
+  call invert(A22Inv,size(A22Inv,1),.true.)
+
 	allocate(Hrow(1:count(AnimToWrite)))
-  
-  
-  if (HMake == 1 .and. (HFullMat == 1 .or. HIJA == 1)) then
-  	print *, 'Start writing H matrices (full and/or ija)'
-  	
-		if (HFullMat == 1) then
-				write(filout,'("HFullMatrix"i0,"-"i0".txt")') 1,1 !i,j
-				write(nChar,*) nAnisH
-				fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-				open(unit=202,file=trim(filout),status="unknown")
-		endif
-	
-		if (HIJA == 1) then
-				write(filout,'("Hija"i0,"-"i0".txt")') 1,1 !i,j
-				fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
-				open(unit=204,file=trim(filout),status="unknown")  
-		endif
-		
-		do i=1,nAnisH
-			if (AnimToWrite(i) .eq. .false.) cycle
-			Hrow = 0
-			k = 0
-			do j=1,nAnisH
-				if (AnimToWrite(j) .eq. .false.) cycle
-			  k = k + 1			  
-				if (MapToG(i) .and. MapToG(j)) then
-					Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),1)
-				elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
-					Hrow(k) = Amat(i,j)
-				endif
-				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
-			enddo
-			if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
-		enddo 
-		
-  
-		if (HFullMat == 1) close(202)
-		if (HIJA == 1) close(204)  
-		
-		print *, 'End writing H matrices'
-  endif
-  
-  if (HInvMake == 1) then 
-  	print *, 'Start inverting scaled G matrix'
-	  call invert(Gmat(:,:,1),size(Gmat, 1),.true.)
-		print *, 'End inverting scaled G matrix'
 
-		print *, 'Start writing inverted H matrices (full and/or ija)'
-
-		if (IHFullMat == 1) then
-				write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') 1,1 !i,j
-				write(nChar,*) nAnisH
-				fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-				open(unit=202,file=trim(filout),status="unknown")
-		endif
-	
-		if (IHIJA == 1) then
-				write(filout,'("InvHija"i0,"-"i0".txt")') 1,1 !i,j
-				fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
-				open(unit=204,file=trim(filout),status="unknown")  
-		endif
-	
-		do i=1,nAnisH
-			if (AnimToWrite(i) .eq. .false.) cycle
-			Hrow = 0
+  
+  whichMat = 0
+  do t1=1,nTrait
+  	do t2=t1,nTrait
+  		whichMat = whichMat + 1
+  		
+			write(*, '(" Starting on H matrix, using "i0" animals found in both matrices")') count(GinA /= 0)
+		  allocate(Gdiag(0:count(GinA /= 0)))
+			Gdiag=0
+			Gmatavg=0
+			div=count(GinA /= 0)**2
 			k = 0
-			do j=1,nAnisH
-				if (AnimToWrite(j) .eq. .false.) cycle
-			  k = k + 1				
-			  if (MapToG(i) .and. MapToG(j)) then
-					Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),1)
-				elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
-					Hrow(k) = InvAmat(i,j)
+			do i=1,nAnisG
+				do j=1,nAnisG
+					if (GinA(i) /= 0 .and. GinA(j) /= 0) then
+						if (i == j) then 
+							Gmatavg=Gmatavg + (Gmat(i,j,whichMat) - DiagFudge)/div
+						else
+							Gmatavg=Gmatavg + Gmat(i,j,whichMat)/div
+						endif
+					endif
+				enddo
+				if (GinA(i) /= 0) then
+					k = k+1
+					Gdiag(k) = Gmat(i,i,whichMat) - DiagFudge
 				endif
-				if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
 			enddo
-			if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
-		enddo 
+			Gdiag(0) = Gmatavg
 	
-		if (IHFullMat == 1) close(202)
-		if (IHIJA == 1) close(204)
- 		print *, 'End writing inverted H matrices (full and ija)'
+	
+			! Now do simple linear regression
+			nom = 0
+			denom = 0
+			Gmean = sum(Gdiag) / size(Gdiag, 1)
+			Amean = sum(Adiag) / size(Adiag, 1)
+			do i=0,ubound(Adiag, 1)
+				nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
+				denom = denom + (Adiag(i) - Amean) ** 2
+			enddo
+			slope = nom / denom
+			intercept = Amean - slope * Gmean
+	
+			! Scale G
+			Gmat(:,:,whichMat) = slope * Gmat(:,:,whichMat) + intercept
+			print *, 'Scaling of G:'
+			write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
+			deallocate(Gdiag)
+	
+	
+	
+			if (HMake == 1 .and. (HFullMat == 1 .or. HIJA == 1)) then
+				print *, 'Start writing H matrices (full and/or ija)'
+		
+				if (HFullMat == 1) then
+						write(filout,'("HFullMatrix"i0,"-"i0".txt")') t1,t2
+						write(nChar,*) nAnisH
+						fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+						open(unit=202,file=trim(filout),status="unknown")
+				endif
+	
+				if (HIJA == 1) then
+						write(filout,'("Hija"i0,"-"i0".txt")') t1,t2
+						fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
+						open(unit=204,file=trim(filout),status="unknown")  
+				endif
+		
+				do i=1,nAnisH
+					if (AnimToWrite(i) .eq. .false.) cycle
+					Hrow = 0
+					k = 0
+					do j=1,nAnisH
+						if (AnimToWrite(j) .eq. .false.) cycle
+						k = k + 1			  
+						if (MapToG(i) .and. MapToG(j)) then
+							Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),WhichMat)
+						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
+							Hrow(k) = Amat(i,j)
+						endif
+						if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+					enddo
+					if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
+				enddo 
+		
+	
+				if (HFullMat == 1) close(202)
+				if (HIJA == 1) close(204)  
+		
+				print *, 'End writing H matrices'
+			endif
+	
+			if (HInvMake == 1) then 
+				print *, 'Start inverting scaled G matrix'
+				call invert(Gmat(:,:,1),size(Gmat, 1),.true.)
+				print *, 'End inverting scaled G matrix'
+
+				print *, 'Start writing inverted H matrices (full and/or ija)'
+
+				if (IHFullMat == 1) then
+						write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
+						write(nChar,*) nAnisH
+						fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+						open(unit=202,file=trim(filout),status="unknown")
+				endif
+	
+				if (IHIJA == 1) then
+						write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
+						fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
+						open(unit=204,file=trim(filout),status="unknown")  
+				endif
+	
+				do i=1,nAnisH
+					if (AnimToWrite(i) .eq. .false.) cycle
+					Hrow = 0
+					k = 0
+					do j=1,nAnisH
+						if (AnimToWrite(j) .eq. .false.) cycle
+						k = k + 1				
+						if (MapToG(i) .and. MapToG(j)) then
+							Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),WhichMat)
+							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) - A22Inv(SmallMap(i),SmallMap(j))
+						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
+							Hrow(k) = InvAmat(i,j)
+						endif
+						if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+					enddo
+					if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
+				enddo 
+	
+				if (IHFullMat == 1) close(202)
+				if (IHIJA == 1) close(204)
+				print *, 'End writing inverted H matrices (full and ija)'
  
-  endif
+			endif
+		enddo
+	enddo
   
   deallocate(Hrow)
   deallocate(Ids)
