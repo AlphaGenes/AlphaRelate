@@ -4,7 +4,6 @@ PedigreeFile         ,Pedigree.txt
 WeightFile           ,None
 NumberOfTraits       ,1
 NumberOfSnp	         ,3
-ColumnsInPedFile     ,4
 InversionOfG         ,Ordinary
 DiagonalFudgeFactor  ,0.001
 ############################# Matrices to be constructed #################
