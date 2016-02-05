@@ -280,6 +280,8 @@ subroutine ReadParam
     endif
 
 		if (GType==2 .and. trim(AlleleFreqFile) /= 'None') print *, 'The  Nejati-Javaremi approach does not utilise allele frequencies.'
+		
+		if (ScaleGByRegression) Amake = .true.
 
 end subroutine ReadParam
 
@@ -873,7 +875,6 @@ subroutine MakeH  ! Both H and Hinv
    
   nboth = count(AnimalsInBoth)
 	! Make H and/or Hinv
-	!allocate(Hrow(1:nAnisH))
 	allocate(Ids(1:nAnisH))
 	allocate(AnimToWrite(1:nAnisH))
 
@@ -887,25 +888,6 @@ subroutine MakeH  ! Both H and Hinv
 		endif
 	enddo
 
-	! Make A22 inversion
-	!allocate(AhasG(nAnisP))
-	!AhasG = .false.
-	!where(AinG /= 0) AhasG = .true.
-  !allocate(A22Inv(1:count(AhasG),1:count(AhasG)))
-  !allocate(SmallMap(1:nAnisP))
-  !SmallMap = 0
-  !k = 0
-  !do i=1,nAnisP
-  !	if (AhasG(i) .eq. .false.) cycle
-  !	k = k + 1
-  !	SmallMap(i) = k
-  !	m = 0
-  !	do j=1,nAnisP
-  !		if (AhasG(j) .eq. .false.) cycle
-	!		m = m + 1
-	!		A22Inv(k,m) = Amat(i,j)
-	!  enddo
-	!enddo
 	allocate(A22Inv(nBoth,nBoth))
 	allocate(MapToA22(nAnisH))
 	if (HMake) allocate(A22(nBoth,nBoth))
@@ -996,6 +978,9 @@ subroutine MakeH  ! Both H and Hinv
 				
 				! Scale G
 				G22 = slope * G22 + intercept
+				do i=1,nAnisG
+					G22(i,i) = G22(i,i) + DiagFudge
+				enddo
 				print *, 'Scaling of G:'
 				write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
 				deallocate(Gdiag)
