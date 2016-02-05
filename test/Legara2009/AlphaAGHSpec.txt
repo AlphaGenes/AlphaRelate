@@ -4,24 +4,24 @@ PedigreeFile         ,Pedigree.txt
 WeightFile           ,None
 AlleleFreqFile       ,None
 NumberOfTraits       ,1
-NumberOfSnp	     ,7
-DiagonalFudgeFactor  ,0.1
-TypeG                ,Nejati-Javaremi VanRaden
-ScaleGtoA            ,Regression
+NumberOfSnp	     ,4
+DiagonalFudgeFactor  ,0.00
+TypeG                ,VanRaden
+ScaleGtoA            ,1
 ############################# Output options #############################
-OutputPrecision    ,20,8
-GFullMat           ,Yes
-GIJA               ,Yes
-InverseGFullMat    ,Yes
-InverseGIJA        ,Yes
+OutputPrecision    ,8,2
+GFullMat           ,No
+GIJA               ,No
+InverseGFullMat    ,No
+InverseGIJA        ,No
 AmatFullMat        ,Yes
-AmatIJA            ,Yes
+AmatIJA            ,No
 InverseAmatFullMat ,Yes
-InverseAmatIJA     ,Yes
+InverseAmatIJA     ,No
 HmatFullMat        ,Yes
-HmatIJA            ,Yes
+HmatIJA            ,No
 InverseHmatFullMat ,Yes
-InverseHmatIJA     ,Yes
+InverseHmatIJA     ,No
 
 
 

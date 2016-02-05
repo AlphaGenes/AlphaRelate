@@ -8,6 +8,12 @@ PROGRAM:=$(NAME)$(VERSION).$(SUBVERSION)
 FC:=ifort
 FFLAGS:=-O3 -DVERS=""commit-$(VERSION)""
 
+# Hello friends,
+# If compiling with MKL fails -- or succeeds and running the binary fails --
+# try running 
+# source /opt/intel/composer_xe_2015.3.187/mkl/bin/mklvars.sh intel64
+# with the path replace as necessary...
+
 #  If -D WEB is specified, stops will be put into AlphaAGH.
 
 # MS Windows
@@ -40,6 +46,7 @@ else
 	# TODO: can we make this generic?
 	MKLROOT := /opt/intel/mkl
 	MKLROOT := /opt/intel/composer_xe_2013_sp1.4.201/mkl
+	MKLROOT := /opt/intel/composer_xe_2015.3.187/mkl
 	# On Eddie
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
