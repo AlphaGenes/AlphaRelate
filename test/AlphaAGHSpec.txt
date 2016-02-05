@@ -2,21 +2,12 @@
 GenotypeFile         ,Genotype.txt
 PedigreeFile         ,Pedigree.txt
 WeightFile           ,None
+AlleleFreqFile       ,None
 NumberOfTraits       ,1
-NumberOfSnp	         ,6
-InversionOfG         ,Ordinary
+NumberOfSnp	     ,6
 DiagonalFudgeFactor  ,0.001
-############################# Matrices to be constructed #################
-MakeG        ,Yes
-TypeG        ,Nejati-Javaremi VanRaden
-MakeGInverse ,Yes
-MakeA        ,Yes
-MakeAInverse ,Yes
-MakeH        ,Yes
-MakeHInverse ,Yes
-############################# AlphaSim interaction options ###############
-UsePreviousAllFreq ,Off
-AllFreqSelCycle    ,1
+TypeG                ,Nejati-Javaremi VanRaden
+ScaleGtoA            ,-1
 ############################# Output options #############################
 OutputPrecision    ,20,8
 GFullMat           ,Yes

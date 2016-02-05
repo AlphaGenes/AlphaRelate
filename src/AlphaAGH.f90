@@ -34,10 +34,12 @@ module GlobalAGH
     integer,parameter :: lengan=20
 
     integer :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
-    integer :: PedigreePresent,WeightYes1No0,nGMats
+    integer :: nGMats !,PedigreePresent,WeightYes1No0,
     integer :: GlobalExtraAnimals		!Change John Hickey
+		real :: ScaleGtoA  ! For H matrix
     double precision :: DiagFudge
     character(len=20) :: OutputFormat
+    character(len=1000) :: AlleleFreqFile
 
     double precision,allocatable,dimension(:) :: AlleleFreq,Pmat,Adiag
     double precision,allocatable,dimension(:,:) :: Weights,Zmat,tpose,Genos,Amat,InvAmat
@@ -45,15 +47,19 @@ module GlobalAGH
 		integer,allocatable,dimension(:) :: MapAnimal
 		logical,allocatable,dimension(:) :: MapToG
 
-    integer :: InvOut,GFullMat,GIJA,IGFullMat,IGIJA,AFullMat,AIJA,IAFullMat,IAIJA,HFullMat,HIJA,IHFullMat,IHIJA
-    integer :: GMake,GInvMake,AMake,AInvMake,HMake,HInvMake,GType
+		logical :: PedigreePresent,WeightsPresent
+		logical :: Gmake, GInvMake, AMake, AInvMake, HMake, HInvMake  ! What to make
+		logical :: GFullMat, GIJA, IGFullMat, IGIJA, AFullMat, AIJA, IAFullMat, IAIJA, HFullMat, HIJA, IHFullMat, IHIJA
+		integer :: GType
+    !integer :: InvOut,GFullMat,GIJA,IGFullMat,IGIJA,AFullMat,AIJA,IAFullMat,IAIJA,HFullMat,HIJA,IHFullMat,IHIJA
+    !integer :: GMake,GInvMake,AMake,AInvMake,HMake,HInvMake,GType
 
     real(kind=4),allocatable :: xnumrelmatHold(:)
     integer :: NRMmem, shell, shellmax, shellWarning
     integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),GinA(:),AinG(:),dooutput(:)!,RecodeIdGeno(:)
     character*(lengan),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
-    logical ::  UseAllFreqFromPrevSelCycle
+    !logical ::  UseAllFreqFromPrevSelCycle
 
 end module GlobalAGH
 
@@ -75,15 +81,15 @@ program AlphaG
     call ReadParam
     call ReadData
 
-    if ((AMake==1).or.(HMake==1)) then
+    if (AMake) then
         call MakeAMatrix
     endif
 
-    if ((AInvMake==1).or.(HInvMake==1)) then
+    if (AInvMake) then
         call MakeInvAMatrix
     endif
 
-    if ((GMake==1).or.(HMake==1).or.(HInvMake==1)) then
+    if (GMake) then
         if (GType==1) then
             call MakeGVanRaden
         endif
@@ -92,7 +98,7 @@ program AlphaG
         endif
     endif
     
-    if (HInvMake == 1 .or. HMake == 1) then
+    if (HInvMake .or. HMake) then
     	call MakeH
     endif
 
@@ -112,8 +118,8 @@ subroutine ReadParam
 
     integer :: i,j,OutputPositions,OutputDigits
 
-    character(len=1000) :: dumC,GenotypeFile,PedigreeFile,WeightFile,InversionRoutine,MakeG,TypeG,MakeGInv,MakeA,MakeAInv,MakeH,MakeHInv,TmpUsePreviousAllFreq
-    character(len=1000) :: GFullMatC,GIJAC,InverseGFullMatC,InverseGIJA,AmatFullMat,AmatIJA,InverseAmatFullMat,InverseAmatIJA,HmatFullMat,HmatIJA,InverseHmatFullMat,InverseHmatIJA
+    character(len=1000) :: dumC,option,GenotypeFile,PedigreeFile,WeightFile!,AlleleFreqFileInversionRoutine
+    !character(len=1000) :: GFullMatC,GIJAC,InverseGFullMatC,InverseGIJA,AmatFullMat,AmatIJA,InverseAmatFullMat,InverseAmatIJA,HmatFullMat,HmatIJA,InverseHmatFullMat,InverseHmatIJA
     character(len=200) :: OutputPositionsC,OutputDigitsC
 
     open(unit=11,file="AlphaAGHSpec.txt",status="old")
@@ -122,77 +128,15 @@ subroutine ReadParam
     read(11,*) dumC,GenotypeFile
     read(11,*) dumC,PedigreeFile
     read(11,*) dumC,WeightFile
+    read(11,*) dumC,AlleleFreqFile
     read(11,*) dumC,nTrait
     read(11,*) dumC,nSnp
-    !read(11,*) dumC,nCols  !SMHE: I am so, so sorry. Sorry for adding an extra option.
-
-    InvOut=0
-    read(11,*) dumC,InversionRoutine
-    if (trim(InversionRoutine)=="Ordinary") InvOut=1
-    if (InvOut==0) then
-        print*, "Error in Inversion algorithm specification"
-        stop
-    endif
     read(11,*) dumC,DiagFudge
-
-    read(11,*) dumC			! Matrices to be constructed
-
-    GMake=0
-    read(11,*) dumC,MakeG
-    if (trim(MakeG)=="Yes") GMake=1
-    if (trim(MakeG)=="No")  GMake=2
-
-    read(11,*) dumC,TypeG
-    if (trim(TypeG)=="VanRaden")        GType=1
-    if (trim(TypeG)=="Nejati-Javaremi") GType=2
-
-    GInvMake=0
-    read(11,*) dumC,MakeGInv
-    if (trim(MakeGInv)=="Yes") GInvMake=1
-    if (trim(MakeGInv)=="No")  GInvMake=2
-
-    AMake=0
-    read(11,*) dumC,MakeA
-    if (trim(MakeA)=="Yes") AMake=1
-    if (trim(MakeA)=="No")  AMake=2
-
-    AInvMake=0
-    read(11,*) dumC,MakeAInv
-    if (trim(MakeAInv)=="Yes") AInvMake=1
-    if (trim(MakeAInv)=="No")  AInvMake=2
-
-    HMake=0
-    read(11,*) dumC,MakeH
-    if (trim(MakeH)=="Yes") HMake=1
-    if (trim(MakeH)=="No")  HMake=2
-    if (HMake==1) then
-    	print *, 'Unfortunately, the normal H matrix has not been properly implemented yet.'
-    	HMake = 2
-    	!AMake = 1
-    	!GMake = 1
-    endif
-
-    HInvMake=0
-    read(11,*) dumC,MakeHInv
-    if (trim(MakeHInv)=="Yes") HInvMake=1
-    if (trim(MakeHInv)=="No")  HInvMake=2
-    if (HInvMake==1) then
-    	AMake=1
-    	AInvMake=1
-    	GMake=1
-    endif
-
-    read(11,*) dumC			! Option for G matrices to use inside AlphaDrop
-
-    read(11,*) dumC,TmpUsePreviousAllFreq
-    if (trim(TmpUsePreviousAllFreq)=="On") then
-        UseAllFreqFromPrevSelCycle=.true.
-        read(11,*) dumC,AllFreqSelCycle
-    else
-        UseAllFreqFromPrevSelCycle=.false.
-        read(11,*) dumC
-    endif
-
+		read(11,*) dumC,option
+    	if (trim(option)=="VanRaden")        GType=1
+    	if (trim(option)=="Nejati-Javaremi") GType=2
+		read(11,*) dumC,ScaleGtoA
+		
     read(11,*) dumC			! Output options
 
     read(11,*) dumC,OutputPositions,OutputDigits
@@ -200,113 +144,90 @@ subroutine ReadParam
     write(OutputDigitsC,*)    OutputDigits
     OutputFormat="f"//trim(adjustl(OutputPositionsC))//"."//trim(adjustl(OutputDigitsC))
 
-    GFullMat=0
-    read(11,*) dumC,GFullMatC
-    if (trim(GFullMatC)=="Yes") GFullMat=1
-    if (trim(GFullMatC)=="No")  GFullMat=2
-    if (GFullMat==0) then
-        print*, "Error in G Full Matrix specification"
-        stop
-    endif
+		! Make G matrix?
+		GFullMat = .false.
+		GIJA = .false.
+		GMake = .false.
+		read(11,*) dumC, option 
+		GFullMat = trim(option) == 'Yes'
+		if (GFullMat) GMake = .true.
 
-    GIJA=0
-    read(11,*) dumC,GIJAC
-    if (trim(GIJAC)=="Yes") GIJA=1
-    if (trim(GIJAC)=="No")  GIJA=2
-    if (GIJA==0) then
-        print*, "Error in G IJA specification"
-        stop
-    endif
+		read(11,*) dumC, option
+		GIJA = trim(option) == 'Yes'
+		if (GIJA) GMake = .true.
 
-    IGFullMat=0
-    read(11,*) dumC,InverseGFullMatC
-    if (trim(InverseGFullMatC)=="Yes") IGFullMat=1
-    if (trim(InverseGFullMatC)=="No")  IGFullMat=2
-    if (IGFullMat==0) then
-        print*, "Error in Inverse G Full Matrix specification"
-        stop
-    endif
+		! Make inverted G matrix ?
+		IGFullMat = .false.
+		IGIJA = .false.
+		GInvMake = .false.
+		read(11,*) dumC, option
+		IGFullMat = trim(option) == 'Yes'
+		if (IGFullMat) GInvMake = .true.
+		
+		read(11,*) dumC, option
+		IGIJA = trim(option) == 'Yes'
+		if (IGIJA) GInvMake = .true.
 
-    IGIJA=0
-    read(11,*) dumC,InverseGIJA
-    if (trim(InverseGIJA)=="Yes") IGIJA=1
-    if (trim(InverseGIJA)=="No")  IGIJA=2
-    if (IGIJA==0) then
-        print*, "Error in Inverse G Full Matrix IJA specification"
-        stop
-    endif
+		! Make A matrix?
+		AFullMat = .false.
+		AIJA = .false.
+		AMake = .false.
+		read(11,*) dumC, option
+		AFullMat = trim(option) == 'Yes'
+		if (AFullMat) AMake = .true.
 
-    AFullMat=0
-    read(11,*) dumC,AmatFullMat
-    if (trim(AmatFullMat)=="Yes") AFullMat=1
-    if (trim(AmatFullMat)=="No")  AFullMat=2
-    if (AFullMat==0) then
-        print*, "Error in A full matrix specification"
-        stop
-    endif
+		read(11,*) dumC, option
+		AIJA = trim(option) == 'Yes'
+		if (AIJA) AMake = .true.
 
-    AIJA=0
-    read(11,*) dumC,AmatIJA
-    if (trim(AmatIJA)=="Yes") AIJA=1
-    if (trim(AmatIJA)=="No")  AIJA=2
-    if (AIJA==0) then
-        print*, "Error in A IJA specification"
-        stop
-    endif
+		! Make inverted A matrix?
+		IAFullMat = .false.
+		IAIJA = .false.
+		AInvMake = .false.
+		read(11,*) dumC, option
+		IAFullMat = trim(option) == 'Yes'
+		if (IAFullMat) AInvMake = .true.
 
-    IAFullMat=0
-    read(11,*) dumC,InverseAmatFullMat
-    if (trim(InverseAmatFullMat)=="Yes") IAFullMat=1
-    if (trim(InverseAmatFullMat)=="No")  IAFullMat=2
-    if (IAFullMat==0) then
-        print*, "Error in Inverse of A full matrix specification"
-        stop
-    endif
+		read(11,*) dumC, option
+		IAIJA = trim(option) == 'Yes'
+		if (IAIJA) AInvMake = .true.
 
-    IAIJA=0
-    read(11,*) dumC,InverseAmatIJA
-    if (trim(InverseAmatIJA)=="Yes") IAIJA=1
-    if (trim(InverseAmatIJA)=="No")  IAIJA=2
-    if (IAIJA==0) then
-        print*, "Error in inverse of A IJA pecification"
-        stop
-    endif
+		! Make H matrix?
+		HFullMat = .false.
+		HIJA = .false.
+		HMake = .false.
+		read(11,*) dumC, option
+		HFullMat = trim(option) == 'Yes'
+		if (HFullMat) HMake = .true.
 
-    HFullMat=0
-    read(11,*) dumC,HmatFullMat
-    if (trim(HmatFullMat)=="Yes") HFullMat=1
-    if (trim(HmatFullMat)=="No")  HFullMat=2
-    if (HFullMat==0) then
-        print*, "Error in H full matrix specification"
-        stop
-    endif
+		read(11,*) dumC, option
+		HIJA = trim(option) == 'Yes'
+		if (HIJA) HMake = .true.
 
-    HIJA=0
-    read(11,*) dumC,HmatIJA
-    if (trim(HmatIJA)=="Yes") HIJA=1
-    if (trim(HmatIJA)=="No")  HIJA=2
-    if (HIJA==0) then
-        print*, "Error in H IJA specification"
-        stop
-    endif
+		! Make inverted H matrix?
+		IHFullMat = .false.
+		IHIJA = .false.
+		HInvMake = .false.
+		read(11,*) dumC, option
+		IHFullMat = trim(option) == 'Yes'
+		if (IHFullMat) HInvMake = .true.
 
-    IHFullMat=0
-    read(11,*) dumC,InverseHmatFullMat
-    if (trim(InverseHmatFullMat)=="Yes") IHFullMat=1
-    if (trim(InverseHmatFullMat)=="No")  IHFullMat=2
-    if (IHFullMat==0) then
-        print*, "Error in inverse of H  full matrix specification"
-        stop
-    endif
+		read(11,*) dumC, option
+		IHIJA = trim(option) == 'Yes'
+		if (IHIJA) HInvMake = .true.
 
-    IHIJA=0
-    read(11,*) dumC,InverseHmatIJA
-    if (trim(InverseHmatIJA)=="Yes") IHIJA=1
-    if (trim(InverseHmatIJA)=="No")  IHIJA=2
-    if (IHIJA==0) then
-        print*, "Error in inverse of H IJA specification"
-        stop
-    endif
+		if (HMake) then
+			GMake = .true.
+			AMake = .true.
+		endif
+		
+		if (HInvMake) then
+			GMake = .true.
+			AMake = .true.
+			AInvMake = .true.
+		endif
+
+
 
     allocate(AlleleFreq(nSnp))
     allocate(Pmat(nSnp))
@@ -317,16 +238,16 @@ subroutine ReadParam
         open(unit=101,file=trim(GenotypeFile),status="old")
     endif
 
-    PedigreePresent=0
+    PedigreePresent=.false.
     if (trim(PedigreeFile)/='None') then
         open(unit=102,file=trim(PedigreeFile),status="old")
-        PedigreePresent=1
+        PedigreePresent=.true.
     endif
     if (trim(WeightFile)/='None') then
         open(unit=103,file=trim(WeightFile),status="old")
-        WeightYes1No0=1
+        WeightsPresent = .true.
     else
-        WeightYes1No0=0
+        WeightsPresent = .false.
     endif
 
     nGMats=0
@@ -337,18 +258,22 @@ subroutine ReadParam
     enddo
 
     if (trim(GenotypeFile)=='None') then
-        GMake=2
-        GInvMake=2
-        HMake=2
-        HInvMake=2
+    		if (GMake .or. GInvMake .or. HMake .or. HInvMake) print *, 'In order to create G or H matrices, a genotype file must be given.'
+        GMake=.false.
+        GInvMake=.false.
+        HMake=.false.
+        HInvMake=.false.
     endif
 
     if (trim(PedigreeFile)=='None') then
-        AMake=2
-        AInvMake=2
-        HMake=2
-        HInvMake=2        
+    		if (AMake .or. AInvMake .or. HMake .or. HInvMake) print *, 'In order to create A or H matrices, a genotype file must be given.'
+        AMake=.false.
+        AInvMake=.false.
+        HMake=.false.
+        HInvMake=.false.     
     endif
+
+		if (GType==2 .and. trim(AlleleFreqFile) /= 'None') print *, 'Message: The  Nejati-Javaremi approach does not utilise allele frequencies.'
 
 end subroutine ReadParam
 
@@ -369,7 +294,7 @@ subroutine ReadData
     allocate(IdGeno(nAnisG))
     !allocate(RecodeIdGeno(nAnisG))
 
-    if (PedigreePresent==0) then
+    if (.not. PedigreePresent) then
         allocate(RecPed(0:nAnisG,4))
         nAnisP=nAnisG
         RecPed(:,:)=0
@@ -379,7 +304,7 @@ subroutine ReadData
         enddo
     else
 
-				! Attempt to magically detect whether there are three or four columns:
+				!!! Attempt to magically detect whether there are three or four columns:
 				read(102, '(a)', iostat=stat) dumC
 				if (stat /= 0) then
 					print *, 'Problems reading Pedigree file.'
@@ -397,6 +322,8 @@ subroutine ReadData
 					nCols = 4
 				endif
 				!print *, nCols, pedline, fourthColumn
+				!!! We now know whether there are three or four columns.
+				
 				
         allocate(Ped(nAnisRawPedigree,4))
         Ped(:,4) = '1'
@@ -436,11 +363,8 @@ subroutine ReadData
 		enddo
 		
 		
-    if (PedigreePresent==0) then
-        !do i=1,nAnisG
-        !    RecodeIdGeno(i)=i
-        !enddo
-    else
+    if (PedigreePresent) then
+    		!! Match Genotyped animals to pedigree animals
         do i=1,nAnisG
             GenoInPed=0
             do j=1,nAnisP
@@ -464,7 +388,7 @@ subroutine ReadData
         enddo
     endif
 
-    if (WeightYes1No0==1) then
+    if (WeightsPresent) then
         do i=1,nSnp
             read(103,*) dumC,Weights(i,:)
         enddo
@@ -524,7 +448,7 @@ subroutine MakeInvAMatrix
     enddo
     print*, "Finished making A inverse"
 
-    if (IAFullMat==1) then
+    if (IAFullMat) then
     		AnimToWrite = RecPed(1:nAnisP,4) == 1
     		s = COUNT(AnimToWrite)
     		
@@ -541,20 +465,20 @@ subroutine MakeInvAMatrix
         print*, "End writing A inverse full matrix"
     endif
 
-    if (IAIJA==1) then
+    if (IAIJA) then
         print*, "Start writing A inverse ija"
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-                if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1) write(202,fmt) Id(m),Id(n),InvAmat(m,n)
+                if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. InvAmat(m,n) /= 0) write(202,fmt) Id(m),Id(n),InvAmat(m,n)
             enddo
         enddo
         close(202)
         print*, "End writing A inverse ija"
     endif
 
-		if (HInvMake /= 1) deallocate(InvAmat)
+		!if (HInvMake) deallocate(InvAmat)
 
 end subroutine MakeInvAMatrix
 
@@ -593,7 +517,7 @@ subroutine MakeAMatrix
     Adiag(0) = Amatavg
     print*, "Finished making A"
 
-    if (AFullMat==1) then
+    if (AFullMat) then
     		AnimToWrite = RecPed(1:nAnisP,4) == 1
     		s = COUNT(AnimToWrite)
     		
@@ -610,20 +534,20 @@ subroutine MakeAMatrix
         print*, "End writing A full matrix"
     endif
 
-    if (AIJA==1) then
+    if (AIJA) then
         write(*,'(a24,i6,a11)') " Start writing A ija for", s," individuals"
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
             do n=1,m
-            	  if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1)  write(202,fmt) Id(m),Id(n),Amat(m,n)
+            	  if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. Amat(m,n) /= 0)  write(202,fmt) Id(m),Id(n),Amat(m,n)
             enddo
         enddo
         close(202)
         print*, "End writing A ija"
     endif
     
-    if (HMake /= 1 .and. HInvMake /= 1)  deallocate(Amat)
+    !if (HMake /= 1 .and. HInvMake /= 1)  deallocate(Amat)
 
 end subroutine MakeAMatrix
 
@@ -633,7 +557,7 @@ subroutine MakeGVanRaden
     use GlobalAGH
     implicit none
 
-    integer :: i,j,k,l,m,n,nMissing,dumI,WhichMat!,errorflag
+    integer :: i,j,k,l,m,n,nMissing,dumI,WhichMat,stat!,errorflag
     double precision :: TmpWt(nSnp),TmpVal(1),Denom
     character(len=1000) :: filout,nChar,fmt
 
@@ -642,49 +566,42 @@ subroutine MakeGVanRaden
 
 
     print*, "Start making G - VanRaden"
-    !Calculate Allele Freq
-    AlleleFreq(:)=0.0
-    do j=1,nSnp
-        nMissing=0
-        do i=1,nAnisG
-            if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
-                AlleleFreq(j)=AlleleFreq(j)+Genos(i,j)
-            else
-                nMissing=nMissing+1
-            endif
-        enddo
-        ! Write the frequency of SNP j in array. If all SNPs are missing, then freq_j=0
-        if (nAnisG>nMissing) then
-            AlleleFreq(j)=AlleleFreq(j)/(2*(nAnisG-nMissing))
-        else
-            AlleleFreq(j)=0.0
-        endif
-    enddo
+    
+    !! Allele frequencies
+    if (trim(AlleleFreqFile) == 'None') then
+    	!Calculate Allele Freq
+			AlleleFreq(:)=0.0
+			do j=1,nSnp
+					nMissing=0
+					do i=1,nAnisG
+							if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
+									AlleleFreq(j)=AlleleFreq(j)+Genos(i,j)
+							else
+									nMissing=nMissing+1
+							endif
+					enddo
+					! Write the frequency of SNP j in array. If all SNPs are missing, then freq_j=0
+					if (nAnisG>nMissing) then
+							AlleleFreq(j)=AlleleFreq(j)/(2*(nAnisG-nMissing))
+					else
+							AlleleFreq(j)=0.0
+					endif
+			enddo
+			open(unit=201, file='AlleleFreqTest.txt',status='unknown')
+			do j=1,nSnp
+					write(201,*) j,AlleleFreq(j)
+			enddo
+			close(202)			
 
-#ifdef OS_UNIX
-    open(unit=201,file="./AlleleFreqTest.txt",status="unknown")
-#endif
-#ifdef OS_WIN
-    open(unit=201,file=".\AlleleFreqTest.txt",status="unknown")
-#endif
-    do j=1,nSnp
-        write(201,*) j,AlleleFreq(j)
-    enddo
-    close(201)
-
-    if (UseAllFreqFromPrevSelCycle==.true.) then
-#ifdef OS_UNIX
-        write(filout,'("../../Selection/SelectionFolder",i0,"/AlleleFreqTest.txt")') AllFreqSelCycle
-#endif
-#ifdef OS_WIN
-        write(filout,'("..\..\Selection\SelectionFolder",i0,"\AlleleFreqTest.txt")') AllFreqSelCycle
-#endif
-        open(unit=202,file=trim(filout),status="unknown")
-        do i=1,nSnp
-            read(202,*) dumI,AlleleFreq(i)
-        enddo
-        close(202)
-    endif
+		else
+			! Read allele frequencies from file.
+			open(unit=202, file=trim(AlleleFreqFile), status='OLD')
+			do i=1,nSnp
+				read(202,*,iostat=stat) dumI,AlleleFreq(i)  !AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
+				if (stat /= 0) stop "Problems reading allele frequency file."
+			enddo
+			close(202)
+		endif
 
     !Create Pmat
     do i=1,nSnp
@@ -756,13 +673,8 @@ subroutine MakeGVanRaden
                 GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
             enddo
 
-            if (GFullMat==1) then
-#ifdef OS_UNIX
-                write(filout,'("./GFullMatrix"i0,"-"i0".txt")')i,j
-#endif
-#ifdef OS_WIN
-                write(filout,'(".\GFullMatrix"i0,"-"i0".txt")')i,j
-#endif
+            if (GFullMat) then
+                write(filout,'("GFullMatrix"i0,"-"i0".txt")')i,j
                 write(nChar,*) nAnisG
                 fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
                 open(unit=202,file=trim(filout),status="unknown")
@@ -772,7 +684,7 @@ subroutine MakeGVanRaden
                 close(202)
             endif
 
-            if (GIJA==1) then
+            if (GIJA) then
                 fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
                 write(filout,'("Gija"i0,"-"i0".txt")')i,j
                 open(unit=202,file=trim(filout),status="unknown")
@@ -784,18 +696,16 @@ subroutine MakeGVanRaden
                 close(202)
             endif
 
-            if (GInvMake==1) then
+            if (GInvMake) then
                 allocate(InvGmat(nAnisG,nAnisG,nGMats))
 
                 print*, "Start inverting G - VanRaden"
-                if (InvOut==1) then
-                    InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
-                    call invert(InvGmat(:,:,WhichMat),nAnisG,.true.)
-                    !call FINDInv(Gmat(:,:,WhichMat),InvGmat(:,:,WhichMat),nAnisG,errorflag)
-                endif
+								InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
+								call invert(InvGmat(:,:,WhichMat),nAnisG,.true.)
+
                 print*, "Finished inverting G - VanRaden"
 
-                if (IGFullMat==1) then
+                if (IGFullMat) then
                     write(nChar,*) nAnisG
                     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
                     write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
@@ -806,7 +716,7 @@ subroutine MakeGVanRaden
                     close(202)
                 endif
 
-                if (IGIJA==1) then
+                if (IGIJA) then
                     write(filout,'("InvGija"i0,"-"i0".txt")')i,j
                     fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
                     open(unit=202,file=trim(filout),status="unknown")
@@ -864,7 +774,7 @@ subroutine MakeGNejatiJavaremi
         Gmat(l,l,1)=Gmat(l,l,1)+DiagFudge
     enddo
 
-    if (GFullMat==1) then
+    if (GFullMat) then
         write(nChar,*) nAnisG
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="GFullMatrix1-1.txt",status="unknown")
@@ -874,7 +784,7 @@ subroutine MakeGNejatiJavaremi
         close(202)
     endif
 
-    if (GIJA==1) then
+    if (GIJA) then
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Gija1-1.txt",status="unknown")
         do m=1,nAnisG
@@ -885,18 +795,15 @@ subroutine MakeGNejatiJavaremi
         close(202)
     endif
 
-    if (GInvMake==1) then
+    if (GInvMake) then
         allocate(InvGmat(nAnisG,nAnisG,1))
 
         print*, "Start inverting G - Nejati-Javaremi"
-        if (InvOut==1) then
-            InvGmat(:,:,1)=Gmat(:,:,1)
-            call invert(InvGmat(:,:,1),nAnisG,.true.)
-            !call FINDInv(Gmat(:,:,1),InvGmat(:,:,1),nAnisG,errorflag)
-        endif
+				InvGmat(:,:,1)=Gmat(:,:,1)
+				call invert(InvGmat(:,:,1),nAnisG,.true.)
         print*, "Finished inverting G - Nejati-Javaremi"
 
-        if (IGFullMat==1) then
+        if (IGFullMat) then
             write(nChar,*) nAnisG
             fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
             open(unit=202,file="InvGFullMatrix1-1.txt",status="unknown")
@@ -906,7 +813,7 @@ subroutine MakeGNejatiJavaremi
             close(202)
         endif
 
-        if (IGIJA==1) then
+        if (IGIJA) then
             fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
             open(unit=202,file="InvGija1-1.txt",status="unknown")
             do m=1,nAnisG
@@ -948,10 +855,10 @@ subroutine MakeH
 	integer :: i,j,k,m,div,t1,t2,whichMat
 	double precision :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean
 	character(len=1000) :: nChar,fmt1, fmt2,filout
-  double precision,allocatable :: Gdiag(:), Hrow(:), A22Inv(:,:)
+  double precision,allocatable :: Gdiag(:), Hrow(:), A22Inv(:,:), G22(:,:)
   character*(lengan),allocatable,dimension(:) :: Ids
   logical,allocatable,dimension(:) :: AnimToWrite, AhasG
-  integer,allocatable :: SmallMap(:)
+  integer,allocatable :: SmallMap(:), Gmap(:)
    
 	! Make H and/or Hinv
 	!allocate(Hrow(1:nAnisH))
@@ -1003,21 +910,29 @@ subroutine MakeH
 			Gdiag=0
 			Gmatavg=0
 			div=count(GinA /= 0)**2
+			allocate(G22(count(GinA),count(GinA)))
+			allocate(Gmap(count(GinA)))
+			
 			k = 0
-			do i=1,nAnisG
-				do j=1,nAnisG
-					if (GinA(i) /= 0 .and. GinA(j) /= 0) then
+			do i=1,nAnisH
+			if (MapToG(i) .eq. .false.) cycle
+				k = k+1
+				m = 0
+				Gdiag(k) = Gmat(MapAnimal(i),MapAnimal(i),whichMat) - DiagFudge
+				
+				do j=1,nAnisH
+					if (MapToG(i) .and. MapToG(j)) then
+					
+						m = m+1
 						if (i == j) then 
-							Gmatavg=Gmatavg + (Gmat(i,j,whichMat) - DiagFudge)/div
+							Gmatavg=Gmatavg + (Gmat(MapAnimal(i),MapAnimal(j),whichMat) - DiagFudge)/div
 						else
-							Gmatavg=Gmatavg + Gmat(i,j,whichMat)/div
+							Gmatavg=Gmatavg + Gmat(MapAnimal(i),MapAnimal(j),whichMat)/div
 						endif
+						
+						G22(k,m) = Gmat(MapAnimal(i),MapAnimal(j),whichMat)
 					endif
 				enddo
-				if (GinA(i) /= 0) then
-					k = k+1
-					Gdiag(k) = Gmat(i,i,whichMat) - DiagFudge
-				endif
 			enddo
 			Gdiag(0) = Gmatavg
 	
@@ -1035,7 +950,9 @@ subroutine MakeH
 			intercept = Amean - slope * Gmean
 	
 			! Scale G
-			Gmat(:,:,whichMat) = slope * Gmat(:,:,whichMat) + intercept
+			
+			
+			G22 = slope * G22 + intercept
 			print *, 'Scaling of G:'
 			write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
 			deallocate(Gdiag)
@@ -1115,7 +1032,7 @@ subroutine MakeH
 						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
 							Hrow(k) = InvAmat(i,j)
 						endif
-						if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+						if (IHIJA == 1 .and. i .le. j .and. Hrow(k) /= 0) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
 					enddo
 					if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
 				enddo 
@@ -1125,6 +1042,8 @@ subroutine MakeH
 				print *, 'End writing inverted H matrices (full and ija)'
  
 			endif
+			
+			deallocate(G22)
 		enddo
 	enddo
   
@@ -1154,7 +1073,7 @@ subroutine CountInData
     rewind(101)
     write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
 
-    if (PedigreePresent==1) then
+    if (PedigreePresent) then
         nAnisRawPedigree=0
         do
             read(102,*,iostat=k) dumC
