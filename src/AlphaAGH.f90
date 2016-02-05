@@ -711,7 +711,7 @@ subroutine MakeGVanRaden
 
                 print*, "Start inverting G - VanRaden"
 								InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
-								call invert(InvGmat(:,:,WhichMat),nAnisG,.true.)
+								call invert(InvGmat(:,:,WhichMat),nAnisG,.true., 1)
 
                 print*, "Finished inverting G - VanRaden"
 
@@ -810,7 +810,7 @@ subroutine MakeGNejatiJavaremi
 
         print*, "Start inverting G - Nejati-Javaremi"
 				InvGmat(:,:,1)=Gmat(:,:,1)
-				call invert(InvGmat(:,:,1),nAnisG,.true.)
+				call invert(InvGmat(:,:,1),nAnisG,.true.,1)
         print*, "Finished inverting G - Nejati-Javaremi"
 
         if (IGFullMat) then
@@ -924,7 +924,7 @@ subroutine MakeH  ! Both H and Hinv
 	enddo
 	if (HMake) A22 = A22Inv
 	
-  call invert(A22Inv,size(A22Inv,1),.true.)  
+  call invert(A22Inv,size(A22Inv,1),.true.,1)  
   
 
 	! This is the G matrix in Legarra,
@@ -1055,38 +1055,15 @@ subroutine MakeH  ! Both H and Hinv
 				enddo
 				
 
-				print *,'G - A22'
-				do i=1,size(Gboth,1)
-					write(*, '(4f5.2)') GBoth(i,:) - A22(i,:)
-				enddo
-
 				tmp = Matmul(A12, A22Inv)
 				!tmp = Matmul(Matmul(tmp, (Gboth - A22)), transpose(tmp))
 				tmp = Matmul(tmp, (Gboth-A22))
 				tmp = Matmul(tmp, A22Inv)
 				!tmp = Matmul(tmp, transpose(A12))
-				
-				!print *, 'tmp'
-				!do i=1,size(tmp,1)
-				!	write(*,'(13f5.2)') tmp(i,:)
-				!enddo
-				
+								
 				A11 = A11 + Matmul(tmp, transpose(A12))
 				A12 = matmul(matmul(A12, A22Inv), Gboth)
 				
-				print *,'AInv22'
-				do i=1,size(A22,1)
-					write(*, '(4f5.2)') A22Inv(i,:)
-				enddo
-				print *,'A12'
-				do i=1,size(A12,1)
-						write(*, '(13f5.2)') A12(i,:)
-				enddo
-				print *,'G'
-				do i=1,size(Gboth, 1)
-					write (*, '(4f5.2)') GBoth(i,:)
-				enddo
-
 				deallocate(tmp)
 				deallocate(Gboth)
 			
@@ -1143,7 +1120,7 @@ subroutine MakeH  ! Both H and Hinv
 	
 			if (HInvMake) then 
 				print *, 'Start inverting scaled G matrix'
-				call invert(Gmat(:,:,1),size(Gmat, 1),.true.)
+				call invert(G22, size(G22, 1), .true., 1)
 				print *, 'End inverting scaled G matrix'
 
 				print *, 'Start writing inverted H matrices (full and/or ija)'
@@ -1169,7 +1146,7 @@ subroutine MakeH  ! Both H and Hinv
 						if ((j) .eq. .false.) cycle
 						k = k + 1				
 						if (MapToG(i) .and. MapToG(j)) then
-							Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),WhichMat)
+							Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
 							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) - A22Inv(MapToA22(i),MapToA22(j))
 						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
 							Hrow(k) = InvAmat(i,j)
@@ -2008,40 +1985,68 @@ END SUBROUTINE FINDinv
 
 !#########################################################################
 
-subroutine invert(x,n,sym)
+subroutine invert(x,n,sym, method)
 
   ! Interface to call inverse subroutines from BLAS/LAPACK libraries
 
   ! x symmetric positive-definite matrix to be inverted
   ! n matrix dimension
   ! sym return lower-triangular (sym=.false) or full matrix (sym=.true.)
+  ! method for inversion
+  ! 0 -- Generalised solving using LU decomposition (dgetrs)
+  ! 1 -- Cholesky decomposition
 
   implicit none
-  integer :: n,i,j,info
-  real(8) :: x(n,n)
-  logical :: sym
+  integer, intent(in) :: n,method
+  logical, intent(in) :: sym
+  integer :: i,j,info
+  double precision,intent(inout) :: x(n,n)
+  double precision,allocatable :: Iden(:,:)
 
-  ! Computes the Cholesky factorization of a symmetric positive definite matrix
-  ! https://software.intel.com/en-us/node/468690
-  call dpotrf('L',n,x,n,info)
-  if (info /= 0) then
-    print*,'Matrix not positive-definite - info',info
-    stop
-  endif
+	if (method == 0) then
+		!Solves a general system of linear equations AX=B, A**T X=B or A**H X=B, using the LU factorization computed by SGETRF/CGETRF
+		!http://physics.oregonstate.edu/~rubin/nacphy/lapack/routines/dgetrs.html
+		
+		allocate(Iden(n,n))
+		ForAll(i = 1:n, j = 1:n) Iden(i,j) = (i/j)*(j/i)  !https://rosettacode.org/wiki/Identity_matrix#Notorious_trick
 
-  ! Computes the inverse of a symmetric positive definite matrix,
-  !   using the Cholesky factorization computed by dpotrf()
-  ! https://software.intel.com/en-us/node/468824
-  call dpotri('L',n,x,n,info)
-  if (info /= 0) then
-   print*,'Matrix not positive-definite - info',info
-   stop
-  endif
+		!https://software.intel.com/en-us/node/468712
+		!Solves a system of linear equations with an LU-factored square coefficient matrix, with multiple right-hand sides.
+		! dgetrs(trans,n,nrhs,A,b,lda,ldb,info)
+		!Output: Solution overwrites `b`.
+		call dgetrs('N',n,n,x,Iden,n,n,info)
+		if (info /= 0) then
+			print *, 'Matrix not positive-definite - info',info
+			stop
+		endif
+		
+		x(:,:) = Iden(:,:)
+		
+	else if (method == 1) then
 
-  ! Fills the upper triangle
-  if (sym) then
-    forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
-  endif
+		! Computes the Cholesky factorization of a symmetric positive definite matrix
+		! https://software.intel.com/en-us/node/468690
+		call dpotrf('L',n,x,n,info)
+		if (info /= 0) then
+			print*,'Matrix not positive-definite - info',info
+			stop
+		endif
+
+		! Computes the inverse of a symmetric positive definite matrix,
+		!   using the Cholesky factorization computed by dpotrf()
+		! https://software.intel.com/en-us/node/468824
+		call dpotri('L',n,x,n,info)
+		if (info /= 0) then
+		 print*,'Matrix not positive-definite - info',info
+		 stop
+		endif
+
+		! Fills the upper triangle
+		if (sym) then
+			forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
+		endif
+
+	endif
 
 end subroutine invert
 
