@@ -44,22 +44,22 @@ module GlobalAGH
     double precision,allocatable,dimension(:) :: AlleleFreq,Pmat,Adiag
     double precision,allocatable,dimension(:,:) :: Weights,Zmat,tpose,Genos,Amat,InvAmat
     double precision,allocatable,dimension(:,:,:) :: WeightStand,Gmat,InvGmat
-		integer,allocatable,dimension(:) :: MapAnimal
-		logical,allocatable,dimension(:) :: MapToG
 
-		logical :: PedigreePresent,WeightsPresent
+		logical :: PedigreePresent,WeightsPresent,ScaleGByRegression
 		logical :: Gmake, GInvMake, AMake, AInvMake, HMake, HInvMake  ! What to make
 		logical :: GFullMat, GIJA, IGFullMat, IGIJA, AFullMat, AIJA, IAFullMat, IAIJA, HFullMat, HIJA, IHFullMat, IHIJA
-		integer :: GType
+		integer :: GType ! InvOpt -- inversion option for G
     !integer :: InvOut,GFullMat,GIJA,IGFullMat,IGIJA,AFullMat,AIJA,IAFullMat,IAIJA,HFullMat,HIJA,IHFullMat,IHIJA
     !integer :: GMake,GInvMake,AMake,AInvMake,HMake,HInvMake,GType
 
     real(kind=4),allocatable :: xnumrelmatHold(:)
     integer :: NRMmem, shell, shellmax, shellWarning
-    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),GinA(:),AinG(:),dooutput(:)!,RecodeIdGeno(:)
+    integer,allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:),RecodeGenotypeId(:),passedorder(:),RecPed(:,:),dooutput(:)
     character*(lengan),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
-    !logical ::  UseAllFreqFromPrevSelCycle
+		! Variable for mapping between Pedigree and genotype animals.
+		integer, allocatable :: MapAnimal(:)
+		logical, allocatable :: MapToG(:), AnimalsInBoth(:)
 
 end module GlobalAGH
 
@@ -118,7 +118,7 @@ subroutine ReadParam
 
     integer :: i,j,OutputPositions,OutputDigits
 
-    character(len=1000) :: dumC,option,GenotypeFile,PedigreeFile,WeightFile!,AlleleFreqFileInversionRoutine
+    character(len=1000) :: dumC,option,GenotypeFile,PedigreeFile,WeightFile! ,scaleC
     !character(len=1000) :: GFullMatC,GIJAC,InverseGFullMatC,InverseGIJA,AmatFullMat,AmatIJA,InverseAmatFullMat,InverseAmatIJA,HmatFullMat,HmatIJA,InverseHmatFullMat,InverseHmatIJA
     character(len=200) :: OutputPositionsC,OutputDigitsC
 
@@ -135,7 +135,13 @@ subroutine ReadParam
 		read(11,*) dumC,option
     	if (trim(option)=="VanRaden")        GType=1
     	if (trim(option)=="Nejati-Javaremi") GType=2
-		read(11,*) dumC,ScaleGtoA
+		read(11,*) dumC,option
+		if (trim(option) == 'Regression') then
+			ScaleGByRegression = .true.
+		else
+			ScaleGByRegression = .false.
+			read(option,*) ScaleGtoA
+		endif
 		
     read(11,*) dumC			! Output options
 
@@ -273,7 +279,7 @@ subroutine ReadParam
         HInvMake=.false.     
     endif
 
-		if (GType==2 .and. trim(AlleleFreqFile) /= 'None') print *, 'Message: The  Nejati-Javaremi approach does not utilise allele frequencies.'
+		if (GType==2 .and. trim(AlleleFreqFile) /= 'None') print *, 'The  Nejati-Javaremi approach does not utilise allele frequencies.'
 
 end subroutine ReadParam
 
@@ -348,32 +354,30 @@ subroutine ReadData
         read(101,*) IdGeno(i),Genos(i,:)
     enddo
 
-		allocate(AinG(1:nAnisP))
-		allocate(GinA(1:nAnisG))
+		! These three vectors uses the Pedigree animals as base,
+		! i.e. after reordering, the indices for the nth pedigree animal is n.
 		allocate(MapAnimal(1:(nAnisP+nAnisG)))
 		allocate(MapToG(1:(nAnisP+nAnisG)))
-		GinA = 0
-		AinG = .false.
+		allocate(AnimalsInBoth(1:nAnisP+nAnisG))
 		MapAnimal = 0
 		MapToG = .false.
+		AnimalsInBoth = .false.
 		nAnisH = nAnisP
-		!MapAnimal(1:nAnisP) = ( i, i=1, nAnisP )
+		!MapAnimal(1:nAnisP) = ( i, i=1, nAnisP ) ! Why doesn't this work??
 		do i=1,nAnisP
 			MapAnimal(i) = i
 		enddo
 		
-		
+		AnimalsInBoth = .false.
     if (PedigreePresent) then
     		!! Match Genotyped animals to pedigree animals
         do i=1,nAnisG
             GenoInPed=0
             do j=1,nAnisP
                 if (trim(IdGeno(i))==trim(Id(j))) then
-                    !RecodeIdGeno(i)=j
-                    GinA(i) = j
-                    AinG(j) = i
                     MapToG(j) = .true.
                     MapAnimal(j) = i
+                    AnimalsInBoth(j) = .true.
                     GenoInPed=1
                     exit
                 endif
@@ -494,28 +498,34 @@ subroutine MakeAMatrix
     logical :: AnimToWrite(nAnisP)
 		
     allocate(Amat(0:nAnisP,0:nAnisP))
-    allocate(Adiag(0:count(AinG /= 0)))
 
     print*, "Start making A"
     Amat=0
-    Amatavg=0
-    div=count(AinG /= 0)**2
-    k = 0
     do i=1,nAnisP
         Amat(i,i)=1+Amat(RecPed(i,2),RecPed(i,3))/2
-        if (AinG(i) /= 0) then 
-        	Amatavg=Amatavg+Amat(i,i)/div
-        	k = k + 1
-        	Adiag(k)=Amat(i,i)
-        endif
         do j=i+1,nAnisP
             Amat(i,j)=(Amat(i,RecPed(j,2))+Amat(i,RecPed(j,3)))/2
             Amat(j,i)=Amat(i,j)
-            if (AinG(i) /= 0 .and. AinG(j) /= 0) Amatavg=Amatavg+Amat(i,j)*2/div
         enddo
     enddo
-    Adiag(0) = Amatavg
     print*, "Finished making A"
+
+		! Record diagonals of animals in both A and G:
+		if (ScaleGByRegression) then
+			allocate(Adiag(0:Count(AnimalsInBoth)))
+			div = Count(AnimalsInBoth)**2
+			Amatavg = 0
+			k = 0
+			do i = 1,nAnisP
+				if (.not. AnimalsInBoth(i)) cycle
+				k = k + 1
+				Adiag(k) = Amat(i,i)
+				do j=1,nAnisP
+					if (AnimalsInBoth(j)) Amatavg=Amatavg + Amat(i,j) * 2 / div
+				enddo
+			enddo
+			Adiag(0) = Amatavg
+		endif
 
     if (AFullMat) then
     		AnimToWrite = RecPed(1:nAnisP,4) == 1
@@ -832,7 +842,7 @@ end subroutine MakeGNejatiJavaremi
 
 !#########################################################################
 
-subroutine MakeH
+subroutine MakeH  ! Both H and Hinv
 ! Feature added by Stefan Hoj-Edwards, aka The Handsome One, February 2016
 ! Making the Inverse H matrix ala Christensen 2012 requires:
 ! Scaling G to A22 (subset of A that is covered by G) by linear regression.
@@ -852,14 +862,16 @@ subroutine MakeH
 	use GlobalAGH
 	implicit none
 	
-	integer :: i,j,k,m,div,t1,t2,whichMat
-	double precision :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean
+	integer :: i,j,k,m,p,q,div,t1,t2,whichMat,nboth
+	double precision :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
 	character(len=1000) :: nChar,fmt1, fmt2,filout
-  double precision,allocatable :: Gdiag(:), Hrow(:), A22Inv(:,:), G22(:,:)
+  double precision,allocatable :: Gdiag(:), Hrow(:), A22(:,:), A22Inv(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
   character*(lengan),allocatable,dimension(:) :: Ids
-  logical,allocatable,dimension(:) :: AnimToWrite, AhasG
-  integer,allocatable :: SmallMap(:), Gmap(:)
+  logical,allocatable,dimension(:) :: AnimToWrite !, AhasG
+  integer,allocatable :: MapToA11(:), MapToA22(:) !Gmap(:), 
    
+   
+  nboth = count(AnimalsInBoth)
 	! Make H and/or Hinv
 	!allocate(Hrow(1:nAnisH))
 	allocate(Ids(1:nAnisH))
@@ -876,28 +888,60 @@ subroutine MakeH
 	enddo
 
 	! Make A22 inversion
-	allocate(AhasG(nAnisP))
-	AhasG = .false.
-	where(AinG /= 0) AhasG = .true.
-  allocate(A22Inv(1:count(AhasG),1:count(AhasG)))
-  allocate(SmallMap(1:nAnisP))
-  SmallMap = 0
-  k = 0
-  do i=1,nAnisP
-  	if (AhasG(i) .eq. .false.) cycle
-  	k = k + 1
-  	SmallMap(i) = k
-  	m = 0
-  	do j=1,nAnisP
-  		if (AhasG(j) .eq. .false.) cycle
+	!allocate(AhasG(nAnisP))
+	!AhasG = .false.
+	!where(AinG /= 0) AhasG = .true.
+  !allocate(A22Inv(1:count(AhasG),1:count(AhasG)))
+  !allocate(SmallMap(1:nAnisP))
+  !SmallMap = 0
+  !k = 0
+  !do i=1,nAnisP
+  !	if (AhasG(i) .eq. .false.) cycle
+  !	k = k + 1
+  !	SmallMap(i) = k
+  !	m = 0
+  !	do j=1,nAnisP
+  !		if (AhasG(j) .eq. .false.) cycle
+	!		m = m + 1
+	!		A22Inv(k,m) = Amat(i,j)
+	!  enddo
+	!enddo
+	allocate(A22Inv(nBoth,nBoth))
+	allocate(MapToA22(nAnisH))
+	if (HMake) allocate(A22(nBoth,nBoth))
+	
+	k = 0
+	do i=1,nAnisP
+		if (.not. AnimalsInBoth(i)) cycle
+		k = k + 1
+		MapToA22(i) = k
+		m = 0
+		do j=1,nAnisP
+			if (.not. AnimalsInBoth(j)) cycle
 			m = m + 1
 			A22Inv(k,m) = Amat(i,j)
-	  enddo
+		enddo
 	enddo
+	if (HMake) A22 = A22Inv
+	
+  call invert(A22Inv,size(A22Inv,1),.true.)  
   
-  call invert(A22Inv,size(A22Inv,1),.true.)
 
-	allocate(Hrow(1:count(AnimToWrite)))
+	! This is the G matrix in Legarra,
+	! Sadly, no genotypes where provided, instead the resulting G matrix was.
+	if (.false.) then
+		print *, 'Overwriting G matrix with example in Legarra 2008!'	
+		do i=1,nAnisG
+			do j=1,nAnisG
+				if (i==j) then
+					Gmat(i,j,1) = 1
+				else
+					Gmat(i,j,1) = 0.7
+				endif
+			enddo
+		enddo
+	endif
+
 
   
   whichMat = 0
@@ -905,71 +949,158 @@ subroutine MakeH
   	do t2=t1,nTrait
   		whichMat = whichMat + 1
   		
-			write(*, '(" Starting on H matrix, using "i0" animals found in both matrices")') count(GinA /= 0)
-		  allocate(Gdiag(0:count(GinA /= 0)))
-			Gdiag=0
-			Gmatavg=0
-			div=count(GinA /= 0)**2
-			allocate(G22(count(GinA),count(GinA)))
-			allocate(Gmap(count(GinA)))
+			write(*, '(" Starting on H matrix "i0" - "i0)') t1, t2
 			
-			k = 0
-			do i=1,nAnisH
-			if (MapToG(i) .eq. .false.) cycle
-				k = k+1
-				m = 0
-				Gdiag(k) = Gmat(MapAnimal(i),MapAnimal(i),whichMat) - DiagFudge
-				
-				do j=1,nAnisH
-					if (MapToG(i) .and. MapToG(j)) then
-					
-						m = m+1
-						if (i == j) then 
-							Gmatavg=Gmatavg + (Gmat(MapAnimal(i),MapAnimal(j),whichMat) - DiagFudge)/div
-						else
-							Gmatavg=Gmatavg + Gmat(MapAnimal(i),MapAnimal(j),whichMat)/div
-						endif
-						
-						G22(k,m) = Gmat(MapAnimal(i),MapAnimal(j),whichMat)
-					endif
+			! Collect G22
+			allocate(G22(nAnisG,nAnisG))		
+
+			G22 = 0
+			do i=1,nAnisG
+				do j=1,nAnisG
+					nom = Gmat(i,j,whichMat)
+					if (i == j) nom = nom - DiagFudge
+					G22(i,j) = nom
 				enddo
 			enddo
-			Gdiag(0) = Gmatavg
+			
+			if (ScaleGByRegression) then
+				allocate(Gdiag(0:nBoth))
+				Gdiag=0
+				Gmatavg=0
+				div=nBoth**2
+				!allocate(Gmap(nBoth))
+			
+				k = 0
+				do i=1,nAnisH
+					if (.not. AnimalsInBoth(i)) cycle
+					k = k+1
+					Gdiag(k) = G22(MapAnimal(i),MapAnimal(i))
+					do j=1,nAnisH
+						if (.not. AnimalsInBoth(j)) cycle
+						Gmatavg=Gmatavg + G22(MapAnimal(i),MapAnimal(j))/div
+					enddo
+				enddo
+				Gdiag(0) = Gmatavg	
 	
-	
-			! Now do simple linear regression
-			nom = 0
-			denom = 0
-			Gmean = sum(Gdiag) / size(Gdiag, 1)
-			Amean = sum(Adiag) / size(Adiag, 1)
-			do i=0,ubound(Adiag, 1)
-				nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
-				denom = denom + (Adiag(i) - Amean) ** 2
+				! Now do simple linear regression
+				nom = 0
+				denom = 0
+				Gmean = sum(Gdiag) / size(Gdiag, 1)
+				Amean = sum(Adiag) / size(Adiag, 1)
+				do i=0,ubound(Adiag, 1)
+					nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
+					denom = denom + (Adiag(i) - Amean) ** 2
+				enddo
+				slope = nom / denom
+				intercept = Amean - slope * Gmean
+				
+				! Scale G
+				G22 = slope * G22 + intercept
+				print *, 'Scaling of G:'
+				write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
+				deallocate(Gdiag)
+			else
+				do i=1,nAnisH
+					if (.not. MapToG(i)) cycle
+					do j=1,nAnisH
+						if (.not. MapToG(j)) cycle
+						if (AnimalsInBoth(i) .and. AnimalsInBoth(j)) then
+							G22(MapAnimal(i),MapAnimal(j)) = ScaleGToA * G22(MapAnimal(i),MapAnimal(j)) + (1 - ScaleGToA) * Amat(i,j)
+						endif
+					enddo
+				enddo
+			endif
+			
+			do i=1,nAnisG
+					G22(i,i) = G22(i,i) + DiagFudge
 			enddo
-			slope = nom / denom
-			intercept = Amean - slope * Gmean
 	
-			! Scale G
+			allocate(Hrow(1:count(AnimToWrite)))
+
+	
+			if (HMake) then
 			
 			
-			G22 = slope * G22 + intercept
-			print *, 'Scaling of G:'
-			write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
-			deallocate(Gdiag)
-	
-	
-	
-			if (HMake == 1 .and. (HFullMat == 1 .or. HIJA == 1)) then
+				allocate(A11(nAnisP-nBoth, nAnisP-nBoth))
+				allocate(A12(nAnisP-nBoth, nBoth))
+				allocate(MapToA11(nAnisP))
+				allocate(tmp(nAnisP-nBoth, nBoth))
+				allocate(Gboth(nBoth,nBoth))
+
+				MapToA11 = 0
+				k = 0
+				p = 0
+				do i=1,nAnisP
+					if (AnimalsInBoth(i)) then
+						p = p + 1
+						q = 0
+						do j=1,nAnisP
+							if (.not. AnimalsInBoth(j)) cycle
+							q = q + 1
+							Gboth(p,q) = G22(MapAnimal(i),MapAnimal(j))
+						enddo
+					else
+						k = k+1
+						m = 0
+						MapToA11(i) = k
+						do j=1,nAnisP
+							if (AnimalsInBoth(j)) then
+								A12(k,MapAnimal(j)) = Amat(i,j)
+							else
+								m = m+1
+								A11(k,m) = Amat(i,j)
+							endif
+						enddo
+					endif
+				enddo
+				
+
+				print *,'G - A22'
+				do i=1,size(Gboth,1)
+					write(*, '(4f5.2)') GBoth(i,:) - A22(i,:)
+				enddo
+
+				tmp = Matmul(A12, A22Inv)
+				!tmp = Matmul(Matmul(tmp, (Gboth - A22)), transpose(tmp))
+				tmp = Matmul(tmp, (Gboth-A22))
+				tmp = Matmul(tmp, A22Inv)
+				!tmp = Matmul(tmp, transpose(A12))
+				
+				!print *, 'tmp'
+				!do i=1,size(tmp,1)
+				!	write(*,'(13f5.2)') tmp(i,:)
+				!enddo
+				
+				A11 = A11 + Matmul(tmp, transpose(A12))
+				A12 = matmul(matmul(A12, A22Inv), Gboth)
+				
+				print *,'AInv22'
+				do i=1,size(A22,1)
+					write(*, '(4f5.2)') A22Inv(i,:)
+				enddo
+				print *,'A12'
+				do i=1,size(A12,1)
+						write(*, '(13f5.2)') A12(i,:)
+				enddo
+				print *,'G'
+				do i=1,size(Gboth, 1)
+					write (*, '(4f5.2)') GBoth(i,:)
+				enddo
+
+				deallocate(tmp)
+				deallocate(Gboth)
+			
+			
 				print *, 'Start writing H matrices (full and/or ija)'
 		
-				if (HFullMat == 1) then
+				if (HFullMat) then
 						write(filout,'("HFullMatrix"i0,"-"i0".txt")') t1,t2
 						write(nChar,*) nAnisH
 						fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
 						open(unit=202,file=trim(filout),status="unknown")
 				endif
 	
-				if (HIJA == 1) then
+				if (HIJA) then
 						write(filout,'("Hija"i0,"-"i0".txt")') t1,t2
 						fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
 						open(unit=204,file=trim(filout),status="unknown")  
@@ -982,38 +1113,49 @@ subroutine MakeH
 					do j=1,nAnisH
 						if (AnimToWrite(j) .eq. .false.) cycle
 						k = k + 1			  
-						if (MapToG(i) .and. MapToG(j)) then
-							Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),WhichMat)
-						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
-							Hrow(k) = Amat(i,j)
+						if (MapToG(i)) then
+							if (MapToG(j)) then
+								Hii = G22(MapAnimal(i),MapAnimal(j))
+							else
+								Hii = A12(MapToA11(j),MapAnimal(i)) ! Remember to transpose
+							endif
+						else
+							if (MapToG(j)) then
+								Hii = A12(MapToA11(i),MapAnimal(j))
+							else
+								Hii = A11(MapToA11(i),MapToA11(j))
+							endif
 						endif
-						if (IHIJA == 1 .and. i .le. j) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+						if (IHIJA .and. i .le. j .and. Hii /= 0) write(204,fmt2) Ids(i), Ids(j), Hii
+						Hrow(k) = Hii
 					enddo
-					if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
+					if (HFullMat) write(202,fmt1) Ids(i),Hrow(:)
 				enddo 
 		
 	
-				if (HFullMat == 1) close(202)
-				if (HIJA == 1) close(204)  
+				if (HFullMat) close(202)
+				if (HIJA) close(204)  
+		
 		
 				print *, 'End writing H matrices'
+				
 			endif
 	
-			if (HInvMake == 1) then 
+			if (HInvMake) then 
 				print *, 'Start inverting scaled G matrix'
 				call invert(Gmat(:,:,1),size(Gmat, 1),.true.)
 				print *, 'End inverting scaled G matrix'
 
 				print *, 'Start writing inverted H matrices (full and/or ija)'
 
-				if (IHFullMat == 1) then
+				if (IHFullMat) then
 						write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
 						write(nChar,*) nAnisH
 						fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
 						open(unit=202,file=trim(filout),status="unknown")
 				endif
 	
-				if (IHIJA == 1) then
+				if (IHIJA) then
 						write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
 						fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
 						open(unit=204,file=trim(filout),status="unknown")  
@@ -1024,30 +1166,30 @@ subroutine MakeH
 					Hrow = 0
 					k = 0
 					do j=1,nAnisH
-						if (AnimToWrite(j) .eq. .false.) cycle
+						if ((j) .eq. .false.) cycle
 						k = k + 1				
 						if (MapToG(i) .and. MapToG(j)) then
 							Hrow(k) = Gmat(MapAnimal(i),MapAnimal(j),WhichMat)
-							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) - A22Inv(SmallMap(i),SmallMap(j))
+							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) - A22Inv(MapToA22(i),MapToA22(j))
 						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
 							Hrow(k) = InvAmat(i,j)
 						endif
-						if (IHIJA == 1 .and. i .le. j .and. Hrow(k) /= 0) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+						if (IHIJA .and. i .le. j .and. Hrow(k) /= 0) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
 					enddo
-					if (IHFullMat == 1) write(202,fmt1) Ids(i),Hrow(:)
+					if (IHFullMat) write(202,fmt1) Ids(i),Hrow(:)
 				enddo 
 	
-				if (IHFullMat == 1) close(202)
-				if (IHIJA == 1) close(204)
+				if (IHFullMat) close(202)
+				if (IHIJA) close(204)
 				print *, 'End writing inverted H matrices (full and ija)'
  
 			endif
 			
+			deallocate(Hrow)
 			deallocate(G22)
 		enddo
 	enddo
   
-  deallocate(Hrow)
   deallocate(Ids)
   
 end subroutine MakeH
