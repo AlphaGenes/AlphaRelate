@@ -45,8 +45,6 @@ else
 	OSFLAG := "OS_UNIX"
 	# TODO: can we make this generic?
 	MKLROOT := /opt/intel/mkl
-	MKLROOT := /opt/intel/composer_xe_2013_sp1.4.201/mkl
-	MKLROOT := /opt/intel/composer_xe_2015.3.187/mkl
 	# On Eddie
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
