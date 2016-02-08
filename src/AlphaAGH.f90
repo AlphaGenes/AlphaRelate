@@ -982,7 +982,7 @@ subroutine MakeH  ! Both H and Hinv
 					G22(i,i) = G22(i,i) + DiagFudge
 				enddo
 				print *, 'Scaling of G:'
-				write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
+				write(*, '(a,f7.4,a,f7.4)'), " G* = G x ", slope, " + ", intercept
 				deallocate(Gdiag)
 			else
 				do i=1,nAnisH
