@@ -978,9 +978,9 @@ subroutine MakeH  ! Both H and Hinv
 				
 				! Scale G
 				G22 = slope * G22 + intercept
-				do i=1,nAnisG
-					G22(i,i) = G22(i,i) + DiagFudge
-				enddo
+				!do i=1,nAnisG
+				!	G22(i,i) = G22(i,i) + DiagFudge
+				!enddo
 				print *, 'Scaling of G:'
 				write(*, '(a,f7.4,a,f7.4)'), " G* = G x ", slope, " + ", intercept
 				deallocate(Gdiag)
@@ -1107,23 +1107,23 @@ subroutine MakeH  ! Both H and Hinv
 				print *, 'Start inverting scaled G matrix'
 				call invert(G22, size(G22, 1), .true., 1)
 
-				print *, 'Gw inverted'				
-				write(fmt2, '(i0)') size(G22,1)
-				fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
-				do i=1,size(G22,1)
-					write(*,fmt1) IdGeno(i), G22(i,:)
-				enddo
+				!print *, 'Gw inverted'				
+				!write(fmt2, '(i0)') size(G22,1)
+				!fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
+				!do i=1,size(G22,1)
+				!	write(*,fmt1) IdGeno(i), G22(i,:)
+				!enddo
 				
-				print *, 'A22 inverted'
-				do i=1,size(G22,1)
-					write(*,fmt1) IdGeno(i), A22Inv(i,:)
-				enddo
+				!print *, 'A22 inverted'
+				!do i=1,size(G22,1)
+				!	write(*,fmt1) IdGeno(i), A22Inv(i,:)
+				!enddo
 				
-				print *, 'Ainv(22)'
-				do i=1,size(G22,1)
-					j = i+10
-					write(*,fmt1) Ids(j), InvAmat(j,11:25)
-				enddo
+				!print *, 'Ainv(22)'
+				!do i=1,size(G22,1)
+				!	j = i+10
+				!	write(*,fmt1) Ids(j), InvAmat(j,11:25)
+				!enddo
 								
 				
 				print *, 'End inverting scaled G matrix'
@@ -1139,7 +1139,7 @@ subroutine MakeH  ! Both H and Hinv
 	
 				if (IHIJA) then
 						write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
-						fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
+						fmt2="(a,' ',a,' ',"//trim(adjustl(OutputFormat))//")"
 						open(unit=204,file=trim(filout),status="unknown")  
 				endif
 	
@@ -1153,13 +1153,10 @@ subroutine MakeH  ! Both H and Hinv
 						if (MapToG(i) .and. MapToG(j)) then
 							Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
 							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) + InvAmat(i,j) - A22Inv(MapToA22(i),MapToA22(j))
-							if (i .eq. j) then
-								write(*, '(a5,i3,5f8.4)') Ids(i), k,G22(MapAnimal(i), MapAnimal(j)), InvAmat(i,j), A22Inv(MapToA22(i), MapToA22(j)), Hrow(k)
-							endif
 						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
 							Hrow(k) = InvAmat(i,j)
 						endif
-						if (IHIJA .and. i .le. j .and. Hrow(k) /= 0) write(204,fmt2) Ids(i), Ids(j), Hrow(k) 
+						if (IHIJA .and. i .le. j .and. Hrow(k) /= 0) write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k) 
 					enddo
 					if (IHFullMat) write(202,fmt1) Ids(i),Hrow(:)
 				enddo 
