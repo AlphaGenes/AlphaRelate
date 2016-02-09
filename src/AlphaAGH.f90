@@ -982,7 +982,7 @@ subroutine MakeH  ! Both H and Hinv
 					G22(i,i) = G22(i,i) + DiagFudge
 				enddo
 				print *, 'Scaling of G:'
-				write(*, '(a,f7.4,a,f6.4)'), " G* = G x ", slope, " + ", intercept
+				write(*, '(a,f7.4,a,f7.4)'), " G* = G x ", slope, " + ", intercept
 				deallocate(Gdiag)
 			else
 				do i=1,nAnisH
@@ -1106,6 +1106,26 @@ subroutine MakeH  ! Both H and Hinv
 			if (HInvMake) then 
 				print *, 'Start inverting scaled G matrix'
 				call invert(G22, size(G22, 1), .true., 1)
+
+				print *, 'Gw inverted'				
+				write(fmt2, '(i0)') size(G22,1)
+				fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
+				do i=1,size(G22,1)
+					write(*,fmt1) IdGeno(i), G22(i,:)
+				enddo
+				
+				print *, 'A22 inverted'
+				do i=1,size(G22,1)
+					write(*,fmt1) IdGeno(i), A22Inv(i,:)
+				enddo
+				
+				print *, 'Ainv(22)'
+				do i=1,size(G22,1)
+					j = i+10
+					write(*,fmt1) Ids(j), InvAmat(j,11:25)
+				enddo
+								
+				
 				print *, 'End inverting scaled G matrix'
 
 				print *, 'Start writing inverted H matrices (full and/or ija)'
@@ -1128,11 +1148,14 @@ subroutine MakeH  ! Both H and Hinv
 					Hrow = 0
 					k = 0
 					do j=1,nAnisH
-						if ((j) .eq. .false.) cycle
+						if (AnimToWrite(j) .eq. .false.) cycle
 						k = k + 1				
 						if (MapToG(i) .and. MapToG(j)) then
 							Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
-							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) - A22Inv(MapToA22(i),MapToA22(j))
+							if (i <= nAnisP .and. j <= nAnisP) Hrow(k) = Hrow(k) + InvAmat(i,j) - A22Inv(MapToA22(i),MapToA22(j))
+							if (i .eq. j) then
+								write(*, '(a5,i3,5f8.4)') Ids(i), k,G22(MapAnimal(i), MapAnimal(j)), InvAmat(i,j), A22Inv(MapToA22(i), MapToA22(j)), Hrow(k)
+							endif
 						elseif (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.	) then
 							Hrow(k) = InvAmat(i,j)
 						endif
