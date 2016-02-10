@@ -89,7 +89,7 @@ program AlphaG
         call MakeInvAMatrix
     endif
 
-    if (GMake) then
+    if (GMake .or. GInvMake) then
         if (GType==1) then
             call MakeGVanRaden
         endif
@@ -272,7 +272,7 @@ subroutine ReadParam
     endif
 
     if (trim(PedigreeFile)=='None') then
-    		if (AMake .or. AInvMake .or. HMake .or. HInvMake) print *, 'In order to create A or H matrices, a genotype file must be given.'
+    		if (AMake .or. AInvMake .or. HMake .or. HInvMake) print *, 'In order to create A or H matrices, a pedigree must be given.'
         AMake=.false.
         AInvMake=.false.
         HMake=.false.
