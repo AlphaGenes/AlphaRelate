@@ -6,8 +6,8 @@ AlleleFreqFile       ,None
 NumberOfTraits       ,1
 NumberOfSnp	     ,7
 DiagonalFudgeFactor  ,0.1
-TypeG                ,Nejati-Javaremi VanRaden
-ScaleGtoA            ,Regression
+TypeG                ,VanRaden Nejati-Javaremi VanRaden
+ScaleGtoA            ,0.99
 ############################# Output options #############################
 OutputPrecision    ,20,8
 GFullMat           ,Yes
