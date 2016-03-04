@@ -10,7 +10,7 @@ FFLAGS:=-O3 -DVERS=""commit-$(VERSION)""
 
 # Hello friends,
 # If compiling with MKL fails -- or succeeds and running the binary fails --
-# try running 
+# try running
 # source /opt/intel/composer_xe_2015.3.187/mkl/bin/mklvars.sh intel64
 # with the path replace as necessary...
 
@@ -26,15 +26,13 @@ ifeq ($(OS), Windows_NT)
 	MKLROOT := #???
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
-	FFLAGS := $(FFLAGS) /static /i8 /fpp  /Qmkl /D $(OSFLAG) $(MKLLIB) $(MKLINC)
-	ABOPT := -static  -Qmkl # not used!
+	## see also https://software.intel.com/en-us/compiler_winapp_f (2014-12-03)
+	FFLAGS := $(FFLAGS) /static /fpp /Qmkl /D $(OSFLAG) $(MKLLIB) $(MKLINC)
 	obj := .obj
-
 	MAKEDIR :=
 	exe := .exe
 	CC := cl
 	CFLAGS := /EHsc
-
 	DEL := del
 else
 	# Linux or Mac OSX
@@ -49,9 +47,8 @@ else
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
-	ABOPT := -mkl -static-intel -openmp-link=static # not used!
 	exe :=
-	FFLAGS:= $(FFLAGS) -mkl -i8 -static-intel -fpp -openmp-link=static  -module $(BUILDDIR) -D $(OSFLAG) $(MKLLIB) $(MKLINC)
+	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) $(MKLLIB) $(MKLINC)
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
@@ -65,18 +62,18 @@ endif
 all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)AlphaAGH$(exe)
 
 directories:
-	$(MAKEDIR)  $(TARGETDIR)
-	$(MAKEDIR)  $(BUILDDIR)
+	$(MAKEDIR) $(TARGETDIR)
+	$(MAKEDIR) $(BUILDDIR)
 
 # Compilation options for debugging
 # With warnings about not used variables
-debuglong: FFLAGS:= -i8 -traceback -g -debug all -fpp -ftrapuv -module $(BUILDDIR) -fpe0 -warn -check all -D $(OSFLAG)
+debuglong: FFLAGS := $(FFLAGS) -i8 -traceback -g -debug all -fpp -ftrapuv -fpe0 -warn -check all
 
 debuglong: all
 
 # With memory checks
-debug: FFLAGS:= $(FFLAGS) -i8 -traceback -g -D VERS=""commit-$(VERSION)"" -D $(OSFLAG) -debug all -warn -check bounds -check format \
-		-check output_conversion -check pointers -check uninit -fpp -module $(BUILDDIR)
+debug: FFLAGS := $(FFLAGS) -i8 -traceback -g -debug all -warn -check bounds -check format \
+		-check output_conversion -check pointers -check uninit -fpp
 
 debug: all
 
