@@ -316,7 +316,7 @@ module AlphaAHGModule
         do i=1,nAnisRawPedigree
           read(102,*) ped(i,1:nCols)
         end do
-        call PVseq(nAnisRawPedigree,nAnisP)
+        call PVseq(nAnisRawPedigree,nAnisP,0)
 
         allocate(RecPed(0:nAnisP,4))
 
@@ -387,7 +387,7 @@ module AlphaAHGModule
 
       integer(int32) :: i,m,n,s,FId,MId
 
-      real(real64) :: Inbreeding(0:nAnisP),Dii(nAnisP)
+      real(real64) :: Inbreeding(0:nAnisP),Dii(nAnisP),InvDii
 
       character(len=1000) :: nChar,fmt
 
@@ -403,13 +403,13 @@ module AlphaAHGModule
         write(202,'(a20,20000f10.5)') Id(i),Inbreeding(i)
       end do
       close(202)
-      print*, "Start making A inverse"
 
+      print*, "Start making A inverse"
       InvAmat=0.0d0
       do i=1,nAnisP
         FId=RecPed(i,2)
         FIdL=FId/=0
-        MId=RecPed(i,2)
+        MId=RecPed(i,3)
         MIdL=MId/=0
         ! Variance of founder effects and Mendelian sampling terms
         Dii(i)=1.0d0
@@ -420,22 +420,23 @@ module AlphaAHGModule
           Dii(i)=Dii(i)-0.25d0*(1.0d0+Inbreeding(MId))
         end if
         ! Precision for the individual
-        InvAmat(i,i)=1.0d0/Dii(i)
+        InvDii=1.0d0/Dii(i)
+        InvAmat(i,i)=InvDii
         ! Add precision to the father and set the co-precision
         if (FIdL) then
-          InvAmat(FId,FId)=InvAmat(FId,FId)+(1.0d0/Dii(i))/4.0d0
-          InvAmat(i,FId)=InvAmat(i,FId)+(-1.0d0/Dii(i))/2.0d0
+          InvAmat(FId,FId)=InvAmat(FId,FId)+InvDii/4.0d0
+          InvAmat(i,FId)=InvAmat(i,FId)-InvDii/2.0d0
           InvAmat(FId,i)=InvAmat(i,FId)
         end if
         ! Add precision to the mother and set the co-precision
         if (MIdL) then
-          InvAmat(MId,MId)=InvAmat(MId,MId)+(1.0d0/Dii(i))/4.0d0
-          InvAmat(i,MId)=InvAmat(i,MId)+(-1.0d0/Dii(i))/2.0d0
+          InvAmat(MId,MId)=InvAmat(MId,MId)+InvDii/4.0d0
+          InvAmat(i,MId)=InvAmat(i,MId)-InvDii/2.0d0
           InvAmat(MId,i)=InvAmat(i,MId)
         end if
         ! Add co-precision between the father and mother
         if (FIdL .and. MIdL) then
-          InvAmat(FId,MId)=InvAmat(FId,MId)+(1.0d0/Dii(i))/4.0d0
+          InvAmat(FId,MId)=InvAmat(FId,MId)+InvDii/4.0d0
           InvAmat(MId,FId)=InvAmat(FId,MId)
         end if
       end do
@@ -463,7 +464,7 @@ module AlphaAHGModule
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
           do n=1,m
-            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. InvAmat(m,n) /= 0) then
+            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. InvAmat(m,n) > 0.0d0) then
               write(202,fmt) Id(m),Id(n),InvAmat(m,n)
             end if
           end do
@@ -543,7 +544,9 @@ module AlphaAHGModule
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
           do n=1,m
-            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. Amat(m,n) /= 0)  write(202,fmt) Id(m),Id(n),Amat(m,n)
+            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. Amat(m,n) > 0.0d0)  then
+              write(202,fmt) Id(m),Id(n),Amat(m,n)
+            end if
           end do
         end do
         close(202)
@@ -1086,7 +1089,7 @@ module AlphaAHGModule
                     Hii = A11(MapToA11(i),MapToA11(j))
                   end if
                 end if
-                if (IHIJA .and. i .le. j .and. Hii /= 0) then
+                if (IHIJA .and. i .le. j .and. Hii > 0.0d0) then
                   write(204,fmt2) Ids(i), Ids(j), Hii
                 end if
                 Hrow(k) = Hii
@@ -1165,7 +1168,7 @@ module AlphaAHGModule
                 else if (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.  ) then
                   Hrow(k) = InvAmat(i,j)
                 end if
-                if (IHIJA .and. i .le. j .and. Hrow(k) /= 0) then
+                if (IHIJA .and. i .le. j .and. Hrow(k) > 0.0d0) then
                   write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k)
                 end if
               end do
@@ -1308,7 +1311,7 @@ module AlphaAHGModule
 
   !#############################################################################
 
-    subroutine PVseq(nObs,nAnisPedigree)
+    subroutine PVseq(nObs,nAnisPedigree,mode)
       implicit none
 
       integer(int32) :: mode    ! mode=1 to generate dummy ids where one parent known.  Geneprob->1  Matesel->0
@@ -1324,8 +1327,6 @@ module AlphaAHGModule
       character(len=LENGAN) :: path
       character(len=LENGAN),allocatable :: holdsireid(:), holddamid(:)
       character(len=LENGAN),allocatable :: holdid(:), SortedId(:), SortedSire(:), SortedDam(:)
-
-      mode=1
 
       allocate(id(0:nobs),sire(nobs),dam(nobs),dooutput(nobs),seqid(nobs),seqsire(nobs),seqdam(nobs),seqoutput(nobs))
 
@@ -1668,7 +1669,9 @@ module AlphaAHGModule
           end if
       end do !j
 
-      If (nbisexuals > 0)  PRINT*, nbisexuals,' bisexual parent(s) found. See file bisex.txt.  <------------ WARNING !!!'
+      If (nbisexuals > 0)  then
+        PRINT*, nbisexuals,' bisexual parent(s) found. See file bisex.txt.  <------------ WARNING !!!'
+      end if
 
       allocate(holddamid(newdams))
 
