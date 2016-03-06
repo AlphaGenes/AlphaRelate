@@ -286,9 +286,9 @@ module AlphaAHGModule
         allocate(RecPed(0:nAnisG,4))
         nAnisP=nAnisG
         RecPed(:,:)=0
+        RecPed(:,4)=1
         do i=1,nAnisP
           RecPed(i,1)=i
-          RecPed(i,4)=1
         end do
       else
         !!! Attempt to magically detect whether there are three or four columns:
@@ -451,7 +451,7 @@ module AlphaAHGModule
         open(unit=202,file="InvAFullMatrix.txt",status="unknown")
         do m=1,nAnisP
           if (AnimToWrite(m)) then
-            write(202,fmt) Id(m), pack(InvAmat(m,1:nAnisP), AnimToWrite)
+            write(202,fmt) Id(m), pack(InvAmat(1:nAnisP,m), AnimToWrite)
           end if
         end do
         close(202)
@@ -463,9 +463,9 @@ module AlphaAHGModule
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
-          do n=1,m
-            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. InvAmat(m,n) > 0.0d0) then
-              write(202,fmt) Id(m),Id(n),InvAmat(m,n)
+          do n=m,nAnisP
+            if (InvAmat(n,m) /= 0.0d0) then
+              write(202,fmt) Id(n),Id(m),InvAmat(n,m)
             end if
           end do
         end do
@@ -494,8 +494,8 @@ module AlphaAHGModule
       do i=1,nAnisP
           Amat(i,i)=1.0d0+Amat(RecPed(i,2),RecPed(i,3))/2.0d0
           do j=i+1,nAnisP
-              Amat(i,j)=(Amat(i,RecPed(j,2))+Amat(i,RecPed(j,3)))/2.0d0
-              Amat(j,i)=Amat(i,j)
+              Amat(j,i)=(Amat(i,RecPed(j,2))+Amat(i,RecPed(j,3)))/2.0d0
+              Amat(i,j)=Amat(j,i)
           end do
       end do
       print*, "Finished making A"
@@ -515,7 +515,7 @@ module AlphaAHGModule
           Adiag(k) = Amat(i,i)
           do j=1,nAnisP
             if (AnimalsInBoth(j)) then
-              AmatAvg=AmatAvg + Amat(i,j) * 2.0d0 / div
+              AmatAvg=AmatAvg + Amat(j,i) * 2.0d0 / div
             end if
           end do
         end do
@@ -531,7 +531,7 @@ module AlphaAHGModule
         open(unit=202,file="AFullMatrix.txt",status="unknown")
         do m=1,nAnisP
           if (AnimToWrite(m)) then
-            write(202,fmt) Id(m), pack(Amat(m,1:nAnisP), AnimToWrite)
+            write(202,fmt) Id(m), pack(Amat(1:nAnisP,m), AnimToWrite)
           end if
         end do
         close(202)
@@ -543,9 +543,9 @@ module AlphaAHGModule
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
-          do n=1,m
-            if (RecPed(m,4) == 1 .and. RecPed(n,4) == 1 .and. Amat(m,n) > 0.0d0)  then
-              write(202,fmt) Id(m),Id(n),Amat(m,n)
+          do n=m,nAnisP
+            if (Amat(n,m) > 0.0d0)  then
+              write(202,fmt) Id(n),Id(m),Amat(n,m)
             end if
           end do
         end do
@@ -614,6 +614,7 @@ module AlphaAHGModule
       end do
 
       !Standardise weights
+      ! TODO: optimise use of indices to get good performance
       do i=1,nTrait
         do j=1,nTrait
           if (i==j) then
@@ -634,8 +635,8 @@ module AlphaAHGModule
       end do
 
       !Make Z
-      do i=1,nAnisG
-        do j=1,nSnp
+      do j=1,nSnp
+        do i=1,nAnisG
           if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
             Zmat(i,j)=(Genos(i,j)-1.0d0)-(Pmat(j))
           else
@@ -646,8 +647,8 @@ module AlphaAHGModule
 
       !Make G matrices
       WhichMat=0
-      do i=1,nTrait
-        do j=i,nTrait
+      do j=1,nTrait
+        do i=j,nTrait
           WhichMat=WhichMat+1
 
           !Get Denom
@@ -661,17 +662,11 @@ module AlphaAHGModule
 
           !Make ZH
           do k=1,nSnp
-            Zmat(:,k)= Zmat(:,k)*WeightStand(k,i,j)
+            Zmat(:,k)=Zmat(:,k)*WeightStand(k,i,j)
           end do
 
           GMat(:,:,WhichMat)=matmul(Zmat,tpose)
-
-          do l=1,nAnisG
-            do m=1,l
-              GMat(l,m,WhichMat)=GMat(l,m,WhichMat)/Denom
-              GMat(m,l,WhichMat)=GMat(l,m,WhichMat)
-            end do
-          end do
+          GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/Denom
           do l=1,nAnisG
             GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
           end do
@@ -682,7 +677,7 @@ module AlphaAHGModule
             fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
             open(unit=202,file=trim(filout),status="unknown")
             do m=1,nAnisG
-              write(202,fmt) IdGeno(m),GMat(m,:,WhichMat)
+              write(202,fmt) IdGeno(m),GMat(:,m,WhichMat)
             end do
             close(202)
           end if
@@ -692,8 +687,9 @@ module AlphaAHGModule
             write(filout,'("Gija"i0,"-"i0".txt")')i,j
             open(unit=202,file=trim(filout),status="unknown")
             do m=1,nAnisG
-              do n=1,m
-                write(202,fmt) IdGeno(m),IdGeno(n),GMat(m,n,WhichMat)
+              do n=m,nAnisG
+                ! No test for non-zero here as all elements are non-zero
+                write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,WhichMat)
               end do
             end do
             close(202)
@@ -714,7 +710,7 @@ module AlphaAHGModule
               write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
               open(unit=202,file=trim(filout),status="unknown")
               do m=1,nAnisG
-                write(202,fmt) IdGeno(m),InvGMat(m,:,WhichMat)
+                write(202,fmt) IdGeno(m),InvGMat(:,m,WhichMat)
               end do
               close(202)
             end if
@@ -724,8 +720,8 @@ module AlphaAHGModule
               fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
               open(unit=202,file=trim(filout),status="unknown")
               do m=1,nAnisG
-                do n=1,m
-                  write(202,fmt) IdGeno(m),IdGeno(n),InvGMat(m,n,WhichMat)
+                do n=m,nAnisG
+                  write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,WhichMat)
                 end do
               end do
               close(202)
@@ -753,9 +749,9 @@ module AlphaAHGModule
       print*, "Start making G - Nejati-Javaremi"
 
       !Make Z
-      do i=1,nAnisG
-        do j=1,nSnp
-          if ((Genos(i,j)>=0).and.(Genos(i,j)<=2)) then
+      do j=1,nSnp
+        do i=1,nAnisG
+          if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
             Zmat(i,j)=Genos(i,j)-1.0d0
           else
             Zmat(i,j)=0.d00
@@ -766,11 +762,8 @@ module AlphaAHGModule
       !Make G matrices
       tpose=transpose(Zmat)
       GMat(:,:,1)=matmul(Zmat,tpose)
+      GMat(:,:,1)=GMat(:,:,1)/dble(nSnp) + 1.0d0
       do l=1,nAnisG
-        do m=1,l
-          GMat(l,m,1)=GMat(l,m,1)/dble(nSnp) + 1.0d0
-          GMat(m,l,1)=GMat(l,m,1)
-        end do
         Gmat(l,l,1)=Gmat(l,l,1)+DiagFudge
       end do
 
@@ -779,7 +772,7 @@ module AlphaAHGModule
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="GFullMatrix1-1.txt",status="unknown")
         do m=1,nAnisG
-          write(202,fmt) IdGeno(m),GMat(m,:,1)
+          write(202,fmt) IdGeno(m),GMat(:,m,1)
         end do
         close(202)
       end if
@@ -788,8 +781,8 @@ module AlphaAHGModule
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="Gija1-1.txt",status="unknown")
         do m=1,nAnisG
-          do n=1,m
-            write(202,fmt) IdGeno(m),IdGeno(n),GMat(m,n,1)
+          do n=m,nAnisG
+            write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,1)
           end do
         end do
         close(202)
@@ -808,7 +801,7 @@ module AlphaAHGModule
           fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
           open(unit=202,file="InvGFullMatrix1-1.txt",status="unknown")
           do m=1,nAnisG
-            write(202,fmt) IdGeno(m),InvGMat(m,:,1)
+            write(202,fmt) IdGeno(m),InvGMat(:,m,1)
           end do
           close(202)
         end if
@@ -817,8 +810,8 @@ module AlphaAHGModule
           fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
           open(unit=202,file="InvGija1-1.txt",status="unknown")
           do m=1,nAnisG
-            do n=1,m
-              write(202,fmt) IdGeno(m),IdGeno(n),InvGMat(m,n,1)
+            do n=m,nAnisG
+              write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,1)
             end do
           end do
           close(202)
@@ -855,7 +848,7 @@ module AlphaAHGModule
       character(len=1000) :: nChar,fmt1, fmt2,filout
       character(len=LENGAN),allocatable :: Ids(:)
 
-      logical,allocatable :: AnimToWrite(:) !, AhasG
+      logical,allocatable :: AnimToWrite(:)
 
       nboth = count(AnimalsInBoth)
       ! Make H and/or Hinv
@@ -1089,7 +1082,7 @@ module AlphaAHGModule
                     Hii = A11(MapToA11(i),MapToA11(j))
                   end if
                 end if
-                if (IHIJA .and. i .le. j .and. Hii > 0.0d0) then
+                if (IHIJA .and. i .le. j .and. Hii /= 0.0d0) then
                   write(204,fmt2) Ids(i), Ids(j), Hii
                 end if
                 Hrow(k) = Hii
@@ -1168,7 +1161,7 @@ module AlphaAHGModule
                 else if (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.  ) then
                   Hrow(k) = InvAmat(i,j)
                 end if
-                if (IHIJA .and. i .le. j .and. Hrow(k) > 0.0d0) then
+                if (IHIJA .and. i .le. j .and. Hrow(k) /= 0.0d0) then
                   write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k)
                 end if
               end do
