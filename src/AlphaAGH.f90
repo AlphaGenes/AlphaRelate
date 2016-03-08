@@ -884,7 +884,7 @@ module AlphaAHGModule
             cycle
           end if
           m = m + 1
-          A22Inv(k,m) = Amat(i,j)
+          A22Inv(m,k) = Amat(j,i)
         end do
       end do
       if (HMake) then
@@ -919,8 +919,8 @@ module AlphaAHGModule
           allocate(G22(nAnisG,nAnisG))
 
           G22 = 0.0d0
-          do i=1,nAnisG
-            do j=1,nAnisG
+          do j=1,nAnisG
+            do i=1,nAnisG
               nom = Gmat(i,j,whichMat)
               if (i == j) then
                 nom = nom - DiagFudge
@@ -947,7 +947,7 @@ module AlphaAHGModule
                 if (.not. AnimalsInBoth(j)) then
                   cycle
                 end if
-                Gmatavg=Gmatavg + G22(MapAnimal(i),MapAnimal(j))/div
+                Gmatavg=Gmatavg + G22(MapAnimal(j),MapAnimal(i))/div
               end do
             end do
             Gdiag(0) = Gmatavg
@@ -982,7 +982,7 @@ module AlphaAHGModule
                   cycle
                 end if
                 if (AnimalsInBoth(i) .and. AnimalsInBoth(j)) then
-                  G22(MapAnimal(i),MapAnimal(j)) = ScaleGToA * G22(MapAnimal(i),MapAnimal(j)) + (1.0d0 - ScaleGToA) * Amat(i,j)
+                  G22(MapAnimal(j),MapAnimal(i)) = ScaleGToA * G22(MapAnimal(j),MapAnimal(i)) + (1.0d0 - ScaleGToA) * Amat(j,i)
                 end if
               end do
             end do
@@ -1014,7 +1014,7 @@ module AlphaAHGModule
                     cycle
                   end if
                   q = q + 1
-                  Gboth(p,q) = G22(MapAnimal(i),MapAnimal(j))
+                  Gboth(q,p) = G22(MapAnimal(j),MapAnimal(i))
                 end do
               else
                 k = k+1
@@ -1022,10 +1022,10 @@ module AlphaAHGModule
                 MapToA11(i) = k
                 do j=1,nAnisP
                   if (AnimalsInBoth(j)) then
-                    A12(k,MapAnimal(j)) = Amat(i,j)
+                    A12(k,MapAnimal(j)) = Amat(j,i)  !A12 is not symmetrical
                   else
                     m = m+1
-                    A11(k,m) = Amat(i,j)
+                    A11(m,k) = Amat(j,i)
                   end if
                 end do
               end if
