@@ -3,18 +3,13 @@ NAME:=AlphaAGH
 VERSION:= $(shell git rev-parse --short HEAD)
 SUBVERSION:=0
 PROGRAM:=$(NAME)$(VERSION).$(SUBVERSION)
+ALPHAHOUSEDIR:=../AlphaHouse/
 
 # Set the default compiler to iFort
 FC:=ifort
 FFLAGS:=-O3 -DVERS=""commit-$(VERSION)""
 
-# Hello friends,
-# If compiling with MKL fails -- or succeeds and running the binary fails --
-# try running
-# source /opt/intel/composer_xe_2015.3.187/mkl/bin/mklvars.sh intel64
-# with the path replace as necessary...
-
-#  If -D WEB is specified, stops will be put into AlphaAGH.
+# If -D WEB is specified, stops will be put into the binary
 
 # MS Windows
 ifeq ($(OS), Windows_NT)
@@ -24,10 +19,10 @@ ifeq ($(OS), Windows_NT)
 	OSFLAG := "OS_WIN"
 	# TODO: What is the MKL path on Windoze?
 	MKLROOT := #???
-	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	## see also https://software.intel.com/en-us/compiler_winapp_f (2014-12-03)
-	FFLAGS := $(FFLAGS) /static /fpp /Qmkl /D $(OSFLAG) $(MKLLIB) $(MKLINC)
+	FFLAGS := $(FFLAGS) /fpp /Qmkl /Qopenmp /static /Qopenmp-link:static /Qlocation,link,"${VCINSTALLDIR}/bin" /D $(OSFLAG) $(MKLINC) $(MKLLIB)
 	obj := .obj
 	MAKEDIR :=
 	exe := .exe
@@ -41,14 +36,16 @@ else
 	TARGETDIR   := bin/
 	obj := .o
 	OSFLAG := "OS_UNIX"
-	# TODO: can we make this generic?
+	# On Mac
 	MKLROOT := /opt/intel/mkl
-	# On Eddie
+	# On Eddie2
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
-	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	# On Eddie3
+	# MKLROOT := /exports/applications/apps/SL7/intel/parallel_studio_xe_2016/mkl
+	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	exe :=
-	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) $(MKLLIB) $(MKLINC)
+	FFLAGS := $(FFLAGS) -fpp -mkl -openmp -static-intel -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) $(MKLINC) $(MKLLIB)
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
@@ -58,8 +55,11 @@ else
 	endif
 endif
 
+# Required modules
+MODS := $(ALPHAHOUSEDIR)AlphaHouseMod.f90
+
 # Compile everything
-all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)AlphaAGH$(exe)
+all: directories $(TARGETDIR)$(NAME)$(exe)
 
 directories:
 	$(MAKEDIR) $(TARGETDIR)
@@ -86,10 +86,10 @@ binary: FFLAGS := $(FFLAGS) -D "BINARY"
 
 binary: all
 
-# Compile AlphaAGH
-$(TARGETDIR)AlphaAGH$(exe): $(SRCDIR)AlphaAGH.f90
-	@echo "Compiling AlphaAGH..."
-	$(FC) $(SRCDIR)AlphaAGH.f90 $(FFLAGS) -o $(TARGETDIR)AlphaAGH$(exe)
+# Compile
+$(TARGETDIR)$(NAME)$(exe): Makefile $(MODS) $(SRCDIR)$(NAME).f90
+	@echo "Compiling $(NAME)..."
+	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(FFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 	@echo
 
 # Cleaning
@@ -97,7 +97,7 @@ sparklinglyclean: veryclean
 	$(DEL) TARGETDIR
 
 veryclean: clean
-	$(DEL) $(TARGETDIR)AlphaAGH$(exe)
+	$(DEL) $(TARGETDIR)$(NAME)$(exe)
 
 clean:
 	$(DEL) $(BUILDDIR) *$(obj) *.mod *.dwarf *.i90 *__genmod* *~
