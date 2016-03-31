@@ -30,16 +30,16 @@
 module AlphaAHGModule
 
   use ISO_Fortran_env
+  use AlphaHouseMod, only : CountLines
 
   INTEGER(int32),PARAMETER :: LENGAN=20
 
   integer(int32) :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
-  integer(int32) :: nGMats
-  integer(int32) :: GlobalExtraAnimals
-  integer(int32) :: GType
+  integer(int32) :: nGMats, GlobalExtraAnimals, GType, OldAmatNInd
   integer(int32) :: NRMmem, shell, shellmax, shellWarning
   integer(int32),allocatable :: MapAnimal(:),seqid(:),seqsire(:),seqdam(:),seqoutput(:)
   integer(int32),allocatable :: RecodeGenotypeId(:),passedorder(:),RecPed(:,:),dooutput(:)
+  integer(int32),allocatable :: OldAmatId(:)
 
   real(real64) :: DiagFudge,ScaleGToA
   real(real64),allocatable :: AlleleFreq(:),Pmat(:),Adiag(:)
@@ -47,10 +47,10 @@ module AlphaAHGModule
   real(real64),allocatable :: WeightStand(:,:,:),Gmat(:,:,:),InvGmat(:,:,:)
 
   character(len=20) :: OutputFormat
-  character(len=1000) :: AlleleFreqFile
+  character(len=1000) :: AlleleFreqFile, OldAmatFile
   character(len=LENGAN),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
-  logical :: PedigreePresent,WeightsPresent,ScaleGByRegression
+  logical :: PedigreePresent,WeightsPresent,ScaleGByRegression, OldAmatPresent
   logical :: Gmake, GInvMake, AMake, AInvMake, HMake, HInvMake
   logical :: GFullMat, GIJA, IGFullMat, IGIJA, AFullMat, AIJA, IAFullMat, IAIJA, HFullMat, HIJA, IHFullMat, IHIJA
   logical,allocatable :: MapToG(:), AnimalsInBoth(:)
@@ -62,7 +62,7 @@ module AlphaAHGModule
     subroutine ReadParam
       implicit none
 
-      integer(int32) :: i,j,OutputPositions,OutputDigits
+      integer(int32) :: i,j,n,OutputPositions,OutputDigits
 
       character(len=1000) :: dumC,option,GenotypeFile,PedigreeFile,WeightFile! ,scaleC
       character(len=200) :: OutputPositionsC,OutputDigitsC
@@ -206,6 +206,18 @@ module AlphaAHGModule
         GMake = .true.
         AMake = .true.
         AInvMake = .true.
+      end if
+
+      OldAmatPresent = .false.
+      n=CountLines("AlphaAGHSpec.txt")
+      if (n > 24) then
+        print *, "This is experimental feature/hack = not well tested and might be removed !!!"
+        print *, "  - It requires id of individuals to be numeric and sequential and no unknown parents"
+        print *, "  - It requires the old A matrix between the parents of individuals whose A matrix will be built"
+        print *, "  - It switches off creation of other matrices (exit after Amat is done)"
+        read(11,*) dumC, OldAmatFile, OldAmatNInd
+        OldAmatPresent = .true.
+        open(unit=103, file=OldAmatFile, status="unknown")
       end if
 
       allocate(AlleleFreq(nSnp))
@@ -479,7 +491,7 @@ module AlphaAHGModule
     subroutine MakeAMatrix
       implicit none
 
-      integer(int32) :: i,j,k,m,n,s,div
+      integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
 
       real(real64) :: AmatAvg
 
@@ -487,18 +499,104 @@ module AlphaAHGModule
 
       logical :: AnimToWrite(nAnisP)
 
-      allocate(Amat(0:nAnisP,0:nAnisP))
-
       print*, "Start making A"
-      Amat=0.0d0
-      do i=1,nAnisP
-          Amat(i,i)=1.0d0+Amat(RecPed(i,2),RecPed(i,3))/2.0d0
-          do j=i+1,nAnisP
-              Amat(j,i)=(Amat(i,RecPed(j,2))+Amat(i,RecPed(j,3)))/2.0d0
-              Amat(i,j)=Amat(j,i)
-          end do
-      end do
+      if (OldAmatPresent) then
+        allocate(OldAmatId(OldAmatNInd))
+        do j = 1, OldAmatNInd
+          read(103, *) OldAmatId(j)
+        end do
+        rewind(103)
+        MinId = minval(OldAmatId)
+        MaxId = maxval(OldAmatId)
+        allocate(Amat(1:(OldAmatNInd+nAnisP-MaxId),&
+                      1:(OldAmatNInd+nAnisP-MaxId)))
+        Amat = 0.0d0
+        do j = 1, OldAmatNInd
+          read(103, *) OldAmatId(j), Amat(1:OldAmatNInd,j)
+          if (j > 1) then
+            if (.not.(OldAmatId(j) > OldAmatId(j-1))) then
+              print *, "Id are not sequential!"
+              stop 1
+            end if
+          end if
+        end do
+        k = OldAmatNInd
+        do i=MaxId+1,nAnisP
+            k = k + 1
+            s = RecPed(i,2) - MinId + 1
+            d = RecPed(i,3) - MinId + 1
+            l = k
+            do j=1,k-1
+                Amat(j,k)=(Amat(j,s)+Amat(j,d))/2.0d0
+                Amat(k,j)=Amat(j,k)
+                !print *,i,k,j,s,d,Amat(j,s),Amat(j,d),Amat(j,k)
+            end do
+            Amat(k,k)=1.0d0+Amat(s,d)/2.0d0
+            !print *,i,k,s,d,Amat(s,d),Amat(k,k)
+        end do
+        RecPed(1:nAnisP,4) = 0
+        RecPed((MaxId+1):nAnisP,4) = 1
+      else
+        allocate(Amat(0:nAnisP,0:nAnisP))
+        Amat=0.0d0
+        do i=1,nAnisP
+            do j=1,i-1
+                Amat(j,i)=(Amat(j,RecPed(i,2))+Amat(j,RecPed(i,3)))/2.0d0
+                Amat(i,j)=Amat(j,i)
+            end do
+            Amat(i,i)=1.0d0+Amat(RecPed(i,2),RecPed(i,3))/2.0d0
+        end do
+      end if
       print*, "Finished making A"
+
+      if (AFullMat) then
+        AnimToWrite = RecPed(1:nAnisP,4) == 1
+        s = count(AnimToWrite)
+        write(*,'(a32,i6,a11)') " Start writing A full matrix for", s," individuals"
+        write(nChar,*) s
+        fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+        open(unit=202,file="AFullMatrix.txt",status="unknown")
+        if (.not.OldAmatPresent) then
+          do m=1,nAnisP
+            if (AnimToWrite(m)) then
+              write(202,fmt) Id(m), pack(Amat(1:nAnisP,m), AnimToWrite)
+            end if
+          end do
+        else
+          Start = OldAmatNInd+1
+          Endin = size(Amat,1)
+          do m=Start,Endin
+            write(*,fmt)   Id(m+MinId-1), Amat(Start:Endin,m)
+            write(202,fmt) Id(m+MinId-1), Amat(Start:Endin,m)
+          end do
+
+          do m=1,size(Amat,1)
+            write(*,*) m, Amat(1:size(Amat,1),m)
+          end do
+        end if
+        close(202)
+        print*, "End writing A full matrix"
+      end if
+
+      if (OldAmatPresent) then
+        stop
+      end if
+
+      if (AIJA) then
+        ! TODO: AnimToWrite is not being used here
+        write(*,'(a24,i6,a11)') " Start writing A ija for", s," individuals"
+        fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
+        open(unit=202,file="Aija.txt",status="unknown")
+        do m=1,nAnisP
+          do n=m,nAnisP
+            if (Amat(n,m) > 0.0d0)  then
+              write(202,fmt) Id(n),Id(m),Amat(n,m)
+            end if
+          end do
+        end do
+        close(202)
+        print*, "End writing A ija"
+      end if
 
       ! Record diagonals of animals in both A and G:
       if ((Hmake .or. HInvMake) .and. ScaleGByRegression) then
@@ -520,37 +618,6 @@ module AlphaAHGModule
           end do
         end do
         Adiag(0) = AmatAvg
-      end if
-
-      if (AFullMat) then
-        AnimToWrite = RecPed(1:nAnisP,4) == 1
-        s = count(AnimToWrite)
-        write(*,'(a32,i6,a11)') " Start writing A full matrix for", s," individuals"
-        write(nChar,*) s
-        fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-        open(unit=202,file="AFullMatrix.txt",status="unknown")
-        do m=1,nAnisP
-          if (AnimToWrite(m)) then
-            write(202,fmt) Id(m), pack(Amat(1:nAnisP,m), AnimToWrite)
-          end if
-        end do
-        close(202)
-        print*, "End writing A full matrix"
-      end if
-
-      if (AIJA) then
-        write(*,'(a24,i6,a11)') " Start writing A ija for", s," individuals"
-        fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-        open(unit=202,file="Aija.txt",status="unknown")
-        do m=1,nAnisP
-          do n=m,nAnisP
-            if (Amat(n,m) > 0.0d0)  then
-              write(202,fmt) Id(n),Id(m),Amat(n,m)
-            end if
-          end do
-        end do
-        close(202)
-        print*, "End writing A ija"
       end if
     end subroutine
 
