@@ -566,12 +566,8 @@ module AlphaAHGModule
           Start = OldAmatNInd+1
           Endin = size(Amat,1)
           do m=Start,Endin
-            write(*,fmt)   Id(m+MinId-1), Amat(Start:Endin,m)
+            !write(*,fmt)   Id(m+MinId-1), Amat(Start:Endin,m)
             write(202,fmt) Id(m+MinId-1), Amat(Start:Endin,m)
-          end do
-
-          do m=1,size(Amat,1)
-            write(*,*) m, Amat(1:size(Amat,1),m)
           end do
         end if
         close(202)
