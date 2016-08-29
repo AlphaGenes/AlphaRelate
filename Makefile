@@ -45,13 +45,14 @@ else
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	exe :=
-	FFLAGS := $(FFLAGS) -fpp -mkl -openmp -static-intel -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) $(MKLINC) $(MKLLIB)
+	FFLAGS := $(FFLAGS) -fpp -mkl -static-intel -module $(BUILDDIR) -D $(OSFLAG) $(MKLINC) $(MKLLIB)
+	OMPFLAGS := -openmp -openmp-link=static
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
 	# Linux only
 	ifeq ($(uname), Linux)
-		FFLAGS := $(FFLAGS) -static -static-libgcc -static-libstdc++
+		FFLAGS := $(FFLAGS) -static -static-libgcc -static-libstdc++ $(OMPFLAGS)
 	endif
 endif
 
