@@ -1,13 +1,13 @@
 ############################# Input parameters ###########################
-GenotypeFile         ,None
-PedigreeFile         ,Pedigree.txt
+GenotypeFile         ,Genotype.txt
+PedigreeFile         ,None
 WeightFile           ,None
-AlleleFreqFile       ,None
+AlleleFreqFile       ,Fixed,0.5
 NumberOfTraits       ,1
-NumberOfSnp          ,7
-DiagonalFudgeFactor  ,0.1
-TypeG                ,VanRaden Nejati-Javaremi VanRaden
-ScaleGtoA            ,0.99
+NumberOfSnp          ,3
+DiagonalFudgeFactor  ,0.00000001
+TypeG                ,Nejati-Javaremi Yang VanRaden2 Day-Williams  VanRaden1
+ScaleGtoA            ,1.00 0.99
 ############################# Output options #############################
 OutputPrecision    ,20,8
 GFullMat           ,Yes
@@ -22,4 +22,3 @@ HmatFullMat        ,Yes
 HmatIJA            ,Yes
 InverseHmatFullMat ,Yes
 InverseHmatIJA     ,Yes
-OldAMatrix         ,AFullMatrixOld.txt,2

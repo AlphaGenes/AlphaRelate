@@ -35,19 +35,19 @@ module AlphaAHGModule
   INTEGER(int32),PARAMETER :: LENGAN=20
 
   integer(int32) :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
-  integer(int32) :: nGMats, GlobalExtraAnimals, GType, OldAmatNInd
+  integer(int32) :: nGMats, GlobalExtraAnimals, OldAmatNInd
   integer(int32) :: NRMmem, shell, shellmax, shellWarning
   integer(int32),allocatable :: MapAnimal(:),seqid(:),seqsire(:),seqdam(:),seqoutput(:)
   integer(int32),allocatable :: RecodeGenotypeId(:),passedorder(:),RecPed(:,:),dooutput(:)
   integer(int32),allocatable :: OldAmatId(:)
 
-  real(real64) :: DiagFudge,ScaleGToA
-  real(real64),allocatable :: AlleleFreq(:),Pmat(:),Adiag(:)
+  real(real64) :: AlleleFreqAll,DiagFudge,ScaleGToA
+  real(real64),allocatable :: AlleleFreq(:),Adiag(:)
   real(real64),allocatable :: Weights(:,:),Zmat(:,:),tpose(:,:),Genos(:,:),Amat(:,:),InvAmat(:,:)
   real(real64),allocatable :: WeightStand(:,:,:),Gmat(:,:,:),InvGmat(:,:,:)
 
-  character(len=20) :: OutputFormat
-  character(len=1000) :: AlleleFreqFile, OldAmatFile
+  character(len=20) :: GType,OutputFormat
+  character(len=1000) :: GenotypeFile,AlleleFreqFile,OldAmatFile
   character(len=LENGAN),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
   logical :: PedigreePresent,WeightsPresent,ScaleGByRegression, OldAmatPresent
@@ -64,7 +64,7 @@ module AlphaAHGModule
 
       integer(int32) :: i,j,n,OutputPositions,OutputDigits
 
-      character(len=1000) :: dumC,option,GenotypeFile,PedigreeFile,WeightFile! ,scaleC
+      character(len=1000) :: dumC,option,PedigreeFile,WeightFile
       character(len=200) :: OutputPositionsC,OutputDigitsC
 
       open(unit=11,file="AlphaAGHSpec.txt",status="old")
@@ -75,15 +75,23 @@ module AlphaAHGModule
       read(11,*) dumC,PedigreeFile
       read(11,*) dumC,WeightFile
       read(11,*) dumC,AlleleFreqFile
+      if (trim(AlleleFreqFile) == "Fixed") then
+        backspace(11)
+        read(11,*) dumC,dumC,AlleleFreqAll
+      end if
       read(11,*) dumC,nTrait
       read(11,*) dumC,nSnp
       read(11,*) dumC,DiagFudge
-      read(11,*) dumC,option
-      if (trim(option)=="VanRaden") then
-        GType=1
-      end if
-      if (trim(option)=="Nejati-Javaremi") then
-        GType=2
+      read(11,*) dumC,GType
+      if (trim(GType) /= "VanRaden"        .and.&
+          trim(GType) /= "VanRaden1"       .and.&
+          trim(GType) /= "VanRaden2"       .and.&
+          trim(GType) /= "Yang"            .and.&
+          trim(GType) /= "Nejati-Javaremi" .and.&
+          trim(GType) /= "Day-Williams") then
+        print*, "TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, Nejati-Javaremi, or Day-Williams"
+        print*, GType
+        stop 1
       end if
       read(11,*) dumC,option
       if (trim(option) == 'Regression') then
@@ -221,7 +229,6 @@ module AlphaAHGModule
       end if
 
       allocate(AlleleFreq(nSnp))
-      allocate(Pmat(nSnp))
       allocate(WeightStand(nSnp,nTrait,nTrait))
       allocate(Weights(nSnp,nTrait))
 
@@ -268,10 +275,6 @@ module AlphaAHGModule
         HInvMake=.false.
       end if
 
-      if (GType==2 .and. trim(AlleleFreqFile) /= 'None') then
-        print *, 'The  Nejati-Javaremi approach does not utilise allele frequencies.'
-      end if
-
       if (ScaleGByRegression) then
         Amake = .true.
       end if
@@ -282,7 +285,7 @@ module AlphaAHGModule
     subroutine ReadData
       implicit none
 
-      integer(int32) :: i,j,stat,GenoInPed,fourthColumn
+      integer(int32) :: i,j,stat,GenoInPed,fourthColumn,nMissing
 
       character(len=1000) :: dumC
       character(len=LENGAN), dimension(1:3) :: pedline
@@ -389,6 +392,55 @@ module AlphaAHGModule
         end do
       else
         Weights(:,:)=1
+      end if
+
+      !! Allele frequencies
+      if (trim(GenotypeFile) /= "None") then
+        if (trim(AlleleFreqFile) == 'None') then
+          !Calculate Allele Freq
+          AlleleFreq(:)=0.0d0
+          do j=1,nSnp
+            nMissing=0
+            do i=1,nAnisG
+              if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
+                AlleleFreq(j)=AlleleFreq(j)+Genos(i,j)
+              else
+                nMissing=nMissing+1
+              end if
+            end do
+            ! Write the frequency of SNP j in array. If all SNPs are missing, then freq_j=0
+            if (nAnisG>nMissing) then
+              AlleleFreq(j)=AlleleFreq(j)/(2.0d0*dble((nAnisG-nMissing)))
+            else
+              AlleleFreq(j)=0.0d0
+            end if
+          end do
+          open(unit=201, file='AlleleFreqTest.txt',status='unknown')
+          do j=1,nSnp
+            write(201,*) j,AlleleFreq(j)
+          end do
+          close(202)
+        else
+          if (trim(AlleleFreqFile) == "Fixed") then
+            AlleleFreq(:) = AlleleFreqAll
+            open(unit=201, file='AlleleFreqTest.txt',status='unknown')
+            do j=1,nSnp
+              write(201,*) j,AlleleFreq(j)
+            end do
+            close(202)
+          else
+            ! Read allele frequencies from file.
+            open(unit=202, file=trim(AlleleFreqFile), status='OLD')
+            do i=1,nSnp
+              read(202,*,iostat=stat) dumC,AlleleFreq(i)  !AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
+              if (stat /= 0) then
+                print*,"Problems reading allele frequency file."
+                stop 1
+              end if
+            end do
+            close(202)
+          end if
+        end if
       end if
     end subroutine
 
@@ -619,94 +671,87 @@ module AlphaAHGModule
 
   !#############################################################################
 
-    subroutine MakeGVanRaden
+    subroutine MakeG
       implicit none
 
-      integer(int32) :: i,j,k,l,m,n,nMissing,dumI,WhichMat,stat!,errorflag
+      integer(int32) :: i,j,k,l,m,n,WhichMat
 
-      real(real64) :: TmpWt(nSnp),TmpVal(1),Denom
+      real(real64) :: Tmp,TmpWt(nSnp),TmpVal(1),Denom
 
       character(len=1000) :: filout,nChar,fmt
 
       allocate(Gmat(nAnisG,nAnisG,nGMats))
       allocate(tpose(nSnp,nAnisG))
 
-      print*, "Start making G - VanRaden"
-
-      !! Allele frequencies
-      if (trim(AlleleFreqFile) == 'None') then
-        !Calculate Allele Freq
-        AlleleFreq(:)=0.0d0
-        do j=1,nSnp
-          nMissing=0
-          do i=1,nAnisG
-            if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
-              AlleleFreq(j)=AlleleFreq(j)+Genos(i,j)
-            else
-              nMissing=nMissing+1
-            end if
-          end do
-          ! Write the frequency of SNP j in array. If all SNPs are missing, then freq_j=0
-          if (nAnisG>nMissing) then
-            AlleleFreq(j)=AlleleFreq(j)/(2.0d0*dble((nAnisG-nMissing)))
-          else
-            AlleleFreq(j)=0.0d0
-          end if
-        end do
-        open(unit=201, file='AlleleFreqTest.txt',status='unknown')
-        do j=1,nSnp
-          write(201,*) j,AlleleFreq(j)
-        end do
-        close(202)
-      else
-        ! Read allele frequencies from file.
-        open(unit=202, file=trim(AlleleFreqFile), status='OLD')
-        do i=1,nSnp
-          read(202,*,iostat=stat) dumI,AlleleFreq(i)  !AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
-          if (stat /= 0) then
-            print*,"Problems reading allele frequency file."
-            stop 1
-          end if
-        end do
-        close(202)
-      end if
-
-      !Create Pmat
-      do i=1,nSnp
-        Pmat(i)=2.0d0*(AlleleFreq(i)-0.5d0)
-      end do
+      print*, "Start making G - ", trim(GType)
 
       !Standardise weights
-      ! TODO: optimise use of indices to get good performance
-      do i=1,nTrait
-        do j=1,nTrait
-          if (i==j) then
-            TmpVal(1)=sum(Weights(:,j))
-            do k=1,nSnp
-              WeightStand(k,i,j)=Weights(k,j)/TmpVal(1)
-            end do
-          else
-            do k=1,nSnp
-              TmpWt(k)=Weights(k,i)*Weights(k,j)
-            end do
-            TmpVal(1)=sum(TmpWt(:))
-            do k=1,nSnp
-              WeightStand(k,i,j)=TmpWt(k)/TmpVal(1)
-            end do
-          end if
+      ! TODO: optimise use of indices to get good performance, perhaps these Weights
+      !       should be ditched altogether
+      if (trim(GType) == "VanRaden"  .or.&
+          trim(GType) == "VanRaden1") then
+        do i=1,nTrait
+          do j=1,nTrait
+            if (i==j) then
+              TmpVal(1)=sum(Weights(:,j))
+              do k=1,nSnp
+                WeightStand(k,i,j)=Weights(k,j)/TmpVal(1)
+              end do
+            else
+              do k=1,nSnp
+                TmpWt(k)=Weights(k,i)*Weights(k,j)
+              end do
+              TmpVal(1)=sum(TmpWt(:))
+              do k=1,nSnp
+                WeightStand(k,i,j)=TmpWt(k)/TmpVal(1)
+              end do
+            end if
+          end do
         end do
-      end do
+      end if
+      if (trim(GType) == "VanRaden2"       .or.&
+          trim(GType) == "Yang"            .or.&
+          trim(GType) == "Nejati-Javaremi" .or.&
+          trim(GType) == "Day-Williams") then
+        if (WeightsPresent) then
+          print*,"Weights not used with option ", trim(GType)
+        end if
+        WeightStand(:,:,:)=1.0d0
+      end if
 
       !Make Z
-      do j=1,nSnp
-        do i=1,nAnisG
-          if ((Genos(i,j)>-0.1).and.(Genos(i,j)<2.1)) then
-            Zmat(i,j)=(Genos(i,j)-1.0d0)-(Pmat(j))
-          else
-            Zmat(i,j)=((2.0d0*AlleleFreq(j))-1.0d0)-(Pmat(j))
-          end if
+      if (trim(GType) == "VanRaden"  .or.&
+          trim(GType) == "VanRaden1" .or.&
+          trim(GType) == "VanRaden2" .or.&
+          trim(GType) == "Yang") then
+        do j=1,nSnp
+          do i=1,nAnisG
+            if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
+              Zmat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
+            else
+              Zmat(i,j)=0.0d0
+            end if
+          end do
         end do
-      end do
+      end if
+      if (trim(GType) == "Nejati-Javaremi" .or.&
+          trim(GType) == "Day-Williams") then
+        do j=1,nSnp
+          do i=1,nAnisG
+            if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
+              Zmat(i,j)=Genos(i,j)-1.0d0
+            else
+              Zmat(i,j)=0.d00 ! TODO: is this correct?
+            end if
+          end do
+        end do
+      end if
+
+      if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
+        do j=1,nSnp
+          Zmat(:,j)=Zmat(:,j)/sqrt(2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j)))
+        end do
+      end if
 
       !Make G matrices
       WhichMat=0
@@ -714,26 +759,69 @@ module AlphaAHGModule
         do i=j,nTrait
           WhichMat=WhichMat+1
 
-          !Get Denom
-          Denom = 0.000000001d0
-          do k=1,nSnp
-            Denom=Denom+(AlleleFreq(k)*(1.0d0-AlleleFreq(k))*WeightStand(k,i,j))
-          end do
-          Denom = 2.0d0*Denom
-
+          ! Z'
           tpose=transpose(Zmat)
 
-          !Make ZH
+          ! ZH
           do k=1,nSnp
             Zmat(:,k)=Zmat(:,k)*WeightStand(k,i,j)
           end do
 
+          ! ZHZ'
           GMat(:,:,WhichMat)=matmul(Zmat,tpose)
+
+          ! ZHZ'/Denom
+          Denom=1.0d0
+          if (trim(GType) == "VanRaden" .or. trim(GType) == "VanRaden1") then
+            Denom=0.0d0
+            do k=1,nSnp
+              Denom=Denom+(AlleleFreq(k)*(1.0d0-AlleleFreq(k))*WeightStand(k,i,j))
+            end do
+            Denom=2.0d0*Denom
+          end if
+          if (trim(GType) == "VanRaden2" .or.&
+              trim(GType) == "Yang"      .or.&
+              trim(GType) == "Nejati-Javaremi") then
+            Denom = dble(nSnp)
+          end if
           GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/Denom
+
+          if (trim(GType) == "Nejati-Javaremi") then
+            GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+1.0d0
+          end if
+
+          if (trim(GType) == "Day-Williams") then
+            Tmp=0.0d0
+            do k=1,nSnp
+              Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
+            end do
+            do k=1,nAnisG
+              do l=1,nAnisG
+                ! GMat(l,k,WhichMat)+nSnp is the observed number of IBS matches, i.e., e(i,j)
+                GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nSnp)/2.0d0-Tmp)/(nSnp-Tmp)
+              end do
+            end do
+          end if
+
+          ! Different diagonal for Yang altogether
+          if (trim(GType) == "Yang") then
+            do k=1,nAnisG
+              GMat(k,k,WhichMat)=1.0d0
+            end do
+            do k=1,nSnp
+              do l=1,nAnisG
+                Tmp=(Genos(l,k)*Genos(l,k)-(1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k)+2.0d0*AlleleFreq(k)*AlleleFreq(k))/(2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k)))
+                GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp/Denom
+              end do
+            end do
+          end if
+
+          ! Fudge diagonal
           do l=1,nAnisG
             GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
           end do
 
+          ! Export etc.
           if (GFullMat) then
             write(filout,'("GFullMatrix"i0,"-"i0".txt")')i,j
             write(nChar,*) nAnisG
@@ -761,11 +849,11 @@ module AlphaAHGModule
           if (GInvMake) then
             allocate(InvGmat(nAnisG,nAnisG,nGMats))
 
-            print*, "Start inverting G - VanRaden"
+            print*, "Start inverting G - ", trim(GType)
             InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
             call invert(InvGmat(:,:,WhichMat),nAnisG,.true., 1)
 
-            print*, "Finished inverting G - VanRaden"
+            print*, "Finished inverting G - ", trim(GType)
 
             if (IGFullMat) then
               write(nChar,*) nAnisG
@@ -794,94 +882,7 @@ module AlphaAHGModule
         end do
       end do
       deallocate(tpose)
-      print*, "Finished making G - VanRaden"
-    end subroutine
-
-  !#############################################################################
-
-    subroutine MakeGNejatiJavaremi
-      implicit none
-
-      integer(int32) :: i,j,l,m,n!,errorflag
-
-      character(len=1000) :: nChar,fmt
-
-      allocate(Gmat(nAnisG,nAnisG,1))
-      allocate(tpose(nSnp,nAnisG))
-
-      print*, "Start making G - Nejati-Javaremi"
-
-      !Make Z
-      do j=1,nSnp
-        do i=1,nAnisG
-          if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-            Zmat(i,j)=Genos(i,j)-1.0d0
-          else
-            Zmat(i,j)=0.d00
-          end if
-        end do
-      end do
-
-      !Make G matrices
-      tpose=transpose(Zmat)
-      GMat(:,:,1)=matmul(Zmat,tpose)
-      GMat(:,:,1)=GMat(:,:,1)/dble(nSnp) + 1.0d0
-      do l=1,nAnisG
-        Gmat(l,l,1)=Gmat(l,l,1)+DiagFudge
-      end do
-
-      if (GFullMat) then
-        write(nChar,*) nAnisG
-        fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-        open(unit=202,file="GFullMatrix1-1.txt",status="unknown")
-        do m=1,nAnisG
-          write(202,fmt) IdGeno(m),GMat(:,m,1)
-        end do
-        close(202)
-      end if
-
-      if (GIJA) then
-        fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-        open(unit=202,file="Gija1-1.txt",status="unknown")
-        do m=1,nAnisG
-          do n=m,nAnisG
-            write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,1)
-          end do
-        end do
-        close(202)
-      end if
-
-      if (GInvMake) then
-        allocate(InvGmat(nAnisG,nAnisG,1))
-
-        print*, "Start inverting G - Nejati-Javaremi"
-        InvGmat(:,:,1)=Gmat(:,:,1)
-        call invert(InvGmat(:,:,1),nAnisG,.true.,1)
-        print*, "Finished inverting G - Nejati-Javaremi"
-
-        if (IGFullMat) then
-          write(nChar,*) nAnisG
-          fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-          open(unit=202,file="InvGFullMatrix1-1.txt",status="unknown")
-          do m=1,nAnisG
-            write(202,fmt) IdGeno(m),InvGMat(:,m,1)
-          end do
-          close(202)
-        end if
-
-        if (IGIJA) then
-          fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-          open(unit=202,file="InvGija1-1.txt",status="unknown")
-          do m=1,nAnisG
-            do n=m,nAnisG
-              write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,1)
-            end do
-          end do
-          close(202)
-        end if
-      end if
-      deallocate(tpose)
-      print*, "Finished making G - Nejati-Javaremi"
+      print*, "Finished making G - ", trim(GType)
     end subroutine
 
   !#############################################################################
@@ -2084,12 +2085,7 @@ program AlphaAGH
   end if
 
   if (GMake .or. GInvMake) then
-    if (GType==1) then
-      call MakeGVanRaden
-    end if
-    if (GType==2) then
-      call MakeGNejatiJavaremi
-    end if
+    call MakeG
   end if
 
   if (HInvMake .or. HMake) then
