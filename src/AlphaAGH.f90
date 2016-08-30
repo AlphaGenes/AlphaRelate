@@ -83,7 +83,8 @@ module AlphaAHGModule
       read(11,*) dumC,nSnp
       read(11,*) dumC,DiagFudge
       read(11,*) dumC,GType
-      if (trim(GType) /= "VanRaden"        .and.&
+      if (trim(GenotypeFile) /= "None"     .and.&
+          trim(GType) /= "VanRaden"        .and.&
           trim(GType) /= "VanRaden1"       .and.&
           trim(GType) /= "VanRaden2"       .and.&
           trim(GType) /= "Yang"            .and.&
