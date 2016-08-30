@@ -750,7 +750,10 @@ module AlphaAHGModule
 
       if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
         do j=1,nSnp
-          Zmat(:,j)=Zmat(:,j)/sqrt(2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j)))
+          Tmp=AlleleFreq(j)*(1.0d0-AlleleFreq(j))
+          if (Tmp > tiny(Tmp)) then
+            Zmat(:,j)=Zmat(:,j)/sqrt(2.0d0*Tmp)
+          end if
         end do
       end if
 
@@ -811,8 +814,11 @@ module AlphaAHGModule
             end do
             do k=1,nSnp
               do l=1,nAnisG
-                Tmp=(Genos(l,k)*Genos(l,k)-(1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k)+2.0d0*AlleleFreq(k)*AlleleFreq(k))/(2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k)))
-                GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp/Denom
+                Tmp=AlleleFreq(k)*(1.0d0-AlleleFreq(k))
+                if (Tmp > tiny(Tmp)) then
+                  Tmp=(Genos(l,k)*Genos(l,k)-(1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k)+2.0d0*AlleleFreq(k)*AlleleFreq(k))/(2.0d0*Tmp)
+                  GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp/Denom
+                end if
               end do
             end do
           end if
