@@ -16,6 +16,7 @@ module AlphaRelateMod
   integer(int32) :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
   integer(int32) :: nGMats, GlobalExtraAnimals, OldAmatNInd
   integer(int32) :: NRMmem, shell, shellmax, shellWarning
+  integer(int32) :: PedigreeUnit,OldAmatUnit,GenotypeUnit,AlleleFreqUnit,WeightUnit
   integer(int32),allocatable :: MapAnimal(:),seqid(:),seqsire(:),seqdam(:),seqoutput(:)
   integer(int32),allocatable :: RecodeGenotypeId(:),passedorder(:),RecPed(:,:),dooutput(:)
   integer(int32),allocatable :: OldAmatId(:)
@@ -41,27 +42,27 @@ module AlphaRelateMod
     subroutine ReadParam
       implicit none
 
-      integer(int32) :: i,j,n,OutputPositions,OutputDigits
+      integer(int32) :: i,j,n,OutputPositions,OutputDigits,SpecUnit
 
       character(len=1000) :: dumC,option
       character(len=200) :: OutputPositionsC,OutputDigitsC
 
-      open(unit=11,file="AlphaRelateSpec.txt",status="old")
+      open(newunit=SpecUnit,file="AlphaRelateSpec.txt",status="old")
 
       ! Input parameters
-      read(11,*) dumC
-      read(11,*) dumC,GenotypeFile
-      read(11,*) dumC,PedigreeFile
-      read(11,*) dumC,WeightFile
-      read(11,*) dumC,AlleleFreqFile
+      read(SpecUnit,*) dumC
+      read(SpecUnit,*) dumC,GenotypeFile
+      read(SpecUnit,*) dumC,PedigreeFile
+      read(SpecUnit,*) dumC,WeightFile
+      read(SpecUnit,*) dumC,AlleleFreqFile
       if (trim(AlleleFreqFile) == "Fixed") then
-        backspace(11)
-        read(11,*) dumC,dumC,AlleleFreqAll
+        backspace(SpecUnit)
+        read(SpecUnit,*) dumC,dumC,AlleleFreqAll
       end if
-      read(11,*) dumC,nTrait
-      read(11,*) dumC,nSnp
-      read(11,*) dumC,DiagFudge
-      read(11,*) dumC,GType
+      read(SpecUnit,*) dumC,nTrait
+      read(SpecUnit,*) dumC,nSnp
+      read(SpecUnit,*) dumC,DiagFudge
+      read(SpecUnit,*) dumC,GType
       if (trim(GenotypeFile) /= "None"     .and.&
           trim(GType) /= "VanRaden"        .and.&
           trim(GType) /= "VanRaden1"       .and.&
@@ -73,7 +74,7 @@ module AlphaRelateMod
         print*, GType
         stop 1
       end if
-      read(11,*) dumC,option
+      read(SpecUnit,*) dumC,option
       if (trim(option) == 'Regression') then
         ScaleGByRegression = .true.
       else
@@ -82,9 +83,9 @@ module AlphaRelateMod
       end if
 
       ! Output options
-      read(11,*) dumC
+      read(SpecUnit,*) dumC
 
-      read(11,*) dumC,OutputPositions,OutputDigits
+      read(SpecUnit,*) dumC,OutputPositions,OutputDigits
       write(OutputPositionsC,*) OutputPositions
       write(OutputDigitsC,*)    OutputDigits
       OutputFormat="f"//trim(adjustl(OutputPositionsC))//"."//trim(adjustl(OutputDigitsC))
@@ -93,13 +94,13 @@ module AlphaRelateMod
       GFullMat = .false.
       GIJA = .false.
       GMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       GFullMat = trim(option) == 'Yes'
       if (GFullMat) then
         GMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       GIJA = trim(option) == 'Yes'
       if (GIJA) then
         GMake = .true.
@@ -109,13 +110,13 @@ module AlphaRelateMod
       IGFullMat = .false.
       IGIJA = .false.
       GInvMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IGFullMat = trim(option) == 'Yes'
       if (IGFullMat) then
         GInvMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IGIJA = trim(option) == 'Yes'
       if (IGIJA) then
         GInvMake = .true.
@@ -125,13 +126,13 @@ module AlphaRelateMod
       AFullMat = .false.
       AIJA = .false.
       AMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       AFullMat = trim(option) == 'Yes'
       if (AFullMat) then
         AMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       AIJA = trim(option) == 'Yes'
       if (AIJA) then
         AMake = .true.
@@ -141,13 +142,13 @@ module AlphaRelateMod
       IAFullMat = .false.
       IAIJA = .false.
       AInvMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IAFullMat = trim(option) == 'Yes'
       if (IAFullMat) then
         AInvMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IAIJA = trim(option) == 'Yes'
       if (IAIJA) then
         AInvMake = .true.
@@ -157,13 +158,13 @@ module AlphaRelateMod
       HFullMat = .false.
       HIJA = .false.
       HMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       HFullMat = trim(option) == 'Yes'
       if (HFullMat) then
         HMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       HIJA = trim(option) == 'Yes'
       if (HIJA) then
         HMake = .true.
@@ -173,13 +174,13 @@ module AlphaRelateMod
       IHFullMat = .false.
       IHIJA = .false.
       HInvMake = .false.
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IHFullMat = trim(option) == 'Yes'
       if (IHFullMat) then
         HInvMake = .true.
       end if
 
-      read(11,*) dumC, option
+      read(SpecUnit,*) dumC, option
       IHIJA = trim(option) == 'Yes'
       if (IHIJA) then
         HInvMake = .true.
@@ -203,9 +204,9 @@ module AlphaRelateMod
         print *, "  - It requires id of individuals to be numeric and sequential and no unknown parents"
         print *, "  - It requires the old A matrix between the parents of individuals whose A matrix will be built"
         print *, "  - It switches off creation of other matrices (exit after Amat is done)"
-        read(11,*) dumC, OldAmatFile, OldAmatNInd
+        read(SpecUnit,*) dumC, OldAmatFile, OldAmatNInd
         OldAmatPresent = .true.
-        open(unit=103, file=OldAmatFile, status="unknown")
+        open(newunit=OldAmatUnit, file=OldAmatFile, status="unknown")
       end if
 
       allocate(AlleleFreq(nSnp))
@@ -213,16 +214,16 @@ module AlphaRelateMod
       allocate(Weights(nSnp,nTrait))
 
       if (trim(GenotypeFile)/='None') then
-        open(unit=101,file=trim(GenotypeFile),status="old")
+        open(newunit=GenotypeUnit,file=trim(GenotypeFile),status="old")
       end if
 
       PedigreePresent=.false.
       if (trim(PedigreeFile)/='None') then
-        open(unit=102,file=trim(PedigreeFile),status="old")
+        open(newunit=PedigreeUnit,file=trim(PedigreeFile),status="old")
         PedigreePresent=.true.
       end if
       if (trim(WeightFile)/='None') then
-        open(unit=103,file=trim(WeightFile),status="old")
+        open(newunit=WeightUnit,file=trim(WeightFile),status="old")
         WeightsPresent = .true.
       else
         WeightsPresent = .false.
@@ -293,13 +294,13 @@ module AlphaRelateMod
         end do
       else
         !!! Attempt to magically detect whether there are three or four columns:
-        read(102, '(a)', iostat=stat) dumC
+        read(PedigreeUnit, '(a)', iostat=stat) dumC
         if (stat /= 0) then
           print *, 'Problems reading Pedigree file.'
           !print *, stat, dumC
           stop 1
         end if
-        rewind(102)
+        rewind(PedigreeUnit)
 
         ! Test if the line contains three or four columns
         fourthColumn = -99
@@ -315,7 +316,7 @@ module AlphaRelateMod
         allocate(Ped(nAnisRawPedigree,4))
         Ped(:,4) = '1'
         do i=1,nAnisRawPedigree
-          read(102,*) ped(i,1:nCols)
+          read(PedigreeUnit,*) ped(i,1:nCols)
         end do
         call PVseq(nAnisRawPedigree,nAnisP,0)
 
@@ -332,7 +333,7 @@ module AlphaRelateMod
       end if
 
       do i=1,nAnisG
-        read(101,*) IdGeno(i),Genos(i,:)
+        read(GenotypeUnit,*) IdGeno(i),Genos(i,:)
       end do
 
       ! These three vectors uses the Pedigree animals as base,
@@ -374,7 +375,7 @@ module AlphaRelateMod
 
       if (WeightsPresent) then
         do i=1,nSnp
-          read(103,*) dumC,Weights(i,:)
+          read(WeightUnit,*) dumC,Weights(i,:)
         end do
       else
         Weights(:,:)=1
@@ -401,30 +402,30 @@ module AlphaRelateMod
               AlleleFreq(j)=0.0d0
             end if
           end do
-          open(unit=201, file='AlleleFreqTest.txt',status='unknown')
+          open(newunit=AlleleFreqUnit, file='AlleleFreqTest.txt',status='unknown')
           do j=1,nSnp
-            write(201,*) j,AlleleFreq(j)
+            write(AlleleFreqUnit,*) j,AlleleFreq(j)
           end do
-          close(202)
+          close(AlleleFreqUnit)
         else
           if (trim(AlleleFreqFile) == "Fixed") then
             AlleleFreq(:) = AlleleFreqAll
-            open(unit=201, file='AlleleFreqTest.txt',status='unknown')
+            open(newunit=AlleleFreqUnit, file='AlleleFreqTest.txt',status='unknown')
             do j=1,nSnp
-              write(201,*) j,AlleleFreq(j)
+              write(AlleleFreqUnit,*) j,AlleleFreq(j)
             end do
-            close(202)
+            close(AlleleFreqUnit)
           else
             ! Read allele frequencies from file.
-            open(unit=202, file=trim(AlleleFreqFile), status='OLD')
+            open(newunit=AlleleFreqUnit, file=trim(AlleleFreqFile), status='OLD')
             do i=1,nSnp
-              read(202,*,iostat=stat) dumC,AlleleFreq(i)  !AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
+              read(AlleleFreqUnit,*,iostat=stat) dumC,AlleleFreq(i)  !AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
               if (stat /= 0) then
                 print*,"Problems reading allele frequency file."
                 stop 1
               end if
             end do
-            close(202)
+            close(AlleleFreqUnit)
           end if
         end if
       end if
@@ -544,16 +545,16 @@ module AlphaRelateMod
       if (OldAmatPresent) then
         allocate(OldAmatId(OldAmatNInd))
         do j = 1, OldAmatNInd
-          read(103, *) OldAmatId(j)
+          read(OldAmatUnit, *) OldAmatId(j)
         end do
-        rewind(103)
+        rewind(OldAmatUnit)
         MinId = minval(OldAmatId)
         MaxId = maxval(OldAmatId)
         allocate(Amat(1:(OldAmatNInd+nAnisP-MaxId),&
                       1:(OldAmatNInd+nAnisP-MaxId)))
         Amat = 0.0d0
         do j = 1, OldAmatNInd
-          read(103, *) OldAmatId(j), Amat(1:OldAmatNInd,j)
+          read(OldAmatUnit, *) OldAmatId(j), Amat(1:OldAmatNInd,j)
           if (j > 1) then
             if (.not.(OldAmatId(j) > OldAmatId(j-1))) then
               print *, "Id are not sequential!"
@@ -1334,6 +1335,7 @@ module AlphaRelateMod
       integer(int32) :: iextra, oldnobs, kn, kb, oldkn, ks, kd
       integer(int32) :: Noffset, Limit, Switch, ihold, ipoint
       integer(int32) :: nObs,nAnisPedigree,verbose
+      integer(int32) :: IdErrUnit, BisexUnit, PedErrUnit
       integer(int32),allocatable :: SortedIdIndex(:), SortedSireIndex(:), SortedDamIndex(:)
       integer(int32),allocatable :: OldN(:), NewN(:), holdsire(:), holddam(:), holdoutput(:)
 
@@ -1353,29 +1355,29 @@ module AlphaRelateMod
 
 
       nAnisPedigree=nObs
-      path=".\"
+      !path=".\"
 
       Verbose=1
 
       do j = 1, nobs
-          If (dam(j) == ''.or. dam(j) == '0'.or. dam(j) == '#'.or. dam(j) == '*' .or. dam(j) == '.') Then
+          if (dam(j) == ''.or. dam(j) == '0'.or. dam(j) == '#'.or. dam(j) == '*' .or. dam(j) == '.') Then
               dam(j) = '0'
               seqdam(j)=0
           end if
-          If (sire(j) == ''.or.sire(j) == '0'.or.sire(j) == '#'.or.sire(j) == '*'.or.sire(j) == '.') Then
+          if (sire(j) == ''.or.sire(j) == '0'.or.sire(j) == '#'.or.sire(j) == '*'.or.sire(j) == '.') Then
               sire(j) = '0'
               seqsire(j)=0
           end if
       end do !j
 
       if(mode.eq.1) then
-          !PRINT*,  ' Inserting dummy IDs ... '
+          !print*,  ' Inserting dummy IDs ... '
           newid=0
           do j = 1, nobs
               if(((sire(j) == '0').and.(dam(j).ne.'0'))  .or. ((sire(j).ne.'0').and.(dam(j) == '0'))) then
                   newid=newid+1
                   if(newid.gt.99999) then
-                      !         PRINT*, newid, ' ...'
+                      !         print*, newid, ' ...'
                       print*,'too many dummy single parent IDs'
                       stop 1
                   end if
@@ -1390,17 +1392,17 @@ module AlphaRelateMod
           end do
       end if
 
-      !PRINT*,  ' Sorting Sires ... '
+      !print*,  ' Sorting Sires ... '
       allocate(SortedId(nobs), SortedIdIndex(nobs))
       SortedId(1:nobs) = Sire(1:nobs)
       Noffset = INT(nobs/2)
-      DO WHILE (Noffset>0)
+      do while (Noffset>0)
           Limit = nobs - Noffset
           switch=1
-          DO WHILE (Switch.ne.0)
+          do while (Switch.ne.0)
               Switch = 0
               do i = 1, Limit
-                  IF (SortedId(i).gt.SortedId(i + Noffset)) THEN
+                  IF (SortedId(i).gt.SortedId(i + Noffset)) then
                       IDhold=SortedId(i)
                       SortedId(i)=SortedId(i + Noffset)
                       SortedId(i + Noffset)=IDhold
@@ -1414,9 +1416,9 @@ module AlphaRelateMod
 
       ! Count number of unique sires
       nsires=0
-      IF(SortedId(1) /= '0') nsires=1
+      if (SortedId(1) /= '0') nsires=1
       do i=2,nobs
-          IF(SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') nsires=nsires+1
+          if (SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') nsires=nsires+1
       end do
 
       ! Collect vector of unique sires in sorted order
@@ -1424,28 +1426,28 @@ module AlphaRelateMod
       SortedSire(0) = '0'
       nsires=0
 
-      IF(SortedId(1) /= '0') THEN
+      if (SortedId(1) /= '0') then
           nsires=1
           SortedSire(1) = SortedId(1)
-      ENDIF
+      end if
 
       do i=2,nobs
-          IF(SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') then
+          if (SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') then
               nsires=nsires+1
               SortedSire(nsires) = SortedId(i)
-          ENDIF
+          end if
       end do
 
-      !PRINT*,  ' Sorting Dams ... '
+      !print*,  ' Sorting Dams ... '
       SortedId(1:nobs) = Dam(1:nobs)
       Noffset = INT(nobs/2)
-      DO WHILE (Noffset>0)
+      do while (Noffset>0)
           Limit = nobs - Noffset
           switch=1
-          DO WHILE (Switch.ne.0)
+          do while (Switch.ne.0)
               Switch = 0
               do i = 1, Limit
-                  IF (SortedId(i).gt.SortedId(i + Noffset)) THEN
+                  IF (SortedId(i).gt.SortedId(i + Noffset)) then
                       IDhold=SortedId(i)
                       SortedId(i)=SortedId(i + Noffset)
                       SortedId(i + Noffset)=IDhold
@@ -1458,39 +1460,39 @@ module AlphaRelateMod
       end do
 
       nDams=0
-      IF(SortedId(1) /= '0') nDams=1
+      if (SortedId(1) /= '0') nDams=1
       do i=2,nobs
-          IF(SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') nDams=nDams+1
+          if (SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') nDams=nDams+1
       end do
 
       allocate  (SortedDam(0:nDams), SortedDamIndex(ndams))
       SortedDam(0)='0'
       nDams=0
-      IF(SortedId(1) /= '0') THEN
+      if (SortedId(1) /= '0') then
           nDams=1
           SortedDam(1) = SortedId(1)
-      ENDIF
+      end if
 
       do i=2,nobs
-          IF(SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') then
+          if (SortedId(i) /= SortedId(i-1) .and. SortedId(i) /= '0') then
               nDams=nDams+1
               SortedDam(nDams) = SortedId(i)
-          ENDIF
+          end if
       end do
 
-      !PRINT*,  ' Sorting IDs ... '
+      !print*,  ' Sorting IDs ... '
       SortedId(1:nobs) = ID(1:nobs)
       do i=1,nobs
           SortedIdIndex(i) = i
       end do
       Noffset = INT(nobs/2)
-      DO WHILE (Noffset>0)
+      do while (Noffset>0)
           Limit = nobs - Noffset
           switch=1
-          DO WHILE (Switch.ne.0)
+          do while (Switch.ne.0)
               Switch = 0
               do i = 1, Limit
-                  IF (SortedId(i).gt.SortedId(i + Noffset)) THEN
+                  IF (SortedId(i).gt.SortedId(i + Noffset)) then
                       IDhold=SortedId(i)
                       SortedId(i)=SortedId(i + Noffset)
                       SortedId(i + Noffset)=IDhold
@@ -1507,34 +1509,34 @@ module AlphaRelateMod
           Noffset = INT(Noffset/2)
       end do
 
-      !PRINT*,  ' Check for duplicate IDs ... '
+      !print*,  ' Check for duplicate IDs ... '
       flag = -1
       Do i = 2, nobs
-          If (SortedID(i) == SortedID(i - 1)) Then
-              If (flag == -1) Then
-                  open (1,FILE='ID_err.txt',STATUS = 'unknown')
-                  WRITE(1,*) 'Duplicated IDs ...'
+          if (SortedID(i) == SortedID(i - 1)) Then
+              if (flag == -1) Then
+                  open(IdErrUnit,FILE='ID_err.txt',STATUS = 'unknown')
+                  write(IdErrUnit,*) 'Duplicated IDs ...'
                   flag = 0
               end if
-              WRITE(1,*) SortedID(i)
+              write(IdErrUnit,*) SortedID(i)
               flag = flag + 1
           end if
       end do
 
-      If (flag > -1) Then
-          Close (1)
-      ! PRINT*, flag,' case(s) of duplicate ID. See ID_ERR.TXT        <------------ WARNING !!!'
+      if (flag > -1) Then
+          close(IdErrUnit)
+      ! print*, flag,' case(s) of duplicate ID. See ID_ERR.TXT        <------------ WARNING !!!'
       end if
 
-      !PRINT*,  ' Males ... '
-      !PRINT*,  '  Find or set sire indices ... '
+      !print*,  ' Males ... '
+      !print*,  '  Find or set sire indices ... '
       newsires = 0
       do j=1,nsires
           ! check if already listed as an individual
           ipoint=INT(nobs/2)
           Noffset = INT(ipoint/2)
           do while (Noffset>1)
-              IF (SortedSire(j).lt.SortedId(ipoint)) THEN
+              IF (SortedSire(j).lt.SortedId(ipoint)) then
                   ipoint = ipoint - Noffset
                   Noffset = INT(Noffset/2)
               else
@@ -1554,7 +1556,7 @@ module AlphaRelateMod
           end do
 
           if (SortedSire(j)==SortedId(ipoint)) kn=1
-          IF(kn==1) then
+          if (kn==1) then
               SortedSireIndex(j) = SortedIdIndex(ipoint)
           else    ! sire is unlisted base sire
               newsires = newsires + 1
@@ -1574,15 +1576,15 @@ module AlphaRelateMod
        print*,'newsires error'
        stop 1
       end if
-      !PRINT*,  '  Find seqsire ... '
+      !print*,  '  Find seqsire ... '
       do j = 1, nobs
-          If (sire(j) == '0') Then
+          if (sire(j) == '0') Then
               seqsire(j)=0
           else
               ipoint=INT(nsires/2)
               Noffset = INT(ipoint/2)
               do while (Noffset>1)
-                  IF (Sire(j).lt.SortedSire(ipoint)) THEN
+                  IF (Sire(j).lt.SortedSire(ipoint)) then
                       ipoint = ipoint - Noffset
                       Noffset = INT(Noffset/2)
                   else
@@ -1600,18 +1602,18 @@ module AlphaRelateMod
                   ipoint=ipoint-1
               end do
               if (Sire(j)==SortedSire(ipoint)) kn=1
-              IF(kn==1) then
+              if (kn==1) then
                   seqsire(j) = SortedSireIndex(ipoint)
               else
-                  PRINT*, ' Error: Sire missing: ', Sire(j)
+                  print*, ' Error: Sire missing: ', Sire(j)
                   stop 1
               end if
           end if
-      ENDDO !j
+      end do !j
 
-      !PRINT*,  '  Sires: ',newsires,' unlisted, ',nsires,' in total'
-      !PRINT*,  ' Females ... '
-      !PRINT*,  '  Find or set dam indices ... '
+      !print*,  '  Sires: ',newsires,' unlisted, ',nsires,' in total'
+      !print*,  ' Females ... '
+      !print*,  '  Find or set dam indices ... '
 
       newdams = 0
       nbisexuals = 0
@@ -1621,7 +1623,7 @@ module AlphaRelateMod
           ipoint=INT(nobs/2)
           Noffset = INT(ipoint/2)
           do while (Noffset>1)
-              IF (Sorteddam(j).lt.SortedId(ipoint)) THEN
+              IF (Sorteddam(j).lt.SortedId(ipoint)) then
                   ipoint = ipoint - Noffset
                   Noffset = INT(Noffset/2)
               else
@@ -1645,7 +1647,7 @@ module AlphaRelateMod
           ipoint=INT(nsires/2)
           Noffset = INT(ipoint/2)
           do while (Noffset>1)
-              IF (SortedDam(j).lt.SortedSire(ipoint)) THEN
+              IF (SortedDam(j).lt.SortedSire(ipoint)) then
                   ipoint = ipoint - Noffset
                   Noffset = INT(Noffset/2)
               else
@@ -1666,11 +1668,11 @@ module AlphaRelateMod
           end do
           if (SortedDam(j)==SortedSire(ipoint)) kb=1
 
-          IF(kb==1) then
+          if (kb==1) then
               nbisexuals = nbisexuals + 1
-              open (1,FILE='bisex.txt',position = 'append')
-              WRITE(1,*) SortedDam(j)
-              close(1)
+              open(BisexUnit,FILE='bisex.txt',position = 'append')
+              write(BisexUnit,*) SortedDam(j)
+              close(BisexUnit)
           end if
 
           if (kb==1) then
@@ -1683,8 +1685,8 @@ module AlphaRelateMod
           end if
       end do !j
 
-      If (nbisexuals > 0)  then
-        PRINT*, nbisexuals,' bisexual parent(s) found. See file bisex.txt.  <------------ WARNING !!!'
+      if (nbisexuals > 0)  then
+        print*, nbisexuals,' bisexual parent(s) found. See file bisex.txt.  <------------ WARNING !!!'
       end if
 
       allocate(holddamid(newdams))
@@ -1702,15 +1704,15 @@ module AlphaRelateMod
         stop 1
       end if
 
-      !PRINT*,  '  Find seqdam ... '
+      !print*,  '  Find seqdam ... '
       do j = 1, nobs
-          If (dam(j) == '0') Then
+          if (dam(j) == '0') Then
               seqdam(j)=0
           else
               ipoint=INT(ndams/2)
               Noffset = INT(ipoint/2)
               do while (Noffset>1)
-                  IF (dam(j).lt.Sorteddam(ipoint)) THEN
+                  IF (dam(j).lt.Sorteddam(ipoint)) then
                       ipoint = ipoint - Noffset
                       Noffset = INT(Noffset/2)
                   else
@@ -1728,21 +1730,21 @@ module AlphaRelateMod
                   ipoint=ipoint-1
               end do
               if (dam(j)==Sorteddam(ipoint)) kn=1
-              IF(kn==1) then
+              if (kn==1) then
                   seqdam(j) = SorteddamIndex(ipoint)
               else
-                  PRINT*, ' Error: dam missing: ', dam(j)
+                  print*, ' Error: dam missing: ', dam(j)
                   stop 1
               end if
           end if
-      ENDDO !j
+      end do !j
 
-      !PRINT*,  '  Dams: ',newdams,' unlisted, ',ndams,' in total'
-      !PRINT*,  ' Arranging unlisted base parents ... '
+      !print*,  '  Dams: ',newdams,' unlisted, ',ndams,' in total'
+      !print*,  ' Arranging unlisted base parents ... '
 
       iextra = newsires + newdams
-      If (iextra > 0) then
-              ! PRINT*, ' ', iextra, ' unlisted base parents found.'
+      if (iextra > 0) then
+              ! print*, ' ', iextra, ' unlisted base parents found.'
           ! SortedId and SortedIdIndex just used as a holder while redimensioning
           SortedId(1:nobs)=id(1:nobs)
           deallocate (id)
@@ -1779,55 +1781,55 @@ module AlphaRelateMod
           if (nCols .eq. 3) dooutput(1:iextra) = 1
       end if
 
-      !PRINT*, ' Inserting unlisted base parents ...'
+      !print*, ' Inserting unlisted base parents ...'
 
       oldnobs = nobs
       nobs = nobs + iextra
 
-      !PRINT*, ' Total number of animals = ',nobs
+      !print*, ' Total number of animals = ',nobs
 
       allocate(passedorder(nobs))
       passedorder=0
       do i = 1+iextra, nobs
           passedorder(i)= i-iextra
-          If (sire(i) == '0')then
+          if (sire(i) == '0')then
               seqsire(i) = 0
-          Else
+          else
               seqsire(i) = iextra + seqsire(i)
-              If (seqsire(i) > nobs)  seqsire(i) = seqsire(i) - nobs  ! for unlisted sires
+              if (seqsire(i) > nobs)  seqsire(i) = seqsire(i) - nobs  ! for unlisted sires
           end if
 
-          If (dam(i) == '0') Then
+          if (dam(i) == '0') Then
               seqdam(i) = 0
-          Else
+          else
               seqdam(i) = iextra + seqdam(i)
-              If (seqdam(i) > nobs)  seqdam(i) = seqdam(i) - nobs
+              if (seqdam(i) > nobs)  seqdam(i) = seqdam(i) - nobs
           end if
-      ENDDO !i
+      end do !i
 
       do i = 1, newsires
           ID(i) = holdsireid(i)
           passedorder(i)=0
           seqsire(i) = 0
           seqdam(i) = 0
-      ENDDO !i
+      end do !i
 
       do i = newsires + 1, newsires + newdams
           ID(i) = holddamid(i - newsires)
           passedorder(i)=0
           seqsire(i) = 0
           seqdam(i) = 0
-      ENDDO !i
+      end do !i
 
       deallocate(holdsireid, holddamid, SortedIdIndex, SortedId)
 
       flag = 0
       Do i = 1, nobs
-          If (i <= seqsire(i) .Or. i <= seqdam(i) ) flag = 1
+          if (i <= seqsire(i) .Or. i <= seqdam(i) ) flag = 1
       end do !i
-      !If (flag == 0) !PRINT*, 'not needed'!return
+      !if (flag == 0) !print*, 'not needed'!return
 
-      !PRINT*, ' Re-Ordering pedigree ...'
+      !print*, ' Re-Ordering pedigree ...'
       allocate( OldN(0:nobs), NewN(0:nobs) )
       allocate( holdid(0:nobs), holdsire(nobs), holddam(nobs), holdoutput(nobs) )
 
@@ -1844,12 +1846,12 @@ module AlphaRelateMod
       !Find base ancestors ...
       kn = 0
       do i = 1, nobs
-          If (seqsire(i) == 0 .And. seqdam(i) == 0) Then
+          if (seqsire(i) == 0 .And. seqdam(i) == 0) Then
               kn = kn + 1
               NewN(i) = kn
               OldN(kn) = i
           end if
-      ENDDO !i
+      end do !i
 
       !Re-order pedigree ...
       NewN(0) = nobs + 1
@@ -1857,10 +1859,10 @@ module AlphaRelateMod
       Do While (kn < nobs)
           oldkn = kn
           do i = 1, nobs
-              If (NewN(i) == 0) Then !And ID(i) <> 'UniqueNULL' Then
+              if (NewN(i) == 0) Then !And ID(i) <> 'UniqueNULL' Then
                   Ks = seqsire(i)
                   Kd = seqdam(i)
-                  If (NewN(Ks) > 0 .And. NewN(Kd) > 0) Then
+                  if (NewN(Ks) > 0 .And. NewN(Kd) > 0) Then
                       kn = kn + 1
                       NewN(i) = kn
                       OldN(kn) = i
@@ -1868,32 +1870,32 @@ module AlphaRelateMod
               end if
           end do !i
           ! to avoid hang on unexpected problem ...
-          If (kn == oldkn) Then
+          if (kn == oldkn) Then
               flag = flag + 1
-          Else
+          else
               flag = 0
           end if
 
-          If (flag > 10) Then
-              open(1,file='ped_err.txt',status='unknown')
-              write(1,*) 'Pedigree errors found involving two or more of the following relationships ...'
-              write(1,*)
-              write(1,*) '       Index numbers are followed by names.'
-              write(1,*) '       Index number 0 means unknown, whence name is blank.'
-              write(1,*)
+          if (flag > 10) Then
+              open(PedErrUnit,file='ped_err.txt',status='unknown')
+              write(PedErrUnit,*) 'Pedigree errors found involving two or more of the following relationships ...'
+              write(PedErrUnit,*)
+              write(PedErrUnit,*) '       Index numbers are followed by names.'
+              write(PedErrUnit,*) '       Index number 0 means unknown, whence name is blank.'
+              write(PedErrUnit,*)
               do i = 1, nobs
-                  If (NewN(i) == 0) Then
-                      write(1,*) 'Individual:',          i, ':  ', ID(i)
-                      write(1,*) '    Father:', seqsire(i), ':  ', ID(seqsire(i))
-                      write(1,*) '    Mother:',  seqdam(i), ':  ', ID(seqdam(i))
-                      write(1,*)
+                  if (NewN(i) == 0) Then
+                      write(PedErrUnit,*) 'Individual:',          i, ':  ', ID(i)
+                      write(PedErrUnit,*) '    Father:', seqsire(i), ':  ', ID(seqsire(i))
+                      write(PedErrUnit,*) '    Mother:',  seqdam(i), ':  ', ID(seqdam(i))
+                      write(PedErrUnit,*)
                   end if
-              ENDDO !i
-              Close (1)
-              PRINT*,  'Logical error when re-ordering pedigree - see details in file PED_ERR.TXT'
+              end do !i
+              close(PedErrUnit)
+              print*,  'Logical error when re-ordering pedigree - see details in file PED_ERR.TXT'
               stop 1
           end if
-      ENDDO !while
+      end do !while
 
       NewN(0) = 0
       do i = 1, nobs
@@ -1904,23 +1906,23 @@ module AlphaRelateMod
       do i = 1, nobs
           seqsire(i) = NewN(holdsire(OldN(i)))
           seqdam(i) = NewN(holddam(OldN(i)))
-          If (i <= NewN(holdsire(OldN(i))) .Or. i <= NewN(holddam(OldN(i)))) then
-              PRINT*,  'out of order'
+          if (i <= NewN(holdsire(OldN(i))) .Or. i <= NewN(holddam(OldN(i)))) then
+              print*,  'out of order'
               stop 1
           end if
-      ENDDO !i
+      end do !i
 
-      DO i = 1, nobs
+      do i = 1, nobs
           holdsire(i) = passedorder(i)  ! holdsire just because it is free
       end do
 
-      DO i = 1, nobs
+      do i = 1, nobs
           passedorder(i) = holdsire(OldN(i))
       end do
 
       deallocate ( OldN, NewN, holdid, holdsire, holddam) ! holdrec)
       !do i = 1, nobs
-      ! PRINT'(3i5,2x,3a4,i5)', i, seqsire(i), seqdam(i), id(i), sire(i), dam(i), passedorder(i)
+      ! print'(3i5,2x,3a4,i5)', i, seqsire(i), seqdam(i), id(i), sire(i), dam(i), passedorder(i)
       !end do
 
       nAnisPedigree=nObs
