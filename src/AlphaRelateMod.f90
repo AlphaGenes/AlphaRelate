@@ -1,6 +1,9 @@
 
 !TODO: write output subroutines and call them in different places
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 !#########################################################################
 
 module AlphaRelateMod
@@ -23,7 +26,7 @@ module AlphaRelateMod
   real(real64),allocatable :: WeightStand(:,:,:),Gmat(:,:,:),InvGmat(:,:,:)
 
   character(len=20) :: GType,OutputFormat
-  character(len=1000) :: GenotypeFile,AlleleFreqFile,OldAmatFile
+  character(len=1000) :: PedigreeFile,WeightFile,GenotypeFile,AlleleFreqFile,OldAmatFile
   character(len=LENGAN),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
   logical :: PedigreePresent,WeightsPresent,ScaleGByRegression, OldAmatPresent
@@ -40,7 +43,7 @@ module AlphaRelateMod
 
       integer(int32) :: i,j,n,OutputPositions,OutputDigits
 
-      character(len=1000) :: dumC,option,PedigreeFile,WeightFile
+      character(len=1000) :: dumC,option
       character(len=200) :: OutputPositionsC,OutputDigitsC
 
       open(unit=11,file="AlphaRelateSpec.txt",status="old")
@@ -267,7 +270,13 @@ module AlphaRelateMod
       character(len=1000) :: dumC
       character(len=LENGAN), dimension(1:3) :: pedline
 
-      call CountInData
+      nAnisG=CountLines(trim(GenotypeFile))
+      write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
+
+      if (PedigreePresent) then
+        nAnisRawPedigree=CountLines(trim(PedigreeFile))
+        write(*,'(a2,i6,a33)') "   ",nAnisRawPedigree," individuals in the pedigree file"
+      end if
 
       allocate(Genos(nAnisG,nSnp))
       allocate(Zmat(nAnisG,nSnp))
@@ -1233,42 +1242,6 @@ module AlphaRelateMod
         end do
       end do
       deallocate(Ids)
-    end subroutine
-
-  !#############################################################################
-
-    subroutine CountInData
-      implicit none
-
-      integer(int32) :: k
-
-      character(len=300) :: dumC
-
-      nAnisG=0
-      do
-        read(101,*,iostat=k) dumC
-        nAnisG=nAnisG+1
-        if (k/=0) then
-          nAnisG=nAnisG-1
-          exit
-        end if
-      end do
-      rewind(101)
-      write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
-
-      if (PedigreePresent) then
-        nAnisRawPedigree=0
-        do
-          read(102,*,iostat=k) dumC
-          nAnisRawPedigree=nAnisRawPedigree+1
-          if (k/=0) then
-            nAnisRawPedigree=nAnisRawPedigree-1
-            exit
-          end if
-        end do
-        rewind(102)
-        write(*,'(a2,i6,a33)') "   ",nAnisRawPedigree," individuals in the pedigree file"
-      end if
     end subroutine
 
   !#############################################################################
