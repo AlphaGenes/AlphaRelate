@@ -105,7 +105,7 @@ binary: FFLAGS:=$(FFLAGS) -D "BINARY"
 binary: all
 
 # Compile
-$(TARGETDIR)$(NAME)$(exe): Makefile $(MODS) $(SRCDIR)$(NAME).f90
+$(TARGETDIR)$(NAME)$(exe): Makefile $(MODS) $(FILES)
 	@echo "Compiling $(NAME)..."
 	$(FC) $(MODS) $(FILES) $(FFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 	@echo
@@ -122,8 +122,8 @@ clean:
 
 preprocess_test: $(F90TESTS)
 	cd $(BUILDDIR)
-	cp $(TES)testSuites.inc .
-	$(FC) -o tests.x $^ -I$(THIS_DIR)$(BUILDDIR) $(PFUNIT)/include/driver.f90 -I$(PFUNIT)/mod -lpfunit -module $(BUILDDIR)
+	cp $(TESTDIR)testSuites.inc .
+	$(FC) -o tests.x $^  $(PFUNIT)/include/driver.f90 -I./ -I$(PFUNIT)/mod -lpfunit -module $(BUILDDIR) -L$(PFUNIT)/lib -I$(PFUNIT)/include
 	./tests.x
 
 git: $(FILES) $(PFTESTS)

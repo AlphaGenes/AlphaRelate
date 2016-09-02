@@ -1,1 +1,1 @@
-ADD_TEST_SUITE(AlphaRelate)
+ADD_TEST_SUITE(AlphaRelateMod)

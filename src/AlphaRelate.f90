@@ -17,20 +17,20 @@ program AlphaRelate
   call ReadParam
   call ReadData
 
-  if (AMake) then
+  if (MakeA) then
     call MakeAMatrix
   end if
 
-  if (AInvMake) then
+  if (MakeAInv) then
     call MakeInvAMatrix
   end if
 
-  if (GMake .or. GInvMake) then
-    call MakeG
+  if (MakeG .or. MakeGInv) then
+    call MakeGAndGInvMatrix
   end if
 
-  if (HInvMake .or. HMake) then
-    call MakeHAndHInv
+  if (MakeHInv .or. MakeH) then
+    call MakeHAndHInvMatrix
   end if
 
   call cpu_time(finish)

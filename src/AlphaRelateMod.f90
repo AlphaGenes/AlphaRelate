@@ -30,8 +30,8 @@ module AlphaRelateMod
   character(len=1000) :: PedigreeFile,WeightFile,GenotypeFile,AlleleFreqFile,OldAmatFile
   character(len=LENGAN),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
-  logical :: PedigreePresent,WeightsPresent,ScaleGByRegression, OldAmatPresent
-  logical :: Gmake, GInvMake, AMake, AInvMake, HMake, HInvMake
+  logical :: PedigreePresent,GenotypesPresent,AlleleFreqPresent,AlleleFreqFixed,WeightsPresent,OldAmatPresent,ScaleGByRegression
+  logical :: MakeG, MakeGInv, MakeA, MakeAInv, MakeH, MakeHInv
   logical :: GFullMat, GIJA, IGFullMat, IGIJA, AFullMat, AIJA, IAFullMat, IAIJA, HFullMat, HIJA, IHFullMat, IHIJA
   logical,allocatable :: MapToG(:), AnimalsInBoth(:)
 
@@ -51,19 +51,43 @@ module AlphaRelateMod
 
       ! Input parameters
       read(SpecUnit,*) dumC
+
       read(SpecUnit,*) dumC,GenotypeFile
+      GenotypesPresent=.false.
+      if (trim(GenotypeFile)/='None') then
+        GenotypesPresent=.true.
+      end if
+
       read(SpecUnit,*) dumC,PedigreeFile
+      PedigreePresent=.false.
+      if (trim(PedigreeFile)/='None') then
+        PedigreePresent=.true.
+      end if
+
       read(SpecUnit,*) dumC,WeightFile
+      WeightsPresent = .false.
+      if (trim(WeightFile)/='None') then
+        WeightsPresent = .true.
+      end if
+
       read(SpecUnit,*) dumC,AlleleFreqFile
+      AlleleFreqPresent = .false.
+      if (trim(AlleleFreqFile)/='None') then
+        AlleleFreqPresent = .true.
+      end if
+      AlleleFreqFixed = .false.
       if (trim(AlleleFreqFile) == "Fixed") then
+        AlleleFreqFixed = .true.
         backspace(SpecUnit)
         read(SpecUnit,*) dumC,dumC,AlleleFreqAll
       end if
+
       read(SpecUnit,*) dumC,nTrait
       read(SpecUnit,*) dumC,nSnp
       read(SpecUnit,*) dumC,DiagFudge
+
       read(SpecUnit,*) dumC,GType
-      if (trim(GenotypeFile) /= "None"     .and.&
+      if (GenotypesPresent                 .and.&
           trim(GType) /= "VanRaden"        .and.&
           trim(GType) /= "VanRaden1"       .and.&
           trim(GType) /= "VanRaden2"       .and.&
@@ -74,6 +98,7 @@ module AlphaRelateMod
         print*, GType
         stop 1
       end if
+
       read(SpecUnit,*) dumC,option
       if (trim(option) == 'Regression') then
         ScaleGByRegression = .true.
@@ -93,108 +118,108 @@ module AlphaRelateMod
       ! Make G matrix?
       GFullMat = .false.
       GIJA = .false.
-      GMake = .false.
+      MakeG = .false.
       read(SpecUnit,*) dumC, option
       GFullMat = trim(option) == 'Yes'
       if (GFullMat) then
-        GMake = .true.
+        MakeG = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       GIJA = trim(option) == 'Yes'
       if (GIJA) then
-        GMake = .true.
+        MakeG = .true.
       end if
 
       ! Make inverted G matrix ?
       IGFullMat = .false.
       IGIJA = .false.
-      GInvMake = .false.
+      MakeGInv = .false.
       read(SpecUnit,*) dumC, option
       IGFullMat = trim(option) == 'Yes'
       if (IGFullMat) then
-        GInvMake = .true.
+        MakeGInv = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       IGIJA = trim(option) == 'Yes'
       if (IGIJA) then
-        GInvMake = .true.
+        MakeGInv = .true.
       end if
 
       ! Make A matrix?
       AFullMat = .false.
       AIJA = .false.
-      AMake = .false.
+      MakeA = .false.
       read(SpecUnit,*) dumC, option
       AFullMat = trim(option) == 'Yes'
       if (AFullMat) then
-        AMake = .true.
+        MakeA = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       AIJA = trim(option) == 'Yes'
       if (AIJA) then
-        AMake = .true.
+        MakeA = .true.
       end if
 
       ! Make inverted A matrix?
       IAFullMat = .false.
       IAIJA = .false.
-      AInvMake = .false.
+      MakeAInv = .false.
       read(SpecUnit,*) dumC, option
       IAFullMat = trim(option) == 'Yes'
       if (IAFullMat) then
-        AInvMake = .true.
+        MakeAInv = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       IAIJA = trim(option) == 'Yes'
       if (IAIJA) then
-        AInvMake = .true.
+        MakeAInv = .true.
       end if
 
       ! Make H matrix?
       HFullMat = .false.
       HIJA = .false.
-      HMake = .false.
+      MakeH = .false.
       read(SpecUnit,*) dumC, option
       HFullMat = trim(option) == 'Yes'
       if (HFullMat) then
-        HMake = .true.
+        MakeH = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       HIJA = trim(option) == 'Yes'
       if (HIJA) then
-        HMake = .true.
+        MakeH = .true.
       end if
 
       ! Make inverted H matrix?
       IHFullMat = .false.
       IHIJA = .false.
-      HInvMake = .false.
+      MakeHInv = .false.
       read(SpecUnit,*) dumC, option
       IHFullMat = trim(option) == 'Yes'
       if (IHFullMat) then
-        HInvMake = .true.
+        MakeHInv = .true.
       end if
 
       read(SpecUnit,*) dumC, option
       IHIJA = trim(option) == 'Yes'
       if (IHIJA) then
-        HInvMake = .true.
+        MakeHInv = .true.
       end if
 
-      if (HMake) then
-        GMake = .true.
-        AMake = .true.
+      if (MakeH) then
+        MakeG = .true.
+        MakeA = .true.
       end if
 
-      if (HInvMake) then
-        GMake = .true.
-        AMake = .true.
-        AInvMake = .true.
+      if (MakeHInv) then
+        MakeG = .true.
+        MakeA = .true.
+        MakeAInv = .true.
       end if
 
       OldAmatPresent = .false.
@@ -209,26 +234,6 @@ module AlphaRelateMod
         open(newunit=OldAmatUnit, file=OldAmatFile, status="unknown")
       end if
 
-      allocate(AlleleFreq(nSnp))
-      allocate(WeightStand(nSnp,nTrait,nTrait))
-      allocate(Weights(nSnp,nTrait))
-
-      if (trim(GenotypeFile)/='None') then
-        open(newunit=GenotypeUnit,file=trim(GenotypeFile),status="old")
-      end if
-
-      PedigreePresent=.false.
-      if (trim(PedigreeFile)/='None') then
-        open(newunit=PedigreeUnit,file=trim(PedigreeFile),status="old")
-        PedigreePresent=.true.
-      end if
-      if (trim(WeightFile)/='None') then
-        open(newunit=WeightUnit,file=trim(WeightFile),status="old")
-        WeightsPresent = .true.
-      else
-        WeightsPresent = .false.
-      end if
-
       nGMats=0
       do i=1,nTrait
         do j=i,nTrait
@@ -236,28 +241,28 @@ module AlphaRelateMod
         end do
       end do
 
-      if (trim(GenotypeFile)=='None') then
-        if (GMake .or. GInvMake .or. HMake .or. HInvMake) then
+      if (.not. GenotypesPresent) then
+        if (MakeG .or. MakeGInv .or. MakeH .or. MakeHInv) then
           print *, 'In order to create G or H matrices, a genotype file must be given.'
         end if
-        GMake=.false.
-        GInvMake=.false.
-        HMake=.false.
-        HInvMake=.false.
+        MakeG=.false.
+        MakeGInv=.false.
+        MakeH=.false.
+        MakeHInv=.false.
       end if
 
-      if (trim(PedigreeFile)=='None') then
-        if (AMake .or. AInvMake .or. HMake .or. HInvMake) then
+      if (.not. PedigreePresent) then
+        if (MakeA .or. MakeAInv .or. MakeH .or. MakeHInv) then
           print *, 'In order to create A or H matrices, a pedigree must be given.'
         end if
-        AMake=.false.
-        AInvMake=.false.
-        HMake=.false.
-        HInvMake=.false.
+        MakeA=.false.
+        MakeAInv=.false.
+        MakeH=.false.
+        MakeHInv=.false.
       end if
 
       if (ScaleGByRegression) then
-        Amake = .true.
+        MakeA = .true.
       end if
     end subroutine
 
@@ -271,29 +276,12 @@ module AlphaRelateMod
       character(len=1000) :: dumC
       character(len=LENGAN), dimension(1:3) :: pedline
 
-      nAnisG=CountLines(trim(GenotypeFile))
-      write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
-
       if (PedigreePresent) then
         nAnisRawPedigree=CountLines(trim(PedigreeFile))
         write(*,'(a2,i6,a33)') "   ",nAnisRawPedigree," individuals in the pedigree file"
-      end if
 
-      allocate(Genos(nAnisG,nSnp))
-      allocate(Zmat(nAnisG,nSnp))
-      allocate(IdGeno(nAnisG))
-      !allocate(RecodeIdGeno(nAnisG))
-
-      if (.not. PedigreePresent) then
-        allocate(RecPed(0:nAnisG,4))
-        nAnisP=nAnisG
-        RecPed(:,:)=0
-        RecPed(:,4)=1
-        do i=1,nAnisP
-          RecPed(i,1)=i
-        end do
-      else
         !!! Attempt to magically detect whether there are three or four columns:
+        open(newunit=PedigreeUnit,file=trim(PedigreeFile),status="old")
         read(PedigreeUnit, '(a)', iostat=stat) dumC
         if (stat /= 0) then
           print *, 'Problems reading Pedigree file.'
@@ -318,6 +306,7 @@ module AlphaRelateMod
         do i=1,nAnisRawPedigree
           read(PedigreeUnit,*) ped(i,1:nCols)
         end do
+        close(PedigreeUnit)
         call PVseq(nAnisRawPedigree,nAnisP,0)
 
         allocate(RecPed(0:nAnisP,4))
@@ -332,58 +321,22 @@ module AlphaRelateMod
         RecPed(1:nAnisP,4)=dooutput(1:nAnisP)
       end if
 
-      do i=1,nAnisG
-        read(GenotypeUnit,*) IdGeno(i),Genos(i,:)
-      end do
-
-      ! These three vectors uses the Pedigree animals as base,
-      ! i.e. after reordering, the indices for the nth pedigree animal is n.
-      allocate(MapAnimal(1:(nAnisP+nAnisG)))
-      allocate(MapToG(1:(nAnisP+nAnisG)))
-      allocate(AnimalsInBoth(1:nAnisP+nAnisG))
-      MapAnimal = 0
-      MapToG = .false.
-      AnimalsInBoth = .false.
-      nAnisH = nAnisP
-      do i=1,nAnisP
-        MapAnimal(i) = i
-      end do
-
-      AnimalsInBoth = .false.
-      if (PedigreePresent) then
-        !! Match Genotyped animals to pedigree animals
+      if (GenotypesPresent) then
+        nAnisG=CountLines(trim(GenotypeFile))
+        write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
+        allocate(Genos(nAnisG,nSnp))
+        allocate(Zmat(nAnisG,nSnp))
+        allocate(IdGeno(nAnisG))
+        !allocate(RecodeIdGeno(nAnisG))
+        open(newunit=GenotypeUnit,file=trim(GenotypeFile),status="old")
         do i=1,nAnisG
-          GenoInPed=0
-          do j=1,nAnisP
-            if (trim(IdGeno(i))==trim(Id(j))) then
-              MapToG(j) = .true.
-              MapAnimal(j) = i
-              AnimalsInBoth(j) = .true.
-              GenoInPed=1
-              exit
-            end if
-          end do
-          if (GenoInPed==0) then
-            nAnisH = nAnisH + 1
-            MapAnimal(nAnisH) = i
-            MapToG(nAnisH) = .true.
-            print*, "Genotyped individual not in pedigree file - ",trim(IdGeno(i))
-            !stop 1
-          end if
+          read(GenotypeUnit,*) IdGeno(i),Genos(i,:)
         end do
-      end if
+        close(GenotypeUnit)
 
-      if (WeightsPresent) then
-        do i=1,nSnp
-          read(WeightUnit,*) dumC,Weights(i,:)
-        end do
-      else
-        Weights(:,:)=1
-      end if
-
-      !! Allele frequencies
-      if (trim(GenotypeFile) /= "None") then
-        if (trim(AlleleFreqFile) == 'None') then
+        ! Allele frequencies
+        allocate(AlleleFreq(nSnp))
+        if (.not. AlleleFreqPresent) then
           !Calculate Allele Freq
           AlleleFreq(:)=0.0d0
           do j=1,nSnp
@@ -428,6 +381,66 @@ module AlphaRelateMod
             close(AlleleFreqUnit)
           end if
         end if
+
+        ! Weights
+        allocate(Weights(nSnp,nTrait))
+        allocate(WeightStand(nSnp,nTrait,nTrait))
+        if (WeightsPresent) then
+          open(newunit=WeightUnit,file=trim(WeightFile),status="old")
+          do i=1,nSnp
+            read(WeightUnit,*) dumC,Weights(i,:)
+          end do
+          close(WeightUnit)
+        else
+          Weights(:,:)=1
+        end if
+      end if
+
+      if (.not. PedigreePresent .and. GenotypesPresent) then
+        allocate(RecPed(0:nAnisG,4))
+        nAnisP=nAnisG
+        RecPed(:,:)=0
+        RecPed(:,4)=1
+        do i=1,nAnisP
+          RecPed(i,1)=i
+        end do
+      end if
+
+      if (PedigreePresent .and. GenotypesPresent) then
+        ! These three vectors uses the Pedigree animals as base,
+        ! i.e. after reordering, the indices for the nth pedigree animal is n.
+        allocate(MapAnimal(1:(nAnisP+nAnisG)))
+        allocate(MapToG(1:(nAnisP+nAnisG)))
+        allocate(AnimalsInBoth(1:nAnisP+nAnisG))
+        MapAnimal = 0
+        MapToG = .false.
+        AnimalsInBoth = .false.
+        nAnisH = nAnisP
+        do i=1,nAnisP
+          MapAnimal(i) = i
+        end do
+
+        AnimalsInBoth = .false.
+        !! Match Genotyped animals to pedigree animals
+        do i=1,nAnisG
+          GenoInPed=0
+          do j=1,nAnisP
+            if (trim(IdGeno(i))==trim(Id(j))) then
+              MapToG(j) = .true.
+              MapAnimal(j) = i
+              AnimalsInBoth(j) = .true.
+              GenoInPed=1
+              exit
+            end if
+          end do
+          if (GenoInPed==0) then
+            nAnisH = nAnisH + 1
+            MapAnimal(nAnisH) = i
+            MapToG(nAnisH) = .true.
+            print*, "Genotyped individual not in pedigree file - ",trim(IdGeno(i))
+            !stop 1
+          end if
+        end do
       end if
     end subroutine
 
@@ -637,7 +650,7 @@ module AlphaRelateMod
       end if
 
       ! Record diagonals of animals in both A and G:
-      if ((Hmake .or. HInvMake) .and. ScaleGByRegression) then
+      if ((MakeH .or. MakeHInv) .and. ScaleGByRegression) then
         n = Count(AnimalsInBoth)
         allocate(Adiag(0:n))
         div = dble(n**2)
@@ -661,7 +674,7 @@ module AlphaRelateMod
 
   !#############################################################################
 
-    subroutine MakeG
+    subroutine MakeGAndGInvMatrix
       implicit none
 
       integer(int32) :: i,j,k,l,m,n,WhichMat
@@ -840,7 +853,7 @@ module AlphaRelateMod
             close(202)
           end if
 
-          if (GInvMake) then
+          if (MakeGInv) then
             allocate(InvGmat(nAnisG,nAnisG,nGMats))
 
             print*, "Start inverting G - ", trim(GType)
@@ -881,7 +894,7 @@ module AlphaRelateMod
 
   !#############################################################################
 
-    subroutine MakeHAndHInv
+    subroutine MakeHAndHInvMatrix
       ! Feature added by Stefan Hoj-Edwards, February 2016
       ! Making the Inverse H matrix ala Aguilar et al 201? and Christensen 2012
 
@@ -925,7 +938,7 @@ module AlphaRelateMod
 
       allocate(A22Inv(nBoth,nBoth))
       allocate(MapToA22(nAnisH))
-      if (HMake) then
+      if (MakeH) then
         allocate(A22(nBoth,nBoth))
       end if
 
@@ -945,7 +958,7 @@ module AlphaRelateMod
           A22Inv(m,k) = Amat(j,i)
         end do
       end do
-      if (HMake) then
+      if (MakeH) then
         A22 = A22Inv
       end if
 
@@ -1052,7 +1065,7 @@ module AlphaRelateMod
 
           allocate(Hrow(1:count(AnimToWrite)))
 
-          if (HMake) then
+          if (MakeH) then
 
             allocate(A11(nAnisP-nBoth, nAnisP-nBoth))
             allocate(A12(nAnisP-nBoth, nBoth))
@@ -1161,7 +1174,7 @@ module AlphaRelateMod
 
           end if
 
-          if (HInvMake) then
+          if (MakeHInv) then
             print *, 'Start inverting scaled G matrix'
             call invert(G22, size(G22, 1), .true., 1)
 
@@ -1340,7 +1353,7 @@ module AlphaRelateMod
       integer(int32),allocatable :: OldN(:), NewN(:), holdsire(:), holddam(:), holdoutput(:)
 
       character(len=LENGAN)              :: IDhold
-      character(len=LENGAN) :: path
+      !character(len=LENGAN) :: path
       character(len=LENGAN),allocatable :: holdsireid(:), holddamid(:)
       character(len=LENGAN),allocatable :: holdid(:), SortedId(:), SortedSire(:), SortedDam(:)
 
