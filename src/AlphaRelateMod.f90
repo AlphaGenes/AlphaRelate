@@ -1,33 +1,9 @@
-#ifdef BINARY
-#define BINFILE ,form="unformatted"
-#else
-#define BINFILE
-#endif
-
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
-#ifdef OS_UNIX
-#define DASH "/"
-#define COPY "cp"
-#define MKDIR "mkdir -p"
-#define RMDIR "rm -r"
-#define RM "rm"
-#define RENAME "mv"
-#else
-#define DASH "\"
-#define COPY "copy"
-#define MKDIR "md"
-#define RMDIR "rmdir /S"
-#define RM "del"
-#define RENAME "move /Y"
-#endif
 
 !TODO: write output subroutines and call them in different places
 
 !#########################################################################
 
-module AlphaAHGModule
+module AlphaRelateMod
 
   use ISO_Fortran_env
   use AlphaHouseMod, only : CountLines
@@ -67,7 +43,7 @@ module AlphaAHGModule
       character(len=1000) :: dumC,option,PedigreeFile,WeightFile
       character(len=200) :: OutputPositionsC,OutputDigitsC
 
-      open(unit=11,file="AlphaAGHSpec.txt",status="old")
+      open(unit=11,file="AlphaRelateSpec.txt",status="old")
 
       ! Input parameters
       read(11,*) dumC
@@ -218,7 +194,7 @@ module AlphaAHGModule
       end if
 
       OldAmatPresent = .false.
-      n=CountLines("AlphaAGHSpec.txt")
+      n=CountLines("AlphaRelateSpec.txt")
       if (n > 24) then
         print *, "This is experimental feature/hack = not well tested and might be removed !!!"
         print *, "  - It requires id of individuals to be numeric and sequential and no unknown parents"
@@ -471,6 +447,9 @@ module AlphaAHGModule
 
       print*, "Start making A inverse"
       InvAmat=0.0d0
+      ! TODO: could remove the if statements bellow since InvAmat has zeroth row and column
+      !       and could simply increment values in those positions - they are omitted on
+      !       printout anyhow
       do i=1,nAnisP
         FId=RecPed(i,2)
         FIdL=FId/=0
@@ -687,8 +666,6 @@ module AlphaAHGModule
       print*, "Start making G - ", trim(GType)
 
       !Standardise weights
-      ! TODO: optimise use of indices to get good performance, perhaps these Weights
-      !       should be ditched altogether
       if (trim(GType) == "VanRaden"  .or.&
           trim(GType) == "VanRaden1") then
         do i=1,nTrait
@@ -2047,11 +2024,11 @@ module AlphaAHGModule
 
   !#############################################################################
 
-    subroutine AlphaAGHTitles
+    subroutine AlphaRelateTitles
        print*, ""
        write(*,'(a30,a,a30)') " ","**********************"," "
        write(*,'(a30,a,a30)') " ","*                    *"," "
-       write(*,'(a30,a,a30)') " ","*      AlphaAGH      *"," "
+       write(*,'(a30,a,a30)') " ","*    AlphaRelate     *"," "
        write(*,'(a30,a,a30)') " ","*                    *"," "
        write(*,'(a30,a,a30)') " ","**********************"
        write(*,'(a30,a,a30)') " ","VERSION:"//TOSTRING(VERS)," "
@@ -2064,46 +2041,5 @@ module AlphaAHGModule
 
   !#############################################################################
 end module
-
-!###############################################################################
-
-program AlphaAGH
-
-  use AlphaAHGModule
-
-  implicit none
-
-  include "mkl_vml.f90"
-
-  real(real32) :: start, finish
-
-  call cpu_time(start)
-  call AlphaAGHTitles
-
-  call ReadParam
-  call ReadData
-
-  if (AMake) then
-    call MakeAMatrix
-  end if
-
-  if (AInvMake) then
-    call MakeInvAMatrix
-  end if
-
-  if (GMake .or. GInvMake) then
-    call MakeG
-  end if
-
-  if (HInvMake .or. HMake) then
-    call MakeHAndHInv
-  end if
-
-  call cpu_time(finish)
-  print *," "
-  print '("  Time duration of AlphaAGH = ",f20.4," seconds.")',finish-start
-  print *," "
-
-end program
 
 !###############################################################################
