@@ -40,7 +40,7 @@ subroutine TestMakeAMatrix()
 
   call MakeAMatrix
 
-  @assertEqual(AMat, AMatTarget,"Samples from Bernoulli(p=0) should be 0.")
+  @assertEqual(AMat, AMatTarget, "Pedigree NRM is not correct")
 
 end subroutine
 
@@ -65,8 +65,8 @@ subroutine TestMakeInvAMatrix()
   RecPed(5, :) = (/5, 4, 3/)
   RecPed(6, :) = (/6, 5, 2/)
 
-  allocate(AMat(nAnisP, nAnisP))
-  allocate(AMatTarget(nAnisP, nAnisP))
+  allocate(InvAMat(nAnisP, nAnisP))
+  allocate(InvAMatTarget(nAnisP, nAnisP))
 
   ! TODO: Ideally would not need to setup this, but ... can we stick them in @before?
   ! OldAMatPresent = .false.
@@ -76,15 +76,15 @@ subroutine TestMakeInvAMatrix()
   ! MakeHInv = .false.
   ! ScaleGByRegression = .false.
 
-  !AMatTarget(1, :) = (/1.0d0,       0.0d0,       1.0d0/ 2.0d0, 1.0d0/ 2.0d0,  1.0d0/ 2.0d0,  1.0d0/ 4.0d0/)
-  !AMatTarget(2, :) = (/0.0d0,       1.0d0,       1.0d0/ 2.0d0, 0.0d0,         1.0d0/ 4.0d0,  5.0d0/ 8.0d0/)
-  !AMatTarget(3, :) = (/1.0d0/2.0d0, 1.0d0/2.0d0, 1.0d0,        1.0d0/ 4.0d0,  5.0d0/ 8.0d0,  9.0d0/16.0d0/)
-  !AMatTarget(4, :) = (/1.0d0/2.0d0, 0.0d0,       1.0d0/ 4.0d0, 1.0d0,         5.0d0/ 8.0d0,  5.0d0/16.0d0/)
-  !AMatTarget(5, :) = (/1.0d0/2.0d0, 1.0d0/4.0d0, 5.0d0/ 8.0d0, 5.0d0/ 8.0d0,  9.0d0/ 8.0d0, 11.0d0/16.0d0/)
-  !AMatTarget(6, :) = (/1.0d0/4.0d0, 5.0d0/8.0d0, 9.0d0/16.0d0, 5.0d0/16.0d0, 11.0d0/16.0d0,  9.0d0/ 8.0d0/)
+  !InvAMatTarget(1, :) = (/11.0d0/6.0d0,   1.0d0/ 2.0d0, -1.0d0,       -2.0d0/3.0d0,   0.0d0,          0.0d0       /)
+  !InvAMatTarget(2, :) = (/ 1.0d0/2.0d0,  61.0d0/30.0d0, -1.0d0,        0.0d0,         8.0d0/15.0d0, -16.0d0/15.0d0/)
+  !InvAMatTarget(3, :) = (/-1.0d0,        -1.0d0,         5.0d0/2.0d0,  1.0d0/2.0d0,  -1.0d0,          0.0d0       /)
+  !InvAMatTarget(4, :) = (/-2.0d0/3.0d0,   0.0d0,         1.0d0/2.0d0, 11.0d0/6.0d0,  -1.0d0,          0.0d0       /)
+  !InvAMatTarget(5, :) = (/ 0.0d0,         8.0d0/15.0d0, -1.0d0,       -1.0d0,        38.0d0/15.0d0, -16.0d0/15.0d0/)
+  !InvAMatTarget(6, :) = (/ 0.0d0,       -16.0d0/15.0d0,  0.0d0,        0.0d0,       -16.0d0/15.0d0,  32.0d0/15.0d0/)
 
   call MakeInvAMatrix
 
-  @assertEqual(AMat, AMatTarget,"Samples from Bernoulli(p=0) should be 0.")
+  @assertEqual(InvAMat, InvAMatTarget, "Inverse of pedigree NRM is not correct")
 
 end subroutine
