@@ -21,16 +21,16 @@ program AlphaRelate
     call MakeAMatrix
   end if
 
-  if (MakeAInv) then
+  if (MakeInvA) then
     call MakeInvAMatrix
   end if
 
-  if (MakeG .or. MakeGInv) then
-    call MakeGAndGInvMatrix
+  if (MakeG .or. MakeInvG) then
+    call MakeGAndInvGMatrix
   end if
 
-  if (MakeHInv .or. MakeH) then
-    call MakeHAndHInvMatrix
+  if (MakeH .or. MakeInvH) then
+    call MakeHAndInvHMatrix
   end if
 
   call cpu_time(finish)

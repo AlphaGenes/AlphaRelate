@@ -14,25 +14,25 @@ module AlphaRelateMod
   INTEGER(int32),PARAMETER :: LENGAN=20
 
   integer(int32) :: nTrait,nSnp,nAnisG,nAnisP,nAnisRawPedigree,AllFreqSelCycle,nCols,nAnisH
-  integer(int32) :: nGMats, GlobalExtraAnimals, OldAmatNInd
+  integer(int32) :: nGMats, GlobalExtraAnimals, OldAMatNInd
   integer(int32) :: NRMmem, shell, shellmax, shellWarning
-  integer(int32) :: PedigreeUnit,OldAmatUnit,GenotypeUnit,AlleleFreqUnit,WeightUnit
+  integer(int32) :: PedigreeUnit,OldAMatUnit,GenotypeUnit,AlleleFreqUnit,WeightUnit
   integer(int32),allocatable :: MapAnimal(:),seqid(:),seqsire(:),seqdam(:),seqoutput(:)
   integer(int32),allocatable :: RecodeGenotypeId(:),passedorder(:),RecPed(:,:),dooutput(:)
-  integer(int32),allocatable :: OldAmatId(:)
+  integer(int32),allocatable :: OldAMatId(:)
 
   real(real64) :: AlleleFreqAll,DiagFudge,ScaleGToA
   real(real64),allocatable :: AlleleFreq(:),Adiag(:)
-  real(real64),allocatable :: Weights(:,:),Zmat(:,:),tpose(:,:),Genos(:,:),Amat(:,:),InvAmat(:,:)
-  real(real64),allocatable :: WeightStand(:,:,:),Gmat(:,:,:),InvGmat(:,:,:)
+  real(real64),allocatable :: Weights(:,:),Zmat(:,:),tpose(:,:),Genos(:,:),AMat(:,:),InvAMat(:,:)
+  real(real64),allocatable :: WeightStand(:,:,:),GMat(:,:,:),InvGMat(:,:,:)
 
   character(len=20) :: GType,OutputFormat
-  character(len=1000) :: PedigreeFile,WeightFile,GenotypeFile,AlleleFreqFile,OldAmatFile
+  character(len=1000) :: PedigreeFile,WeightFile,GenotypeFile,AlleleFreqFile,OldAMatFile
   character(len=LENGAN),allocatable :: ped(:,:),Id(:),sire(:),dam(:),IdGeno(:)
 
-  logical :: PedigreePresent,GenotypesPresent,AlleleFreqPresent,AlleleFreqFixed,WeightsPresent,OldAmatPresent,ScaleGByRegression
-  logical :: MakeG, MakeGInv, MakeA, MakeAInv, MakeH, MakeHInv
-  logical :: GFullMat, GIJA, IGFullMat, IGIJA, AFullMat, AIJA, IAFullMat, IAIJA, HFullMat, HIJA, IHFullMat, IHIJA
+  logical :: PedigreePresent,GenotypesPresent,AlleleFreqPresent,AlleleFreqFixed,WeightsPresent,OldAMatPresent,ScaleGByRegression
+  logical :: MakeG, MakeInvG, MakeA, MakeInvA, MakeH, MakeInvH
+  logical :: GFullMat, GIJA, InvGFullMat, InvGIJA, AFullMat, AIJA, InvAFullMat, InvAIJA, HFullMat, HIJA, InvHFullMat, InvHIJA
   logical,allocatable :: MapToG(:), AnimalsInBoth(:)
 
   contains
@@ -132,19 +132,19 @@ module AlphaRelateMod
       end if
 
       ! Make inverted G matrix ?
-      IGFullMat = .false.
-      IGIJA = .false.
-      MakeGInv = .false.
+      InvGFullMat = .false.
+      InvGIJA = .false.
+      MakeInvG = .false.
       read(SpecUnit,*) dumC, option
-      IGFullMat = trim(option) == 'Yes'
-      if (IGFullMat) then
-        MakeGInv = .true.
+      InvGFullMat = trim(option) == 'Yes'
+      if (InvGFullMat) then
+        MakeInvG = .true.
       end if
 
       read(SpecUnit,*) dumC, option
-      IGIJA = trim(option) == 'Yes'
-      if (IGIJA) then
-        MakeGInv = .true.
+      InvGIJA = trim(option) == 'Yes'
+      if (InvGIJA) then
+        MakeInvG = .true.
       end if
 
       ! Make A matrix?
@@ -164,19 +164,19 @@ module AlphaRelateMod
       end if
 
       ! Make inverted A matrix?
-      IAFullMat = .false.
-      IAIJA = .false.
-      MakeAInv = .false.
+      InvAFullMat = .false.
+      InvAIJA = .false.
+      MakeInvA = .false.
       read(SpecUnit,*) dumC, option
-      IAFullMat = trim(option) == 'Yes'
-      if (IAFullMat) then
-        MakeAInv = .true.
+      InvAFullMat = trim(option) == 'Yes'
+      if (InvAFullMat) then
+        MakeInvA = .true.
       end if
 
       read(SpecUnit,*) dumC, option
-      IAIJA = trim(option) == 'Yes'
-      if (IAIJA) then
-        MakeAInv = .true.
+      InvAIJA = trim(option) == 'Yes'
+      if (InvAIJA) then
+        MakeInvA = .true.
       end if
 
       ! Make H matrix?
@@ -196,19 +196,19 @@ module AlphaRelateMod
       end if
 
       ! Make inverted H matrix?
-      IHFullMat = .false.
-      IHIJA = .false.
-      MakeHInv = .false.
+      InvHFullMat = .false.
+      InvHIJA = .false.
+      MakeInvH = .false.
       read(SpecUnit,*) dumC, option
-      IHFullMat = trim(option) == 'Yes'
-      if (IHFullMat) then
-        MakeHInv = .true.
+      InvHFullMat = trim(option) == 'Yes'
+      if (InvHFullMat) then
+        MakeInvH = .true.
       end if
 
       read(SpecUnit,*) dumC, option
-      IHIJA = trim(option) == 'Yes'
-      if (IHIJA) then
-        MakeHInv = .true.
+      InvHIJA = trim(option) == 'Yes'
+      if (InvHIJA) then
+        MakeInvH = .true.
       end if
 
       if (MakeH) then
@@ -216,22 +216,22 @@ module AlphaRelateMod
         MakeA = .true.
       end if
 
-      if (MakeHInv) then
+      if (MakeInvH) then
         MakeG = .true.
         MakeA = .true.
-        MakeAInv = .true.
+        MakeInvA = .true.
       end if
 
-      OldAmatPresent = .false.
+      OldAMatPresent = .false.
       n=CountLines("AlphaRelateSpec.txt")
       if (n > 24) then
         print *, "This is experimental feature/hack = not well tested and might be removed !!!"
         print *, "  - It requires id of individuals to be numeric and sequential and no unknown parents"
         print *, "  - It requires the old A matrix between the parents of individuals whose A matrix will be built"
-        print *, "  - It switches off creation of other matrices (exit after Amat is done)"
-        read(SpecUnit,*) dumC, OldAmatFile, OldAmatNInd
-        OldAmatPresent = .true.
-        open(newunit=OldAmatUnit, file=OldAmatFile, status="unknown")
+        print *, "  - It switches off creation of other matrices (exit after AMat is done)"
+        read(SpecUnit,*) dumC, OldAMatFile, OldAMatNInd
+        OldAMatPresent = .true.
+        open(newunit=OldAMatUnit, file=OldAMatFile, status="unknown")
       end if
 
       nGMats=0
@@ -242,23 +242,23 @@ module AlphaRelateMod
       end do
 
       if (.not. GenotypesPresent) then
-        if (MakeG .or. MakeGInv .or. MakeH .or. MakeHInv) then
+        if (MakeG .or. MakeInvG .or. MakeH .or. MakeInvH) then
           print *, 'In order to create G or H matrices, a genotype file must be given.'
         end if
         MakeG=.false.
-        MakeGInv=.false.
+        MakeInvG=.false.
         MakeH=.false.
-        MakeHInv=.false.
+        MakeInvH=.false.
       end if
 
       if (.not. PedigreePresent) then
-        if (MakeA .or. MakeAInv .or. MakeH .or. MakeHInv) then
+        if (MakeA .or. MakeInvA .or. MakeH .or. MakeInvH) then
           print *, 'In order to create A or H matrices, a pedigree must be given.'
         end if
         MakeA=.false.
-        MakeAInv=.false.
+        MakeInvA=.false.
         MakeH=.false.
-        MakeHInv=.false.
+        MakeInvH=.false.
       end if
 
       if (ScaleGByRegression) then
@@ -457,7 +457,7 @@ module AlphaRelateMod
 
       logical :: AnimToWrite(nAnisP),FIdL,MIdL
 
-      allocate(InvAmat(0:nAnisP,0:nAnisP))
+      allocate(InvAMat(0:nAnisP,0:nAnisP))
 
       print*, "Start calculating inbreeding coefficients"
       call dinbreeding(RecPed(0:nAnisP,1),RecPed(0:nAnisP,2),RecPed(0:nAnisP,3),Inbreeding,nAnisP)
@@ -469,8 +469,8 @@ module AlphaRelateMod
       close(202)
 
       print*, "Start making A inverse"
-      InvAmat=0.0d0
-      ! TODO: could remove the if statements bellow since InvAmat has zeroth row and column
+      InvAMat=0.0d0
+      ! TODO: could remove the if statements bellow since InvAMat has zeroth row and column
       !       and could simply increment values in those positions - they are omitted on
       !       printout anyhow
       do i=1,nAnisP
@@ -488,28 +488,28 @@ module AlphaRelateMod
         end if
         ! Precision for the individual
         InvDii=1.0d0/Dii(i)
-        InvAmat(i,i)=InvDii
+        InvAMat(i,i)=InvDii
         ! Add precision to the father and set the co-precision
         if (FIdL) then
-          InvAmat(FId,FId)=InvAmat(FId,FId)+InvDii/4.0d0
-          InvAmat(i,FId)=InvAmat(i,FId)-InvDii/2.0d0
-          InvAmat(FId,i)=InvAmat(i,FId)
+          InvAMat(FId,FId)=InvAMat(FId,FId)+InvDii/4.0d0
+          InvAMat(i,FId)=InvAMat(i,FId)-InvDii/2.0d0
+          InvAMat(FId,i)=InvAMat(i,FId)
         end if
         ! Add precision to the mother and set the co-precision
         if (MIdL) then
-          InvAmat(MId,MId)=InvAmat(MId,MId)+InvDii/4.0d0
-          InvAmat(i,MId)=InvAmat(i,MId)-InvDii/2.0d0
-          InvAmat(MId,i)=InvAmat(i,MId)
+          InvAMat(MId,MId)=InvAMat(MId,MId)+InvDii/4.0d0
+          InvAMat(i,MId)=InvAMat(i,MId)-InvDii/2.0d0
+          InvAMat(MId,i)=InvAMat(i,MId)
         end if
         ! Add co-precision between the father and mother
         if (FIdL .and. MIdL) then
-          InvAmat(FId,MId)=InvAmat(FId,MId)+InvDii/4.0d0
-          InvAmat(MId,FId)=InvAmat(FId,MId)
+          InvAMat(FId,MId)=InvAMat(FId,MId)+InvDii/4.0d0
+          InvAMat(MId,FId)=InvAMat(FId,MId)
         end if
       end do
       print*, "Finished making A inverse"
 
-      if (IAFullMat) then
+      if (InvAFullMat) then
         AnimToWrite = RecPed(1:nAnisP,4) == 1
         s = count(AnimToWrite)
         write(*,'(a40,i6,a11)') " Start writing A inverse full matrix for", s," individuals"
@@ -518,21 +518,21 @@ module AlphaRelateMod
         open(unit=202,file="InvAFullMatrix.txt",status="unknown")
         do m=1,nAnisP
           if (AnimToWrite(m)) then
-            write(202,fmt) Id(m), pack(InvAmat(1:nAnisP,m), AnimToWrite)
+            write(202,fmt) Id(m), pack(InvAMat(1:nAnisP,m), AnimToWrite)
           end if
         end do
         close(202)
         print*, "End writing A inverse full matrix"
       end if
 
-      if (IAIJA) then
+      if (InvAIJA) then
         print*, "Start writing A inverse ija"
         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="InvAija.txt",status="unknown")
         do m=1,nAnisP
           do n=m,nAnisP
-            if (InvAmat(n,m) /= 0.0d0) then
-              write(202,fmt) Id(n),Id(m),InvAmat(n,m)
+            if (InvAMat(n,m) /= 0.0d0) then
+              write(202,fmt) Id(n),Id(m),InvAMat(n,m)
             end if
           end do
         end do
@@ -548,58 +548,58 @@ module AlphaRelateMod
 
       integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
 
-      real(real64) :: AmatAvg
+      real(real64) :: AMatAvg
 
       character(len=1000) :: nChar,fmt
 
       logical :: AnimToWrite(nAnisP)
 
       print*, "Start making A"
-      if (OldAmatPresent) then
-        allocate(OldAmatId(OldAmatNInd))
-        do j = 1, OldAmatNInd
-          read(OldAmatUnit, *) OldAmatId(j)
+      if (OldAMatPresent) then
+        allocate(OldAMatId(OldAMatNInd))
+        do j = 1, OldAMatNInd
+          read(OldAMatUnit, *) OldAMatId(j)
         end do
-        rewind(OldAmatUnit)
-        MinId = minval(OldAmatId)
-        MaxId = maxval(OldAmatId)
-        allocate(Amat(1:(OldAmatNInd+nAnisP-MaxId),&
-                      1:(OldAmatNInd+nAnisP-MaxId)))
-        Amat = 0.0d0
-        do j = 1, OldAmatNInd
-          read(OldAmatUnit, *) OldAmatId(j), Amat(1:OldAmatNInd,j)
+        rewind(OldAMatUnit)
+        MinId = minval(OldAMatId)
+        MaxId = maxval(OldAMatId)
+        allocate(AMat(1:(OldAMatNInd+nAnisP-MaxId),&
+                      1:(OldAMatNInd+nAnisP-MaxId)))
+        AMat = 0.0d0
+        do j = 1, OldAMatNInd
+          read(OldAMatUnit, *) OldAMatId(j), AMat(1:OldAMatNInd,j)
           if (j > 1) then
-            if (.not.(OldAmatId(j) > OldAmatId(j-1))) then
+            if (.not.(OldAMatId(j) > OldAMatId(j-1))) then
               print *, "Id are not sequential!"
               stop 1
             end if
           end if
         end do
-        k = OldAmatNInd
+        k = OldAMatNInd
         do i=MaxId+1,nAnisP
             k = k + 1
             s = RecPed(i,2) - MinId + 1
             d = RecPed(i,3) - MinId + 1
             l = k
             do j=1,k-1
-                Amat(j,k)=(Amat(j,s)+Amat(j,d))/2.0d0
-                Amat(k,j)=Amat(j,k)
-                !print *,i,k,j,s,d,Amat(j,s),Amat(j,d),Amat(j,k)
+                AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
+                AMat(k,j)=AMat(j,k)
+                !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
             end do
-            Amat(k,k)=1.0d0+Amat(s,d)/2.0d0
-            !print *,i,k,s,d,Amat(s,d),Amat(k,k)
+            AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
+            !print *,i,k,s,d,AMat(s,d),AMat(k,k)
         end do
         RecPed(1:nAnisP,4) = 0
         RecPed((MaxId+1):nAnisP,4) = 1
       else
-        allocate(Amat(0:nAnisP,0:nAnisP))
-        Amat=0.0d0
+        allocate(AMat(0:nAnisP,0:nAnisP))
+        AMat=0.0d0
         do i=1,nAnisP
             do j=1,i-1
-                Amat(j,i)=(Amat(j,RecPed(i,2))+Amat(j,RecPed(i,3)))/2.0d0
-                Amat(i,j)=Amat(j,i)
+                AMat(j,i)=(AMat(j,RecPed(i,2))+AMat(j,RecPed(i,3)))/2.0d0
+                AMat(i,j)=AMat(j,i)
             end do
-            Amat(i,i)=1.0d0+Amat(RecPed(i,2),RecPed(i,3))/2.0d0
+            AMat(i,i)=1.0d0+AMat(RecPed(i,2),RecPed(i,3))/2.0d0
         end do
       end if
       print*, "Finished making A"
@@ -611,25 +611,25 @@ module AlphaRelateMod
         write(nChar,*) s
         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
         open(unit=202,file="AFullMatrix.txt",status="unknown")
-        if (.not.OldAmatPresent) then
+        if (.not.OldAMatPresent) then
           do m=1,nAnisP
             if (AnimToWrite(m)) then
-              write(202,fmt) Id(m), pack(Amat(1:nAnisP,m), AnimToWrite)
+              write(202,fmt) Id(m), pack(AMat(1:nAnisP,m), AnimToWrite)
             end if
           end do
         else
-          Start = OldAmatNInd+1
-          Endin = size(Amat,1)
+          Start = OldAMatNInd+1
+          Endin = size(AMat,1)
           do m=Start,Endin
-            !write(*,fmt)   Id(m+MinId-1), Amat(Start:Endin,m)
-            write(202,fmt) Id(m+MinId-1), Amat(Start:Endin,m)
+            !write(*,fmt)   Id(m+MinId-1), AMat(Start:Endin,m)
+            write(202,fmt) Id(m+MinId-1), AMat(Start:Endin,m)
           end do
         end if
         close(202)
         print*, "End writing A full matrix"
       end if
 
-      if (OldAmatPresent) then
+      if (OldAMatPresent) then
         stop
       end if
 
@@ -640,8 +640,8 @@ module AlphaRelateMod
         open(unit=202,file="Aija.txt",status="unknown")
         do m=1,nAnisP
           do n=m,nAnisP
-            if (Amat(n,m) > 0.0d0)  then
-              write(202,fmt) Id(n),Id(m),Amat(n,m)
+            if (AMat(n,m) > 0.0d0)  then
+              write(202,fmt) Id(n),Id(m),AMat(n,m)
             end if
           end do
         end do
@@ -650,31 +650,31 @@ module AlphaRelateMod
       end if
 
       ! Record diagonals of animals in both A and G:
-      if ((MakeH .or. MakeHInv) .and. ScaleGByRegression) then
+      if ((MakeH .or. MakeInvH) .and. ScaleGByRegression) then
         n = Count(AnimalsInBoth)
         allocate(Adiag(0:n))
         div = dble(n**2)
-        AmatAvg = 0.0d0
+        AMatAvg = 0.0d0
         k = 0
         do i = 1,nAnisP
           if (.not. AnimalsInBoth(i)) then
             cycle
           end if
           k = k + 1
-          Adiag(k) = Amat(i,i)
+          Adiag(k) = AMat(i,i)
           do j=1,nAnisP
             if (AnimalsInBoth(j)) then
-              AmatAvg=AmatAvg + Amat(j,i) * 2.0d0 / div
+              AMatAvg=AMatAvg + AMat(j,i) * 2.0d0 / div
             end if
           end do
         end do
-        Adiag(0) = AmatAvg
+        Adiag(0) = AMatAvg
       end if
     end subroutine
 
   !#############################################################################
 
-    subroutine MakeGAndGInvMatrix
+    subroutine MakeGAndInvGMatrix
       implicit none
 
       integer(int32) :: i,j,k,l,m,n,WhichMat
@@ -683,7 +683,7 @@ module AlphaRelateMod
 
       character(len=1000) :: filout,nChar,fmt
 
-      allocate(Gmat(nAnisG,nAnisG,nGMats))
+      allocate(GMat(nAnisG,nAnisG,nGMats))
       allocate(tpose(nSnp,nAnisG))
 
       print*, "Start making G - ", trim(GType)
@@ -853,16 +853,16 @@ module AlphaRelateMod
             close(202)
           end if
 
-          if (MakeGInv) then
-            allocate(InvGmat(nAnisG,nAnisG,nGMats))
+          if (MakeInvG) then
+            allocate(InvGMat(nAnisG,nAnisG,nGMats))
 
             print*, "Start inverting G - ", trim(GType)
-            InvGmat(:,:,WhichMat)=Gmat(:,:,WhichMat)
-            call invert(InvGmat(:,:,WhichMat),nAnisG,.true., 1)
+            InvGMat(:,:,WhichMat)=GMat(:,:,WhichMat)
+            call invert(InvGMat(:,:,WhichMat),nAnisG,.true., 1)
 
             print*, "Finished inverting G - ", trim(GType)
 
-            if (IGFullMat) then
+            if (InvGFullMat) then
               write(nChar,*) nAnisG
               fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
               write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
@@ -873,7 +873,7 @@ module AlphaRelateMod
               close(202)
             end if
 
-            if (IGIJA) then
+            if (InvGIJA) then
               write(filout,'("InvGija"i0,"-"i0".txt")')i,j
               fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
               open(unit=202,file=trim(filout),status="unknown")
@@ -894,7 +894,7 @@ module AlphaRelateMod
 
   !#############################################################################
 
-    subroutine MakeHAndHInvMatrix
+    subroutine MakeHAndInvHMatrix
       ! Feature added by Stefan Hoj-Edwards, February 2016
       ! Making the Inverse H matrix ala Aguilar et al 201? and Christensen 2012
 
@@ -903,8 +903,8 @@ module AlphaRelateMod
       ! of animals between two data sets.
       ! Diagonals of from both A have been collected during MakeA and MakeG,
       ! as well as average of A22.
-      ! Gmat is already calculated and loaded in memory.
-      ! Ainv is calculated an loaded into memory.
+      ! GMat is already calculated and loaded in memory.
+      ! InvA is calculated an loaded into memory.
       !
       ! Further assumes that animals are ordered the same in both A and G.
 
@@ -913,8 +913,8 @@ module AlphaRelateMod
       integer(int32) :: i,j,k,m,p,q,div,t1,t2,whichMat,nBoth
       integer(int32),allocatable :: MapToA11(:), MapToA22(:) !Gmap(:),
 
-      real(real64) :: Gmatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
-      real(real64),allocatable :: Gdiag(:), Hrow(:), A22(:,:), A22Inv(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
+      real(real64) :: GMatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
+      real(real64),allocatable :: Gdiag(:), Hrow(:), A22(:,:), InvA22(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
 
       character(len=1000) :: nChar,fmt1, fmt2,filout
       character(len=LENGAN),allocatable :: Ids(:)
@@ -922,7 +922,7 @@ module AlphaRelateMod
       logical,allocatable :: AnimToWrite(:)
 
       nboth = count(AnimalsInBoth)
-      ! Make H and/or Hinv
+      ! Make H and/or InvH
       allocate(Ids(1:nAnisH))
       allocate(AnimToWrite(1:nAnisH))
 
@@ -936,7 +936,7 @@ module AlphaRelateMod
         end if
       end do
 
-      allocate(A22Inv(nBoth,nBoth))
+      allocate(InvA22(nBoth,nBoth))
       allocate(MapToA22(nAnisH))
       if (MakeH) then
         allocate(A22(nBoth,nBoth))
@@ -955,14 +955,14 @@ module AlphaRelateMod
             cycle
           end if
           m = m + 1
-          A22Inv(m,k) = Amat(j,i)
+          InvA22(m,k) = AMat(j,i)
         end do
       end do
       if (MakeH) then
-        A22 = A22Inv
+        A22 = InvA22
       end if
 
-      call invert(A22Inv,size(A22Inv,1),.true.,1)
+      call invert(InvA22,size(InvA22,1),.true.,1)
 
       ! This is the G matrix in Legarra,
       ! Sadly, no genotypes where provided, instead the resulting G matrix was.
@@ -971,9 +971,9 @@ module AlphaRelateMod
         do i=1,nAnisG
           do j=1,nAnisG
             if (i==j) then
-              Gmat(i,j,1) = 1
+              GMat(i,j,1) = 1
             else
-              Gmat(i,j,1) = 0.7
+              GMat(i,j,1) = 0.7
             end if
           end do
         end do
@@ -992,7 +992,7 @@ module AlphaRelateMod
           G22 = 0.0d0
           do j=1,nAnisG
             do i=1,nAnisG
-              nom = Gmat(i,j,whichMat)
+              nom = GMat(i,j,whichMat)
               if (i == j) then
                 nom = nom - DiagFudge
               end if
@@ -1003,7 +1003,7 @@ module AlphaRelateMod
           if (ScaleGByRegression) then
             allocate(Gdiag(0:nBoth))
             Gdiag=0.0d0
-            Gmatavg=0.0d0
+            GMatavg=0.0d0
             div=dble(nBoth**2)
             !allocate(Gmap(nBoth))
 
@@ -1018,10 +1018,10 @@ module AlphaRelateMod
                 if (.not. AnimalsInBoth(j)) then
                   cycle
                 end if
-                Gmatavg=Gmatavg + G22(MapAnimal(j),MapAnimal(i))/div
+                GMatavg=GMatavg + G22(MapAnimal(j),MapAnimal(i))/div
               end do
             end do
-            Gdiag(0) = Gmatavg
+            Gdiag(0) = GMatavg
 
             ! Now do simple linear regression
             nom = 0.0d0
@@ -1053,7 +1053,7 @@ module AlphaRelateMod
                   cycle
                 end if
                 if (AnimalsInBoth(i) .and. AnimalsInBoth(j)) then
-                  G22(MapAnimal(j),MapAnimal(i)) = ScaleGToA * G22(MapAnimal(j),MapAnimal(i)) + (1.0d0 - ScaleGToA) * Amat(j,i)
+                  G22(MapAnimal(j),MapAnimal(i)) = ScaleGToA * G22(MapAnimal(j),MapAnimal(i)) + (1.0d0 - ScaleGToA) * AMat(j,i)
                 end if
               end do
             end do
@@ -1093,23 +1093,23 @@ module AlphaRelateMod
                 MapToA11(i) = k
                 do j=1,nAnisP
                   if (AnimalsInBoth(j)) then
-                    A12(k,MapAnimal(j)) = Amat(j,i)  !A12 is not symmetrical
+                    A12(k,MapAnimal(j)) = AMat(j,i)  !A12 is not symmetrical
                   else
                     m = m+1
-                    A11(m,k) = Amat(j,i)
+                    A11(m,k) = AMat(j,i)
                   end if
                 end do
               end if
             end do
 
-            tmp = Matmul(A12, A22Inv)
+            tmp = Matmul(A12, InvA22)
             !tmp = Matmul(Matmul(tmp, (Gboth - A22)), transpose(tmp))
             tmp = Matmul(tmp, (Gboth-A22))
-            tmp = Matmul(tmp, A22Inv)
+            tmp = Matmul(tmp, InvA22)
             !tmp = Matmul(tmp, transpose(A12))
 
             A11 = A11 + Matmul(tmp, transpose(A12))
-            A12 = matmul(matmul(A12, A22Inv), Gboth)
+            A12 = matmul(matmul(A12, InvA22), Gboth)
 
             deallocate(tmp)
             deallocate(Gboth)
@@ -1153,7 +1153,7 @@ module AlphaRelateMod
                     Hii = A11(MapToA11(i),MapToA11(j))
                   end if
                 end if
-                if (IHIJA .and. i .le. j .and. Hii /= 0.0d0) then
+                if (InvHIJA .and. i .le. j .and. Hii /= 0.0d0) then
                   write(204,fmt2) Ids(i), Ids(j), Hii
                 end if
                 Hrow(k) = Hii
@@ -1174,7 +1174,7 @@ module AlphaRelateMod
 
           end if
 
-          if (MakeHInv) then
+          if (MakeInvH) then
             print *, 'Start inverting scaled G matrix'
             call invert(G22, size(G22, 1), .true., 1)
 
@@ -1187,27 +1187,27 @@ module AlphaRelateMod
 
             !print *, 'A22 inverted'
             !do i=1,size(G22,1)
-            ! write(*,fmt1) IdGeno(i), A22Inv(i,:)
+            ! write(*,fmt1) IdGeno(i), InvA22(i,:)
             !end do
 
-            !print *, 'Ainv(22)'
+            !print *, 'InvA(22)'
             !do i=1,size(G22,1)
             ! j = i+10
-            ! write(*,fmt1) Ids(j), InvAmat(j,11:25)
+            ! write(*,fmt1) Ids(j), InvAMat(j,11:25)
             !end do
 
             print *, 'End inverting scaled G matrix'
 
             print *, 'Start writing inverted H matrices (full and/or ija)'
 
-            if (IHFullMat) then
+            if (InvHFullMat) then
               write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
               write(nChar,*) nAnisH
               fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
               open(unit=202,file=trim(filout),status="unknown")
             end if
 
-            if (IHIJA) then
+            if (InvHIJA) then
               write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
               fmt2="(a,' ',a,' ',"//trim(adjustl(OutputFormat))//")"
               open(unit=204,file=trim(filout),status="unknown")
@@ -1227,24 +1227,24 @@ module AlphaRelateMod
                 if (MapToG(i) .and. MapToG(j)) then
                   Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
                   if (i <= nAnisP .and. j <= nAnisP) then
-                    Hrow(k) = Hrow(k) + InvAmat(i,j) - A22Inv(MapToA22(i),MapToA22(j))
+                    Hrow(k) = Hrow(k) + InvAMat(i,j) - InvA22(MapToA22(i),MapToA22(j))
                   end if
                 else if (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.  ) then
-                  Hrow(k) = InvAmat(i,j)
+                  Hrow(k) = InvAMat(i,j)
                 end if
-                if (IHIJA .and. i .le. j .and. Hrow(k) /= 0.0d0) then
+                if (InvHIJA .and. i .le. j .and. Hrow(k) /= 0.0d0) then
                   write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k)
                 end if
               end do
-              if (IHFullMat) then
+              if (InvHFullMat) then
                 write(202,fmt1) Ids(i),Hrow(:)
               end if
             end do
 
-            if (IHFullMat) then
+            if (InvHFullMat) then
               close(202)
             end if
-            if (IHIJA) then
+            if (InvHIJA) then
               close(204)
             end if
             print *, 'End writing inverted H matrices (full and ija)'

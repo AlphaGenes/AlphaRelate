@@ -1,6 +1,6 @@
 
 @test
-subroutine TestMakeA()
+subroutine TestMakeAMatrix()
 
   use pFUnit_mod
   use ISO_Fortran_env
@@ -8,7 +8,7 @@ subroutine TestMakeA()
 
   implicit none
 
-  real(real64), allocatable :: AmatTarget(:, :)
+  real(real64), allocatable :: AMatTarget(:, :)
 
   ! Setup stuff
   nAnisP = 6
@@ -20,26 +20,71 @@ subroutine TestMakeA()
   RecPed(5, :) = (/5, 4, 3/)
   RecPed(6, :) = (/6, 5, 2/)
 
-  allocate(Amat(nAnisP, nAnisP))
-  allocate(AmatTarget(nAnisP, nAnisP))
+  allocate(AMat(nAnisP, nAnisP))
+  allocate(AMatTarget(nAnisP, nAnisP))
 
   ! TODO: Ideally would not need to setup this, but ... can we stick them in @before?
-  ! OldAmatPresent = .false.
+  ! OldAMatPresent = .false.
   ! AFullMat = .false.
   ! AIJA = .false.
   ! MakeH = .false.
   ! MakeHInv = .false.
   ! ScaleGByRegression = .false.
 
-  !AmatTarget(1, :) = (/1.0d0,       0.0d0,       1.0d0/ 2.0d0, 1.0d0/ 2.0d0,  1.0d0/ 2.0d0,  1.0d0/ 4.0d0/)
-  !AmatTarget(2, :) = (/0.0d0,       1.0d0,       1.0d0/ 2.0d0, 0.0d0,         1.0d0/ 4.0d0,  5.0d0/ 8.0d0/)
-  !AmatTarget(3, :) = (/1.0d0/2.0d0, 1.0d0/2.0d0, 1.0d0,        1.0d0/ 4.0d0,  5.0d0/ 8.0d0,  9.0d0/16.0d0/)
-  !AmatTarget(4, :) = (/1.0d0/2.0d0, 0.0d0,       1.0d0/ 4.0d0, 1.0d0,         5.0d0/ 8.0d0,  5.0d0/16.0d0/)
-  !AmatTarget(5, :) = (/1.0d0/2.0d0, 1.0d0/4.0d0, 5.0d0/ 8.0d0, 5.0d0/ 8.0d0,  9.0d0/ 8.0d0, 11.0d0/16.0d0/)
-  !AmatTarget(6, :) = (/1.0d0/4.0d0, 5.0d0/8.0d0, 9.0d0/16.0d0, 5.0d0/16.0d0, 11.0d0/16.0d0,  9.0d0/ 8.0d0/)
+  !AMatTarget(1, :) = (/1.0d0,       0.0d0,       1.0d0/ 2.0d0, 1.0d0/ 2.0d0,  1.0d0/ 2.0d0,  1.0d0/ 4.0d0/)
+  !AMatTarget(2, :) = (/0.0d0,       1.0d0,       1.0d0/ 2.0d0, 0.0d0,         1.0d0/ 4.0d0,  5.0d0/ 8.0d0/)
+  !AMatTarget(3, :) = (/1.0d0/2.0d0, 1.0d0/2.0d0, 1.0d0,        1.0d0/ 4.0d0,  5.0d0/ 8.0d0,  9.0d0/16.0d0/)
+  !AMatTarget(4, :) = (/1.0d0/2.0d0, 0.0d0,       1.0d0/ 4.0d0, 1.0d0,         5.0d0/ 8.0d0,  5.0d0/16.0d0/)
+  !AMatTarget(5, :) = (/1.0d0/2.0d0, 1.0d0/4.0d0, 5.0d0/ 8.0d0, 5.0d0/ 8.0d0,  9.0d0/ 8.0d0, 11.0d0/16.0d0/)
+  !AMatTarget(6, :) = (/1.0d0/4.0d0, 5.0d0/8.0d0, 9.0d0/16.0d0, 5.0d0/16.0d0, 11.0d0/16.0d0,  9.0d0/ 8.0d0/)
 
   call MakeAMatrix
 
-  @assertEqual(Amat, AmatTarget,"Samples from Bernoulli(p=0) should be 0.")
+  @assertEqual(AMat, AMatTarget,"Samples from Bernoulli(p=0) should be 0.")
+
+end subroutine
+
+@test
+subroutine TestMakeInvAMatrix()
+
+  use pFUnit_mod
+  use ISO_Fortran_env
+  use AlphaRelateMod
+
+  implicit none
+
+  real(real64), allocatable :: InvAMatTarget(:, :)
+
+  ! Setup stuff
+  nAnisP = 6
+  allocate(RecPed(nAnisP, 3))
+  RecPed(1, :) = (/1, 0, 0/)
+  RecPed(2, :) = (/2, 0, 0/)
+  RecPed(3, :) = (/3, 1, 2/)
+  RecPed(4, :) = (/4, 1, 0/)
+  RecPed(5, :) = (/5, 4, 3/)
+  RecPed(6, :) = (/6, 5, 2/)
+
+  allocate(AMat(nAnisP, nAnisP))
+  allocate(AMatTarget(nAnisP, nAnisP))
+
+  ! TODO: Ideally would not need to setup this, but ... can we stick them in @before?
+  ! OldAMatPresent = .false.
+  ! AFullMat = .false.
+  ! AIJA = .false.
+  ! MakeH = .false.
+  ! MakeHInv = .false.
+  ! ScaleGByRegression = .false.
+
+  !AMatTarget(1, :) = (/1.0d0,       0.0d0,       1.0d0/ 2.0d0, 1.0d0/ 2.0d0,  1.0d0/ 2.0d0,  1.0d0/ 4.0d0/)
+  !AMatTarget(2, :) = (/0.0d0,       1.0d0,       1.0d0/ 2.0d0, 0.0d0,         1.0d0/ 4.0d0,  5.0d0/ 8.0d0/)
+  !AMatTarget(3, :) = (/1.0d0/2.0d0, 1.0d0/2.0d0, 1.0d0,        1.0d0/ 4.0d0,  5.0d0/ 8.0d0,  9.0d0/16.0d0/)
+  !AMatTarget(4, :) = (/1.0d0/2.0d0, 0.0d0,       1.0d0/ 4.0d0, 1.0d0,         5.0d0/ 8.0d0,  5.0d0/16.0d0/)
+  !AMatTarget(5, :) = (/1.0d0/2.0d0, 1.0d0/4.0d0, 5.0d0/ 8.0d0, 5.0d0/ 8.0d0,  9.0d0/ 8.0d0, 11.0d0/16.0d0/)
+  !AMatTarget(6, :) = (/1.0d0/4.0d0, 5.0d0/8.0d0, 9.0d0/16.0d0, 5.0d0/16.0d0, 11.0d0/16.0d0,  9.0d0/ 8.0d0/)
+
+  call MakeInvAMatrix
+
+  @assertEqual(AMat, AMatTarget,"Samples from Bernoulli(p=0) should be 0.")
 
 end subroutine
