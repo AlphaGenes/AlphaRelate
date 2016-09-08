@@ -6,7 +6,7 @@ AlleleFreqFile       ,None Fixed,0.5
 NumberOfTraits       ,1
 NumberOfSnp          ,2
 DiagonalFudgeFactor  ,0
-TypeG                ,Day-Williams Yang VanRaden2 VanRaden1 Nejati-Javaremi
+TypeG                ,VanRaden Yang VanRaden2 VanRaden1 Nejati-Javaremi
 ScaleGtoA            ,1.00 0.99
 ############################# Output options #############################
 OutputPrecision    ,20,8
