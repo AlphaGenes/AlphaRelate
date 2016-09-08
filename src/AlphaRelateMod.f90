@@ -23,8 +23,8 @@ module AlphaRelateMod
 
   real(real64) :: AlleleFreqAll,DiagFudge,ScaleGToA
   real(real64),allocatable :: AlleleFreq(:),Adiag(:)
-  real(real64),allocatable :: Weights(:,:),Zmat(:,:),tpose(:,:),Genos(:,:),AMat(:,:),InvAMat(:,:)
-  real(real64),allocatable :: WeightStand(:,:,:),GMat(:,:,:),InvGMat(:,:,:)
+  real(real64),allocatable :: Weights(:,:),ZMat(:,:),tZMat(:,:),Genos(:,:),AMat(:,:),InvAMat(:,:)
+  real(real64),allocatable :: GMat(:,:,:),InvGMat(:,:,:)
 
   character(len=20) :: GType,OutputFormat
   character(len=1000) :: PedigreeFile,WeightFile,GenotypeFile,AlleleFreqFile,OldAMatFile
@@ -92,9 +92,11 @@ module AlphaRelateMod
           trim(GType) /= "VanRaden1"       .and.&
           trim(GType) /= "VanRaden2"       .and.&
           trim(GType) /= "Yang"            .and.&
-          trim(GType) /= "Nejati-Javaremi" .and.&
-          trim(GType) /= "Day-Williams") then
-        print*, "TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, Nejati-Javaremi, or Day-Williams"
+          trim(GType) /= "Nejati-Javaremi") then
+        !  trim(GType) /= "Nejati-Javaremi" .and.&
+        !  trim(GType) /= "Day-Williams") then
+        !print*, "TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, Nejati-Javaremi. or Day-Williams"
+        print*, "TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, or Nejati-Javaremi"
         print*, GType
         stop 1
       end if
@@ -325,7 +327,7 @@ module AlphaRelateMod
         nAnisG=CountLines(trim(GenotypeFile))
         write(*,'(a2,i6,a33)') "   ",nAnisG," individuals in the genotype file"
         allocate(Genos(nAnisG,nSnp))
-        allocate(Zmat(nAnisG,nSnp))
+        allocate(ZMat(nAnisG,nSnp))
         allocate(IdGeno(nAnisG))
         !allocate(RecodeIdGeno(nAnisG))
         open(newunit=GenotypeUnit,file=trim(GenotypeFile),status="old")
@@ -384,7 +386,6 @@ module AlphaRelateMod
 
         ! Weights
         allocate(Weights(nSnp,nTrait))
-        allocate(WeightStand(nSnp,nTrait,nTrait))
         if (WeightsPresent) then
           open(newunit=WeightUnit,file=trim(WeightFile),status="old")
           do i=1,nSnp
@@ -392,7 +393,7 @@ module AlphaRelateMod
           end do
           close(WeightUnit)
         else
-          Weights(:,:)=1
+          Weights(:,:)=1.0d0
         end if
       end if
 
@@ -455,7 +456,7 @@ module AlphaRelateMod
 
       character(len=1000) :: nChar,fmt
 
-      logical :: AnimToWrite(nAnisP),FIdL,MIdL
+      logical :: AnimToWrite(nAnisP),FIdKnown,MIdKnown
 
       allocate(InvAMat(0:nAnisP,0:nAnisP))
 
@@ -475,34 +476,34 @@ module AlphaRelateMod
       !       printout anyhow
       do i=1,nAnisP
         FId=RecPed(i,2)
-        FIdL=FId/=0
+        FIdKnown=FId/=0
         MId=RecPed(i,3)
-        MIdL=MId/=0
+        MIdKnown=MId/=0
         ! Variance of founder effects and Mendelian sampling terms
         Dii(i)=1.0d0
-        if (FIdL) then
+        if (FIdKnown) then
           Dii(i)=Dii(i)-0.25d0*(1.0d0+Inbreeding(FId))
         end if
-        if (MIdL) then
+        if (MIdKnown) then
           Dii(i)=Dii(i)-0.25d0*(1.0d0+Inbreeding(MId))
         end if
         ! Precision for the individual
         InvDii=1.0d0/Dii(i)
         InvAMat(i,i)=InvDii
         ! Add precision to the father and set the co-precision
-        if (FIdL) then
+        if (FIdKnown) then
           InvAMat(FId,FId)=InvAMat(FId,FId)+InvDii/4.0d0
           InvAMat(i,FId)=InvAMat(i,FId)-InvDii/2.0d0
           InvAMat(FId,i)=InvAMat(i,FId)
         end if
         ! Add precision to the mother and set the co-precision
-        if (MIdL) then
+        if (MIdKnown) then
           InvAMat(MId,MId)=InvAMat(MId,MId)+InvDii/4.0d0
           InvAMat(i,MId)=InvAMat(i,MId)-InvDii/2.0d0
           InvAMat(MId,i)=InvAMat(i,MId)
         end if
         ! Add co-precision between the father and mother
-        if (FIdL .and. MIdL) then
+        if (FIdKnown .and. MIdKnown) then
           InvAMat(FId,MId)=InvAMat(FId,MId)+InvDii/4.0d0
           InvAMat(MId,FId)=InvAMat(FId,MId)
         end if
@@ -679,48 +680,23 @@ module AlphaRelateMod
 
       integer(int32) :: i,j,k,l,m,n,WhichMat
 
-      real(real64) :: Tmp,TmpWt(nSnp),TmpVal(1),Denom
+      real(real64) :: nSnpD, DMatSum, Tmp, Tmp2, Tmp3
+      real(real64), allocatable :: DMat(:,:)
 
       character(len=1000) :: filout,nChar,fmt
 
       allocate(GMat(nAnisG,nAnisG,nGMats))
-      allocate(tpose(nSnp,nAnisG))
+      allocate(tZMat(nSnp,nAnisG))
+      if (WeightsPresent) then
+        allocate(DMat(nSnp,nSnp))
+        DMat(:,:)=0.0d0
+      end if
 
       print*, "Start making G - ", trim(GType)
 
-      !Standardise weights
-      if (trim(GType) == "VanRaden"  .or.&
-          trim(GType) == "VanRaden1") then
-        do i=1,nTrait
-          do j=1,nTrait
-            if (i==j) then
-              TmpVal(1)=sum(Weights(:,j))
-              do k=1,nSnp
-                WeightStand(k,i,j)=Weights(k,j)/TmpVal(1)
-              end do
-            else
-              do k=1,nSnp
-                TmpWt(k)=Weights(k,i)*Weights(k,j)
-              end do
-              TmpVal(1)=sum(TmpWt(:))
-              do k=1,nSnp
-                WeightStand(k,i,j)=TmpWt(k)/TmpVal(1)
-              end do
-            end if
-          end do
-        end do
-      end if
-      if (trim(GType) == "VanRaden2"       .or.&
-          trim(GType) == "Yang"            .or.&
-          trim(GType) == "Nejati-Javaremi" .or.&
-          trim(GType) == "Day-Williams") then
-        if (WeightsPresent) then
-          print*,"Weights not used with option ", trim(GType)
-        end if
-        WeightStand(:,:,:)=1.0d0
-      end if
+      nSnpD = dble(nSnp)
 
-      !Make Z
+      ! Center allele dosages (Z)
       if (trim(GType) == "VanRaden"  .or.&
           trim(GType) == "VanRaden1" .or.&
           trim(GType) == "VanRaden2" .or.&
@@ -728,9 +704,9 @@ module AlphaRelateMod
         do j=1,nSnp
           do i=1,nAnisG
             if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-              Zmat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
+              ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
             else
-              Zmat(i,j)=0.0d0
+              ZMat(i,j)=0.0d0
             end if
           end do
         end do
@@ -740,86 +716,98 @@ module AlphaRelateMod
         do j=1,nSnp
           do i=1,nAnisG
             if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-              Zmat(i,j)=Genos(i,j)-1.0d0
+              ZMat(i,j)=Genos(i,j)-1.0d0
             else
-              Zmat(i,j)=0.d00 ! TODO: is this correct?
+              ZMat(i,j)=0.d00 ! TODO: is this OK?
             end if
           end do
         end do
       end if
-
+      ! Scale centered allele dosages
       if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
         do j=1,nSnp
-          Tmp=AlleleFreq(j)*(1.0d0-AlleleFreq(j))
+          Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
           if (Tmp > tiny(Tmp)) then
-            Zmat(:,j)=Zmat(:,j)/sqrt(2.0d0*Tmp)
+            ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
           end if
         end do
       end if
 
-      !Make G matrices
+      ! Z'
+      tZMat=transpose(ZMat)
+
       WhichMat=0
       do j=1,nTrait
         do i=j,nTrait
           WhichMat=WhichMat+1
 
-          ! Z'
-          tpose=transpose(Zmat)
-
-          ! ZH
-          do k=1,nSnp
-            Zmat(:,k)=Zmat(:,k)*WeightStand(k,i,j)
-          end do
-
           ! ZHZ'
-          GMat(:,:,WhichMat)=matmul(Zmat,tpose)
+          if (WeightsPresent) then
+            DMatSum=0.0d0
+            do k=1,nSnp
+              DMat(k,k)=sqrt(Weights(k,i))*sqrt(Weights(k,j))
+              DMatSum=DMatSum+DMat(k,k)
+            end do
+            GMat(:,:,WhichMat)=matmul(matmul(ZMat,DMat),tZMat)
+          else
+            GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
+          end if
 
           ! ZHZ'/Denom
-          Denom=1.0d0
           if (trim(GType) == "VanRaden" .or. trim(GType) == "VanRaden1") then
-            Denom=0.0d0
-            do k=1,nSnp
-              Denom=Denom+(AlleleFreq(k)*(1.0d0-AlleleFreq(k))*WeightStand(k,i,j))
-            end do
-            Denom=2.0d0*Denom
+            GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/(2.0d0*sum(AlleleFreq(:)*(1.0d0-AlleleFreq(:))))
           end if
           if (trim(GType) == "VanRaden2" .or.&
               trim(GType) == "Yang"      .or.&
               trim(GType) == "Nejati-Javaremi") then
-            Denom = dble(nSnp)
+            GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nSnpD
           end if
-          GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/Denom
 
+          ! Put back scale from [-1,1] to [0,2]
           if (trim(GType) == "Nejati-Javaremi") then
-            GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+1.0d0
+            if (WeightsPresent) then
+              Tmp=DMatSum/nSnpD
+            else
+              Tmp=1.0d0
+            end if
+            GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
           end if
 
-          if (trim(GType) == "Day-Williams") then
-            Tmp=0.0d0
-            do k=1,nSnp
-              Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
-            end do
-            do k=1,nAnisG
-              do l=1,nAnisG
-                ! GMat(l,k,WhichMat)+nSnp is the observed number of IBS matches, i.e., e(i,j)
-                GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nSnp)/2.0d0-Tmp)/(nSnp-Tmp)
-              end do
-            end do
-          end if
+          ! TODO: needs testing (was getting some weird values)
+          ! if (trim(GType) == "Day-Williams") then
+          !   Tmp=0.0d0
+          !   do k=1,nSnp
+          !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
+          !   end do
+          !   do k=1,nAnisG
+          !     do l=1,nAnisG
+          !       ! TODO: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
+          !       !       which is faster?
+          !       ! GMat(l,k,WhichMat)+nSnp is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
+          !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
+          !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nSnpD)/2.0d0-Tmp)/(nSnpD-Tmp)
+          !     end do
+          !   end do
+          ! end if
 
           ! Different diagonal for Yang altogether
           if (trim(GType) == "Yang") then
-            do k=1,nAnisG
-              GMat(k,k,WhichMat)=1.0d0
+            do l=1,nAnisG
+              GMat(l,l,WhichMat)=0.0d0
             end do
             do k=1,nSnp
-              do l=1,nAnisG
-                Tmp=AlleleFreq(k)*(1.0d0-AlleleFreq(k))
-                if (Tmp > tiny(Tmp)) then
-                  Tmp=(Genos(l,k)*Genos(l,k)-(1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k)+2.0d0*AlleleFreq(k)*AlleleFreq(k))/(2.0d0*Tmp)
-                  GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp/Denom
+              Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
+              if (Tmp > tiny(Tmp)) then
+                if (WeightsPresent) then
+                  Tmp2=sqrt(Weights(k,i))*sqrt(Weights(k,j))
+                else
+                  Tmp2=1.0d0
                 end if
-              end do
+                do l=1,nAnisG
+                  Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nSnpD
+                  GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
+                end do
+              end if
             end do
           end if
 
@@ -888,7 +876,7 @@ module AlphaRelateMod
 
         end do
       end do
-      deallocate(tpose)
+      deallocate(tZMat)
       print*, "Finished making G - ", trim(GType)
     end subroutine
 
