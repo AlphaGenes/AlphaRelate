@@ -85,12 +85,12 @@ directories:
 
 # Compilation options for debugging
 # With warnings about not used variables
-debuglong: FFLAGS:=$(FFLAGS) -traceback -g -debug all -ftrapuv -fpe0 -warn -check all
+debuglong: FFLAGS:=$(FFLAGS) -traceback -g -debug all -ftrapuv -fpe0 -warn all -check all
 
 debuglong: all
 
 # With memory checks
-debug: FFLAGS:=$(FFLAGS) -traceback -g -debug all -warn -check bounds -check format \
+debug: FFLAGS:=$(FFLAGS) -traceback -g -debug all -warn all -check bounds -check format \
 		-check output_conversion -check pointers -check uninit
 
 debug: all
