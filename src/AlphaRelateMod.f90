@@ -681,12 +681,13 @@ module AlphaRelateMod
       integer(int32) :: i,j,k,l,m,n,WhichMat
 
       real(real64) :: nSnpD, DMatSum, Tmp, Tmp2, Tmp3
-      real(real64), allocatable :: DMat(:,:)
+      real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
 
       character(len=1000) :: filout,nChar,fmt
 
       allocate(GMat(nAnisG,nAnisG,nGMats))
       allocate(tZMat(nSnp,nAnisG))
+      allocate(TmpZMat(nAnisG,nSnp))
       if (WeightsPresent) then
         allocate(DMat(nSnp,nSnp))
         DMat(:,:)=0.0d0
@@ -748,7 +749,8 @@ module AlphaRelateMod
               DMat(k,k)=sqrt(Weights(k,i))*sqrt(Weights(k,j))
               DMatSum=DMatSum+DMat(k,k)
             end do
-            GMat(:,:,WhichMat)=matmul(matmul(ZMat,DMat),tZMat)
+            TmpZMat=matmul(ZMat,DMat)
+            GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
           else
             GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
           end if
@@ -877,6 +879,7 @@ module AlphaRelateMod
         end do
       end do
       deallocate(tZMat)
+      deallocate(TmpZMat)
       print*, "Finished making G - ", trim(GType)
     end subroutine
 
