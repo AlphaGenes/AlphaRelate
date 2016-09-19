@@ -1,7 +1,6 @@
 bin
+objs
 *.o
 *.mod
 *.txt
 *.i90
-tests/*.f90
-tests/*.F90

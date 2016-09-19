@@ -1,18 +1,18 @@
 ############################# Input parameters ###########################
-GenotypeFile        ,Genotype.txt
-PedigreeFile        ,Pedigree.txt
-WeightFile          ,None
-AlleleFreqFile      ,None
-NumberOfTraits      ,1
-NumberOfSnp         ,4
-DiagonalFudgeFactor ,0.00
-TypeG               ,VanRaden
-ScaleGtoA           ,1
+GenotypeFile         ,Genotype.txt
+PedigreeFile         ,Pedigree.txt
+WeightFile           ,None
+AlleleFreqFile       ,None
+NumberOfTraits       ,1
+NumberOfSnp	     ,4
+DiagonalFudgeFactor  ,0.00
+TypeG                ,VanRaden
+ScaleGtoA            ,1
 ############################# Output options #############################
 OutputPrecision    ,8,2
-GFullMat           ,Yes
+GFullMat           ,No
 GIJA               ,No
-InverseGFullMat    ,Yes
+InverseGFullMat    ,No
 InverseGIJA        ,No
 AmatFullMat        ,Yes
 AmatIJA            ,No
