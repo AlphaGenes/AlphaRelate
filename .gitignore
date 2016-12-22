@@ -8,3 +8,4 @@ DoxygenDoc
 *.o
 *.mod
 *.i90
+pftest_alltests

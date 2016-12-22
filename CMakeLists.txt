@@ -40,7 +40,7 @@ OPTION(USE_MPI "Use the MPI library for parallelization" OFF)
 OPTION(USE_OPENMP "Use OpenMP for parallelization" ON)
 
 IF(${RUN_TESTS})
-  #SET(testDeps ${SRC}/AlphaImputeInMod.f90)
+  SET(testDeps ${SRC}/AlphaRelateModule.f90)
 ENDIF(${RUN_TESTS})
 
 # set(_files "test.pf")

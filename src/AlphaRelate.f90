@@ -2,7 +2,7 @@
 !###############################################################################
 
 program AlphaRelate
-
+  use ISO_Fortran_env
   use AlphaRelateModule
 
   implicit none
@@ -11,23 +11,15 @@ program AlphaRelate
   type(AlphaRelateSpec) :: Spec
   type(AlphaRelateData) :: Data
 
-  integer(int32) :: i
-  integer(int32) :: PedInbreedingUnit
-
   call cpu_time(start)
-  call AlphaRelateTitles
+  call AlphaRelateTitle
 
   Spec = AlphaRelateSpec(SpecFile="AlphaRelateSpec.txt")
   Data = AlphaRelateData(Spec=Spec)
 
-  if (Spec%MakePedInb) then
-    allocate(Data%PedInbreeding(0:Data%nIndPed))
-    Data%PedInbreeding = PedInbreeding(RecPed=Data%RecPed%id, n=Data%nIndPed)
-    open(newunit=PedInbreedingUnit, file="PedigreeInbreeding.txt", status="unknown")
-    do i = 1, Data%nIndPed
-      write(PedInbreedingUnit, "(a20,f20.16)") Data%RecPed%OriginalId(i), Data%PedInbreeding(i)
-    end do
-    close(PedInbreedingUnit)
+  if (Spec%PedInbreeding) then
+    call Data%CalcPedInbreeding()
+    call Data%WritePedInbreeding(File="PedigreeInbreeding.txt")
   end if
 
   !if (Spec%MakeA) then

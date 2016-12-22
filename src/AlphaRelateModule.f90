@@ -29,11 +29,12 @@
 !
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
-
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH
   use AlphaHouseMod, only : CountLines, Char2Double
-  use PedigreeModule
+  use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
+
+  implicit none
 
   ! integer(int32) :: AllFreqSelCycle
   ! integer(int32) :: nGMat, GlobalExtraAnimals, OldAMatNInd
@@ -46,11 +47,11 @@ module AlphaRelateModule
   ! real(real64),allocatable :: tZMat(:,:),AMat(:,:),InvAMat(:,:)
   ! real(real64),allocatable :: GMat(:,:,:),InvGMat(:,:,:)
 
-  !private
+  private
   ! Types
-  !public :: AlphaRelateSpec
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData
   ! Methods
-  !public :: Mean, Var, StdDev
+  public :: PedInbreeding
 
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
@@ -59,7 +60,7 @@ module AlphaRelateModule
 
     logical :: GenotypePresent, PedigreePresent, LocusWeightPresent, AlleleFreqPresent
     logical :: AlleleFreqFixed, OldAMatPresent, ScaleGByRegression
-    logical :: MakePedInb
+    logical :: PedInbreeding
     logical :: MakeA, AFullMat, AIJA, MakeInvA, InvAFullMat, InvAIJA
     logical :: MakeG, GFullMat, GIJA, MakeInvG, InvGFullMat, InvGIJA
     logical :: MakeH, HFullMat, HIJA, MakeInvH, InvHFullMat, InvHIJA
@@ -75,10 +76,11 @@ module AlphaRelateModule
 
   !> @brief AlphaRelate data
   type AlphaRelateData
-    type(PedigreeHolder) :: PedObj
     integer(int32) :: nIndPed
     type(RecodedPedigreeArray) :: RecPed
     real(real64), allocatable :: PedInbreeding(:)
+    real(real64), allocatable :: PedNrm(:,:)
+    real(real64), allocatable :: PedNrmInv(:,:)
 
     !character(len=IDLENGTH), allocatable :: IdGeno(:)
 
@@ -89,16 +91,19 @@ module AlphaRelateModule
     !real(real64), allocatable :: Genos(:,:), ZMat(:,:), LocusWeight(:,:)
 
     !logical, allocatable :: MapToG(:), AnimalsInBoth(:)
+    contains
+      procedure :: Destroy => DestroyAlphaRelateData
+      procedure :: CalcPedInbreeding
+      procedure :: WritePedInbreeding
   end type
 
   interface AlphaRelateData
     module procedure InitAlphaRelateData
   end interface AlphaRelateData
 
-
   contains
 
-  !#############################################################################
+    !###########################################################################
 
     !---------------------------------------------------------------------------
     !> @brief   AlphaRelateSpec constructor
@@ -138,7 +143,7 @@ module AlphaRelateModule
       Spec%OldAMatPresent     = .false.
       Spec%ScaleGByRegression = .false.
 
-      Spec%MakePedInb         = .false.
+      Spec%PedInbreeding      = .false.
 
       Spec%MakeA              = .false.
       Spec%AFullMat           = .false.
@@ -239,7 +244,7 @@ module AlphaRelateModule
         Spec%OutputFormat="f"//trim(adjustl(OutputPositionsC))//"."//trim(adjustl(OutputDigitsC))
 
         read(SpecUnit,*) DumC, Option
-        Spec%MakePedInb = trim(Option) == "Yes"
+        Spec%PedInbreeding = trim(Option) == "Yes"
 
         read(SpecUnit,*) DumC, Option
         Spec%AFullMat = trim(Option) == "Yes"
@@ -346,7 +351,7 @@ module AlphaRelateModule
       end if
     end function
 
-  !#############################################################################
+    !###########################################################################
 
     !---------------------------------------------------------------------------
     !> @brief   AlphaRelateData constructor
@@ -362,6 +367,7 @@ module AlphaRelateModule
       type(AlphaRelateData) :: Data !< Assembled data
 
       ! Other
+      type(PedigreeHolder) :: PedObj
       integer(int32) :: i, j, Stat, nCols, GenoInPed, nMissing
       integer(int32) :: OldAMatUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
 
@@ -369,11 +375,14 @@ module AlphaRelateModule
 
       if (Spec%PedigreePresent) then
         ! Read in the pedigree
-        Data%PedObj = PedigreeHolder(Spec%PedigreeFile)
-        Data%nIndPed = Data%PedObj%PedigreeSize
+        PedObj = PedigreeHolder(Spec%PedigreeFile)
+        Data%nIndPed = PedObj%PedigreeSize
 
         ! Sort and recode pedigree
-        Data%RecPed = Data%PedObj%makeRecodedPedigreeArray()
+        Data%RecPed = PedObj%MakeRecodedPedigreeArray()
+
+        ! Free some memory
+        call PedObj%DestroyPedigree
       end if
 
       ! if (Spec%GenotypePresent) then
@@ -503,11 +512,62 @@ module AlphaRelateModule
       ! end if
     end function
 
-  !#############################################################################
+    !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Calculate pedigree (expected) inbreeding
-    !> @details Calculate pedigree (expected) inbreeding using the Meuwissen and
+    !> @brief   AlphaRelateData destructor
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine DestroyAlphaRelateData(This)
+      implicit none
+      class(AlphaRelateData) :: This !< An AlphaRelateData object
+
+      if (allocated(This%RecPed%OriginalId)) then
+        deallocate(This%RecPed%OriginalId)
+        deallocate(This%RecPed%Generation)
+        deallocate(This%RecPed%Id)
+      end if
+
+      if (allocated(This%PedInbreeding)) then
+        deallocate(This%PedInbreeding)
+      end if
+
+      if (allocated(This%PedNrm)) then
+        deallocate(This%PedNrm)
+      end if
+
+      if (allocated(This%PedNrmInv)) then
+        deallocate(This%PedNrmInv)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree (expected) inbreeding on AlphaRelateData
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !> @return  AlphaRelateData with Inbreeding coefficients
+    !---------------------------------------------------------------------------
+    subroutine CalcPedInbreeding(This)
+      implicit none
+      class(AlphaRelateData) :: This !< An AlphaRelateData object
+
+      if (.not. allocated(This%RecPed%OriginalId)) then
+        write(STDERR, "(a)") "ERROR: Pedigree (RecPed) must be available to compute pedigree inbreeding"
+        write(STDERR, "(a)") " "
+        stop 1
+      else
+        allocate(This%PedInbreeding(0:This%nIndPed))
+        This%PedInbreeding = PedInbreeding(RecPed=This%RecPed%Id, n=This%nIndPed)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree (expected) inbreeding using the Meuwissen and
     !!          Luo (1992, GSE 24: 305-313) method
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
     !> @date    December 22, 2016
@@ -516,8 +576,9 @@ module AlphaRelateModule
     function PedInbreeding(RecPed, n) result(f)
       implicit none
 
+      ! Arguments
       integer(int32) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
-      integer(int32) :: n               !< Number of individuals
+      integer(int32) :: n               !< Number of individuals in pedigree
       real(real64) :: f(0:n)            !< Inbreeding coefficients
 
       ! Other
@@ -587,7 +648,35 @@ module AlphaRelateModule
       end do
     end function
 
-  !#############################################################################
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Write pedigree (expected) inbreeding to file
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !> @return  File with Original Id and inbreeding coefficients
+    !---------------------------------------------------------------------------
+    subroutine WritePedInbreeding(This, File)
+      implicit none
+      class(AlphaRelateData) :: This !< An AlphaRelateData object
+      character(len=*) :: File       !< File name
+
+      integer(int32) :: PedInbreedingUnit, i
+
+      if (.not. allocated(This%PedInbreeding)) then
+        write(STDERR, "(a)") "ERROR: Pedigree inbreeding not calculated"
+        write(STDERR, "(a)") " "
+        stop 1
+      else
+        open(newunit=PedInbreedingUnit, file=trim(File), status="unknown")
+        do i = 1, This%nIndPed
+          write(PedInbreedingUnit, "(a20,f20.16)") This%RecPed%OriginalId(i), This%PedInbreeding(i)
+        end do
+        close(PedInbreedingUnit)
+      end if
+    end subroutine
+
+    !###########################################################################
 
     ! subroutine MakeInvAMatrix
     !   implicit none
@@ -684,7 +773,7 @@ module AlphaRelateModule
     !   end if
     ! end subroutine
 
-  !#############################################################################
+    !###########################################################################
 
     ! subroutine MakeAMatrix
     !   implicit none
@@ -816,7 +905,7 @@ module AlphaRelateModule
     !   end if
     ! end subroutine
 
-  !#############################################################################
+    !###########################################################################
 
     ! subroutine MakeGAndInvGMatrix
     !   implicit none
@@ -1029,7 +1118,7 @@ module AlphaRelateModule
     !   print*, "Finished making G - ", trim(GType)
     ! end subroutine
 
-  !#############################################################################
+    !###########################################################################
 
     ! subroutine MakeHAndInvHMatrix
     !   ! Feature added by Stefan Hoj-Edwards, February 2016
@@ -1396,7 +1485,7 @@ module AlphaRelateModule
     !   deallocate(Ids)
     ! end subroutine
 
-  !#############################################################################
+    !###########################################################################
 
     ! subroutine invert(x,n,sym, method)
 
@@ -1464,9 +1553,9 @@ module AlphaRelateModule
     !   end if
     ! end subroutine
 
-  !#############################################################################
+    !###########################################################################
 
-    subroutine AlphaRelateTitles
+    subroutine AlphaRelateTitle
        print*, ""
        write(*,"(a30,a,a30)") " ","**********************"," "
        write(*,"(a30,a,a30)") " ","*                    *"," "
@@ -1481,7 +1570,8 @@ module AlphaRelateModule
        print*, ""
     end subroutine
 
-  !#############################################################################
+    !###########################################################################
+
 end module
 
 !###############################################################################

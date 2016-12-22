@@ -1,5 +1,5 @@
 ############################# Input parameters ###########################
-PedigreeFile        ,PedigreeUnsorted.txt None
+PedigreeFile        ,Pedigree.txt None
 GenotypeFile        ,None Genotype.txt
 LocusWeightFile     ,None LocusWeight.txt
 AlleleFreqFile      ,None Fixed,0.5
