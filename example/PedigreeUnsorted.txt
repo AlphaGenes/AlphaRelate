@@ -1,6 +1,5 @@
-A 0 0
 B 0 0
-C A B
-D A 0
 E D C
+D A 0
 F E B
+C A B

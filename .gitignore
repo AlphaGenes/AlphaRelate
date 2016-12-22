@@ -1,7 +1,10 @@
+CMakeFiles
+CMakeCache.txt
+*.cmake
+Makefile
 bin
+objs
+DoxygenDoc
 *.o
 *.mod
-*.txt
 *.i90
-tests/*.f90
-tests/*.F90
