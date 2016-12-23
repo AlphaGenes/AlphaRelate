@@ -1,5 +1,4 @@
-PedigreeFile   ,Pedigree.txt
-PedInbreeding  ,Yes
-PedNrm         ,Yes
-PedNrmInv      ,Yes
-OutputFormat   ,20,8
+PedigreeFile    ,Pedigree.txt
+PedInbreeding   ,Yes
+PedNrm          ,Yes
+PedNrmInv       ,Yes

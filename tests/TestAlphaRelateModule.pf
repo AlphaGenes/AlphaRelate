@@ -4,12 +4,15 @@
 module TestAlphaRelateModule
   use ISO_Fortran_env, STDOUT => output_unit
   use pFUnit_mod
-  use AlphaHouseMod, only : Int2Char
+  use ConstantModule, only : IDLENGTH
+  use AlphaHouseMod, only : Int2Char, Log2Char
   use AlphaRelateModule
 
   implicit none
 
-  CHARACTER, PARAMETER :: TESTPEDFILE = "TestPedigreeExample.txt"
+  CHARACTER(len=100), PARAMETER :: TESTPEDFILE = "TestPedigreeExample.txt"
+  CHARACTER(len=100), PARAMETER :: TESTINBFILE = "TestInbExample.txt"
+  CHARACTER(len=100), PARAMETER :: TESTNRMFILE = "TestNrmExample.txt"
 
   contains
 
@@ -278,6 +281,51 @@ module TestAlphaRelateModule
       ! Ped[20, ] <- c("Dash2","Cora2","Sting")
       ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
       ! getA(Ped)
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestWriteReadNrm
+      implicit none
+      type(AlphaRelateSpec) :: Spec
+      type(AlphaRelateData) :: Data
+      integer(int32) :: Ind1, Ind2, n, i, Unit
+      real(real64), allocatable, dimension(:,:) :: Nrm
+      logical :: Ija(2)
+      character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+
+      call CreateTinyPedigreeExampleFile
+      Spec = AlphaRelateSpec()
+      Spec%PedigreePresent = .true.
+      Spec%PedigreeFile = TESTPEDFILE
+      Data = AlphaRelateData(Spec=Spec)
+      call Data%CalcPedNrm(Spec=Spec)
+      Ija(1:2) = (/.false., .true./)
+      do i = 1, 2
+        Spec%PedNrmIja = Ija(i)
+        call Data%WritePedNrm(Spec=Spec, File=TESTNRMFILE)
+        call ReadNrm(File=TESTNRMFILE, Ija=Ija(i), OriginalId=OriginalId, Nrm=Nrm, n=n)
+        ! write(STDOUT, "(3a9,"//Int2Char(Data%nIndPed)//"i16)") "", "", "", (Ind1, Ind1=1,Data%nIndPed)
+        do Ind1 = 1, Data%nIndPed
+          ! write(STDOUT, "(i8,a1,2a9,"//Int2Char(Data%nIndPed)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "observed", Data%PedNrm(1:Data%nIndPed,Ind1)
+          ! write(STDOUT, "(i8,a1,2a9,"//Int2Char(Data%nIndPed)//"f16.8)") Ind1, "", adjustr(trim(            OriginalId(Ind1))), "expected",         Nrm(1:Data%nIndPed,Ind1)
+          ! write(STDOUT, "(a)") ""
+          @AssertEqual(Data%RecPed%OriginalId(Ind1), OriginalId(Ind1), "Pedigree NRM Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
+          ! write(STDOUT, "(2a8,2a16)") " ", " ", "Calculated", "Expected"
+          do Ind2 = 1, Data%nIndPed
+            ! write(STDOUT, "(2i8,2f16.8)") Ind1, Ind2, Data%PedNrm(Ind2,Ind1), Nrm(Ind2,Ind1)
+            @AssertEqual(Data%PedNrm(Ind2,Ind1), Nrm(Ind2,Ind1), "Pedigree NRM was not written/read correctly with Ija="//Log2Char(Ija(i)))
+          end do
+        end do
+      end do
+      deallocate(OriginalId)
+      deallocate(Nrm)
+      call DeletePedigreeExampleFile
+      open(newunit=Unit, file=TESTNRMFILE, status="old")
+      close(Unit, status="delete")
+      open(newunit=Unit, file=trim(TESTNRMFILE)//"_IdMap", status="old")
+      close(Unit, status="delete")
     end subroutine
 
     !###########################################################################

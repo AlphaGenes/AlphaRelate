@@ -26,7 +26,7 @@ program AlphaRelate
 
   if (Spec%PedNrm) then
     call Data%CalcPedNrm(Spec=Spec)
-  !  call Data%WritePedNrm(File="PedigreeNrm.txt", Spec=Spec)
+    call Data%WritePedNrm(File="PedigreeNrm.txt", Spec=Spec)
   end if
 
   !if (Spec%PedNrmInv) then
