@@ -1,25 +1,5 @@
-############################# Input parameters ###########################
-PedigreeFile        ,Pedigree.txt None
-GenotypeFile        ,None Genotype.txt
-LocusWeightFile     ,None LocusWeight.txt
-AlleleFreqFile      ,None Fixed,0.5
-NumberOfTraits      ,1
-NumberOfSnp         ,2
-TypeG               ,Nejati-Javaremi VanRaden Yang VanRaden2 VanRaden1
-DiagonalFudgeFactor ,0
-ScaleGtoA           ,1.00 0.99
-############################# Output options #############################
-OutputPrecision    ,20,8
-PedInbreeding      ,Yes
-AFullMat           ,Yes
-AIJA               ,Yes
-InverseAFullMat    ,Yes
-InverseAIJA        ,Yes
-GFullMat           ,No
-GIJA               ,No
-InverseGFullMat    ,No
-InverseGIJA        ,No
-HFullMat           ,No
-HIJA               ,No
-InverseHFullMat    ,No
-InverseHIJA        ,No
+PedigreeFile   ,Pedigree.txt
+PedInbreeding  ,Yes
+PedNrm         ,Yes
+PedNrmInv      ,Yes
+OutputFormat   ,20,8

@@ -1,6 +1,4 @@
 
-!TODO: write output subroutines and call them in different places
-
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
@@ -15,7 +13,7 @@
 ! DESCRIPTION:
 !> @brief    Relationships
 !
-!> @details  Compute relationships among individuals from different sources, i.e.,
+!> @details  Calculate relationships among individuals from different sources, i.e.,
 !!           pedigree, marker genotypes, or haplotypes.
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -30,8 +28,9 @@
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
-  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH
-  use AlphaHouseMod, only : CountLines, Char2Double
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH
+  use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, ParseToFirstWhitespace,&
+                            SplitLineIntoTwoParts, ToLower
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
 
   implicit none
@@ -55,19 +54,22 @@ module AlphaRelateModule
 
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
-    character(len=FILELENGTH) :: SpecFile, GenotypeFile, PedigreeFile, LocusWeightFile, AlleleFreqFile, OldAMatFile
-    character(len=SPECOPTIONLENGTH) :: GType, OutputFormat
+    character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile, HaplotypeFile
+    character(len=FILELENGTH) :: LocusWeightFile, AlleleFreqFile, OldPedNrmFile
+    character(len=SPECOPTIONLENGTH) :: GenNrmType, OutputFormat
 
-    logical :: GenotypePresent, PedigreePresent, LocusWeightPresent, AlleleFreqPresent
-    logical :: AlleleFreqFixed, OldAMatPresent, ScaleGByRegression
-    logical :: PedInbreeding
-    logical :: MakeA, AFullMat, AIJA, MakeInvA, InvAFullMat, InvAIJA
-    logical :: MakeG, GFullMat, GIJA, MakeInvG, InvGFullMat, InvGIJA
-    logical :: MakeH, HFullMat, HIJA, MakeInvH, InvHFullMat, InvHIJA
+    logical :: SpecPresent, PedigreePresent, GenotypePresent, HaplotypePresent
+    logical :: LocusWeightPresent, AlleleFreqPresent, AlleleFreqFixed, OldPedNrmPresent
 
-    integer(int32):: nTrait, nGMat, nSnp, OldAMatNInd
+    logical :: PedInbreeding, PedNrm, PedNrmMat, PedNrmIja, PedNrmInv, PedNrmInvMat, PedNrmInvIja
+    logical :: GenInbreeding, GenNrm, GenNrmMat, GenNrmIja, GenNrmInv, GenNrmInvMat, GenNrmInvIja
+    logical :: HapInbreeding, HapNrm, HapNrmMat, HapNrmIja, HapNrmInv, HapNrmInvMat, HapNrmInvIja
+    logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
 
-    real(real64):: AlleleFreqAll, DiagFudge, ScaleGToA
+    integer(int32):: nTrait, nGenMat, nLocus, OldPedNrmNInd
+
+    real(real64):: AlleleFreqAll
+    real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
   end type
 
   interface AlphaRelateSpec
@@ -84,7 +86,7 @@ module AlphaRelateModule
 
     !character(len=IDLENGTH), allocatable :: IdGeno(:)
 
-    !integer(int32):: nAnisRawPedigree, nAnisP, nAnisG, nAnisH, nSnp, nTrait
+    !integer(int32):: nAnisRawPedigree, nAnisP, nAnisG, nAnisH, nLocus, nTrait
     !integer(int32), allocatable :: MapAnimal(:)
 
     !real(real64), allocatable :: AlleleFreq(:)
@@ -95,6 +97,10 @@ module AlphaRelateModule
       procedure :: Destroy => DestroyAlphaRelateData
       procedure :: CalcPedInbreeding
       procedure :: WritePedInbreeding
+      procedure :: CalcPedNrm
+      !procedure :: WritePedNrm
+      !procedure :: CalcPedNrmInv
+      !procedure :: WritePedNrmInv
   end type
 
   interface AlphaRelateData
@@ -109,246 +115,488 @@ module AlphaRelateModule
     !> @brief   AlphaRelateSpec constructor
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
-    !> @return  AlphaRelateSpec object
     !---------------------------------------------------------------------------
     function InitAlphaRelateSpec(SpecFile) result(Spec)
       implicit none
 
       ! Arguments
-      character(len=*), optional :: SpecFile !< Spec file, when missing, a stub with defaults is created
-      type(AlphaRelateSpec) :: Spec          !< Populated AlphaRelateSpec
+      character(len=*), optional :: SpecFile !< Spec file; when missing, a stub with defaults is created
+      type(AlphaRelateSpec) :: Spec          !< @return Specifications
 
       ! Other
-      character(len=SPECOPTIONLENGTH) :: DumC, Option
-      character(len=SPECOPTIONLENGTH) :: OutputPositionsC, OutputDigitsC
+      character(len=:), allocatable :: DumString
+      character(len=SPECOPTIONLENGTH) :: Line
+      character(len=SPECOPTIONLENGTH) :: First
+      character(len=SPECOPTIONLENGTH), dimension(:), allocatable :: Second
 
-      integer(int32) :: i, j, n, OutputPositions, OutputDigits, SpecUnit
+      integer(int32) :: SpecUnit, Stat, nTmp, i
 
       ! Defaults
       Spec%SpecFile        = "None"
       Spec%PedigreeFile    = "None"
       Spec%GenotypeFile    = "None"
+      Spec%HaplotypeFile   = "None"
       Spec%LocusWeightFile = "None"
       Spec%AlleleFreqFile  = "None"
-      Spec%OldAMatFile     = "None"
+      Spec%OldPedNrmFile   = "None"
 
-      Spec%GType        = "None"
+      Spec%GenNrmType   = "None"
       Spec%OutputFormat = "f20.16"
 
-      Spec%GenotypePresent    = .false.
+      Spec%SpecPresent        = .false.
       Spec%PedigreePresent    = .false.
+      Spec%GenotypePresent    = .false.
+      Spec%HaplotypePresent   = .false.
       Spec%LocusWeightPresent = .false.
       Spec%AlleleFreqPresent  = .false.
       Spec%AlleleFreqFixed    = .false.
-      Spec%OldAMatPresent     = .false.
-      Spec%ScaleGByRegression = .false.
+      Spec%OldPedNrmPresent   = .false.
 
       Spec%PedInbreeding      = .false.
+      Spec%PedNrm             = .false.
+      Spec%PedNrmMat          = .false.
+      Spec%PedNrmIja          = .false.
+      Spec%PedNrmInv          = .false.
+      Spec%PedNrmInvMat       = .false.
+      Spec%PedNrmInvIja       = .false.
 
-      Spec%MakeA              = .false.
-      Spec%AFullMat           = .false.
-      Spec%AIJA               = .false.
-      Spec%MakeInvA           = .false.
-      Spec%InvAFullMat        = .false.
-      Spec%InvAIJA            = .false.
+      Spec%GenInbreeding      = .false.
+      Spec%GenNrm             = .false.
+      Spec%GenNrmMat          = .false.
+      Spec%GenNrmIja          = .false.
+      Spec%GenNrmInv          = .false.
+      Spec%GenNrmInvMat       = .false.
+      Spec%GenNrmInvIja       = .false.
+      Spec%FudgeGenNrmDiag    = .false.
+      Spec%BlendGenNrm        = .false.
 
-      Spec%MakeG              = .false.
-      Spec%GFullMat           = .false.
-      Spec%GIJA               = .false.
-      Spec%MakeInvG           = .false.
-      Spec%InvGFullMat        = .false.
-      Spec%InvGIJA            = .false.
+      Spec%HapInbreeding      = .false.
+      Spec%HapNrm             = .false.
+      Spec%HapNrmMat          = .false.
+      Spec%HapNrmIja          = .false.
+      Spec%HapNrmInv          = .false.
+      Spec%HapNrmInvMat       = .false.
+      Spec%HapNrmInvIja       = .false.
+      Spec%FudgeHapNrmDiag    = .false.
+      Spec%BlendHapNrm        = .false.
 
-      Spec%MakeH              = .false.
-      Spec%HFullMat           = .false.
-      Spec%HIJA               = .false.
-      Spec%MakeInvH           = .false.
-      Spec%InvHFullMat        = .false.
-      Spec%InvHIJA            = .false.
+      Spec%nTrait        = 1
+      Spec%nGenMat       = 0
+      Spec%nLocus        = 0
+      Spec%OldPedNrmNInd = 0
 
-      Spec%nTrait      = 0
-      Spec%nGMat       = 0
-      Spec%nSnp        = 0
-      Spec%OldAMatNInd = 0
-
-      Spec%AlleleFreqAll = 0.0d0
-      Spec%DiagFudge     = 0.0d0
-      Spec%ScaleGToA     = 1.0d0
+      Spec%AlleleFreqAll         = 0.5d0
+      Spec%FudgeHapNrmDiagFactor = 0.0d0
+      Spec%BlendHapNrmFactor     = 0.0d0
+      Spec%FudgeHapNrmDiagFactor = 0.0d0
+      Spec%BlendHapNrmFactor     = 0.0d0
 
       if (present(SpecFile)) then
+
+        Spec%SpecPresent = .true.
         Spec%SpecFile = SpecFile
-        open(newunit=SpecUnit, file=trim(Spec%SpecFile), status="old")
+        open(newunit=SpecUnit, file=trim(Spec%SpecFile), action="read", status="old")
 
-        read(SpecUnit,*) DumC ! Separator
+        Stat = 0
+        ReadSpec: do while (Stat == 0)
+          read(SpecUnit, "(a)", iostat=Stat) Line
+          if (len_trim(Line) == 0) then
+            cycle
+          end if
 
-        read(SpecUnit,*) DumC, Spec%PedigreeFile
-        if (trim(Spec%PedigreeFile) /= "None") then
-          Spec%PedigreePresent = .true.
-        end if
+          call SplitLineIntoTwoParts(trim(Line), First, Second)
 
-        read(SpecUnit,*) DumC, Spec%GenotypeFile
-        if (trim(Spec%GenotypeFile) /= "None") then
-          Spec%GenotypePresent = .true.
-        end if
+          DumString = ParseToFirstWhitespace(First)
+          ! TODO why (len(trim(Line)) == 0)? if we use (len_trim(Line) == 0) above
+          if (First(1:1) == "=" .or. len(trim(Line)) == 0) then
+            cycle
+          else
+            select case (ToLower(trim(DumString)))
 
-        read(SpecUnit,*) DumC, Spec%LocusWeightFile
-        if (trim(Spec%LocusWeightFile) /= "None") then
-          Spec%LocusWeightPresent = .true.
-        end if
+              case default
+                write(STDOUT, "(3a)") " NOTE: Specification '", trim(Line), "' ignored"
+                write(STDOUT, "(a)") " "
 
-        read(SpecUnit,*) DumC, Spec%AlleleFreqFile
-        if (trim(Spec%AlleleFreqFile) /= "None") then
-          Spec%AlleleFreqPresent = .true.
-        end if
-        if (trim(Spec%AlleleFreqFile) == "Fixed") then
-          Spec%AlleleFreqFixed = .true.
-          backspace(SpecUnit)
-          read(SpecUnit,*) DumC, DumC, Spec%AlleleFreqAll
-        end if
+              case ("pedigreefile")
+                if (.not. allocated(Second)) then
+                  write(STDERR, "(a)") " ERROR: Must specify a file for PedigreeFile, i.e., PedigreeFile, Pedigree.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                else
+                  if (ToLower(trim(Second(1))) == "none") then
+                    write(STDOUT, "(a)") " Not using pedigree"
+                  else
+                    Spec%PedigreePresent = .true.
+                    write(Spec%PedigreeFile, *) trim(Second(1))
+                    write(STDOUT, "(2a)") " Using pedigree file: ", trim(Spec%PedigreeFile)
+                  end if
+                end if
 
-        read(SpecUnit,*) DumC, Spec%nTrait
-        read(SpecUnit,*) DumC, Spec%nSnp
+              ! case ("genotypefile")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a file for GenotypeFile, i.e., GenotypeFile, Genotype.txt"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     if (ToLower(trim(Second(1))) == "none") then
+              !       write(STDOUT, "(a)") " Not using genotypes"
+              !     else
+              !       Spec%GenotypePresent = .true.
+              !       write(Spec%GenotypeFile, *) trim(Second(1))
+              !       write(STDOUT, "(2a)") " Using genotype file: ", trim(Spec%GenotypeFile)
+              !     end if
+              !   end if
 
-        read(SpecUnit,*) DumC, Spec%GType
-        if (Spec%GenotypePresent                  .and. &
-            trim(Spec%GType) /= "VanRaden"        .and. &
-            trim(Spec%GType) /= "VanRaden1"       .and. &
-            trim(Spec%GType) /= "VanRaden2"       .and. &
-            trim(Spec%GType) /= "Yang"            .and. &
-            trim(Spec%GType) /= "Nejati-Javaremi") then
-          !  trim(Spec%GType) /= "Nejati-Javaremi" .and. &
-          !  trim(GSpec%Type) /= "Day-Williams") then
-          !print*, "TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, Nejati-Javaremi. or Day-Williams"
-          write(STDERR, "(a)")  "ERROR: TypeG must be either VanRaden=VanRaden1, VanRaden2, Yang, or Nejati-Javaremi"
-          write(STDERR, "(2a)") "ERROR: ", Spec%GType
-          write(STDERR, "(a)")  " "
+              ! case ("haplotypefile")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a file for HaplotypeFile, i.e., HaplotypeFile, Haplotype.txt"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     if (ToLower(trim(Second(1))) == "none") then
+              !       write(STDOUT, "(a)") " Not using haplotypes"
+              !     else
+              !       Spec%HaplotypePresent = .true.
+              !       write(Spec%HaplotypeFile, *) trim(Second(1))
+              !       write(STDOUT, "(2a)") " Using haplotype file: ", trim(Spec%HaplotypeFile)
+              !     end if
+              !   end if
+
+              ! case ("locusweightfile")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a file for LocusWeightFile, i.e., LocusWeightFile, LocusWeight.txt"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     if (ToLower(trim(Second(1))) == "none") then
+              !       write(STDOUT, "(a)") " Not using locus weights"
+              !     else
+              !       Spec%LocusWeightPresent = .true.
+              !       write(Spec%LocusWeightFile, *) trim(Second(1))
+              !       write(STDOUT, "(2a)") " Using locus weight file: ", trim(Spec%LocusWeightFile)
+              !     end if
+              !   end if
+
+              ! case ("allelefreqfile")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a file for AlleleFreqFile, i.e., AlleleFreqFile, AlleleFreq.txt"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     if (ToLower(trim(Second(1))) == "none") then
+              !       write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies"
+              !     else
+              !       Spec%AlleleFreqPresent = .true.
+              !       if (ToLower(trim(Second(1))) == "fixed") then
+              !         Spec%AlleleFreqFixed = .true.
+              !         if (size(Second) > 1) then
+              !           Spec%AlleleFreqAll = Char2Double(trim(Second(2)), "(f20.16)")
+              !         else
+              !           Spec%AlleleFreqAll = 0.5d0
+              !         end if
+              !         write(STDOUT, "(2a)") " Using fixed allele frequency: ", Real2Char(Spec%AlleleFreqAll, "(f6.4)")
+              !       else
+              !         write(Spec%AlleleFreqFile, *) trim(Second(1))
+              !         write(STDOUT, "(2a)") " Using allele frequencies file: ", trim(Spec%AlleleFreqFile)
+              !       end if
+              !     end if
+              !   end if
+
+              ! case ("numberoftraits")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfTraits, i.e., NumberOfTraits, 1"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%nTrait = Char2Int(trim(Second(1)))
+              !     write(STDOUT, "(2a)") " Number of traits: ", trim(Spec%nTrait)
+              !   end if
+
+              ! case ("numberofloci")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfLoci, i.e., NumberOfLoci, 10"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%nLocus = Char2Int(trim(Second(1)))
+              !     write(STDOUT, "(2a)") " Number of loci: ", trim(Spec%nTrait)
+              !   end if
+
+              ! case ("gennrmtype")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a method for GenNrmType, i.e., GenNrmType, VanRaden"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     write(Spec%GenNrmType, *) ToLower(trim(Second(1)))
+              !     if (trim(Spec%GenNrmType) /= "vanraden"        .and. &
+              !         trim(Spec%GenNrmType) /= "vanraden1"       .and. &
+              !         trim(Spec%GenNrmType) /= "vanraden2"       .and. &
+              !         trim(Spec%GenNrmType) /= "yang"            .and. &
+              !         trim(Spec%GenNrmType) /= "nejati-javaremi") then
+              !         ! trim(Spec%GenNrmType) /= "day-williams") then
+              !       write(STDERR, "(a)") " ERROR: GenNrmType must be either VanRaden=VanRaden1, VanRaden2, Yang, or Nejati-Javaremi"
+              !       write(STDERR, "(a)") ""
+              !       stop 1
+              !     end if
+              !     write(STDOUT, "(2a)") " Genotype NRM type: ", trim(Spec%GenNrmType)
+              !   end if
+
+              ! case ("fudgegennrmdiag")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for FudgeGenNrmDiag, i.e., FudgeGenNrmDiag, 0.001"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%FudgeGenNrmDiag = .true.
+              !     Spec%FudgeGenNrmDiagFactor = Char2Double(trim(Second(1)), "(f20.16)")
+              !     write(STDOUT, "(2a)") " Fudge genotype NRM diagonal: ", Real2Char(Spec%FudgeGenNrmDiagFactor, "(f6.4)")
+              !   end if
+
+              ! case ("blendgennrm")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for BlendGenNrm, i.e., BlendGenNrm, 0.95"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%PedNrm = .true.
+              !     Spec%BlendGenNrm = .true.
+              !     Spec%BlendGenNrmFactor = Char2Double(trim(Second(1)), "(f20.16)")
+              !     write(STDOUT, "(2a)") " Blend genotype NRM: ", Real2Char(Spec%BlendGenNrmFactor, "(f6.4)")
+              !   end if
+
+              ! case ("fudgehapnrmdiag")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for FudgeHapNrmDiag, i.e., FudgeHapNrmDiag, 0.001"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%FudgeHapNrmDiag = .true.
+              !     Spec%FudgeHapNrmDiagFactor = Char2Double(trim(Second(1)), "(f20.16)")
+              !     write(STDOUT, "(2a)") " Fudge haplotype NRM diagonal: ", Real2Char(Spec%FudgeHapNrmDiagFactor, "(f6.4)")
+              !   end if
+
+              ! case ("blendhapnrm")
+              !   if (.not. allocated(Second)) then
+              !     write(STDERR, "(a)") " ERROR: Must specify a number for BlendHapNrm, i.e., BlendHapNrm, 0.95"
+              !     write(STDERR, "(a)") ""
+              !     stop 1
+              !   else
+              !     Spec%PedNrm = .true.
+              !     Spec%BlendHapNrm = .true.
+              !     Spec%BlendHapNrmFactor = Char2Double(trim(Second(1)), "(f20.16)")
+              !     write(STDOUT, "(2a)") " Blend haplotype NRM: ", Real2Char(Spec%BlendHapNrmFactor, "(f6.4)")
+              !   end if
+
+              case ("outputformat")
+                if (.not. allocated(Second)) then
+                  write(STDERR, "(a)") " ERROR: Must specify two numbers for OutputFormat, i.e., OutputFormat, 16, 8"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                else
+                  if (size(Second) < 2) then
+                    write(STDERR, "(a)") " ERROR: Must specify two numbers for OutputFormat, i.e., OutputFormat, 16, 8"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  else
+                    Spec%OutputFormat = "f"//trim(Second(1))//"."//trim(Second(2))
+                    write(STDOUT, "(2a)") " Output format: ", trim(Spec%OutputFormat)
+                  end if
+                end if
+
+              case ("pedinbreeding")
+                if (.not. allocated(Second)) then
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No for PedInbreeding, i.e., PedInbreeding, Yes"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                else
+                  if (ToLower(trim(Second(1))) == "yes") then
+                    Spec%PedInbreeding = .true.
+                    write(STDOUT, "(a)") " Calculate pedigree inbreeding: Yes"
+                  else
+                    write(STDOUT, "(a)") " Calculate pedigree inbreeding: No"
+                  end if
+                end if
+
+              case ("pednrm")
+                if (.not. allocated(Second)) then
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for PedNrm, i.e., PedNrm, Yes , Matrix, Ija"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                else
+                  if (ToLower(trim(Second(1))) == "yes") then
+                    Spec%PedNrm = .true.
+                    write(STDOUT, "(a)") " Calculate pedigree NRM: Yes"
+                    nTmp = size(Second)
+                    if (nTmp > 1) then
+                      do i = 2, nTmp
+                        if (ToLower(trim(Second(i))) == "matrix") then
+                          Spec%PedNrmMat = .true.
+                          write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
+                        end if
+                        if (ToLower(trim(Second(i))) == "ija") then
+                          Spec%PedNrmIja = .true.
+                          write(STDOUT, "(a)") " Write pedigree NRM format: ija"
+                        end if
+                      end do
+                    else
+                      Spec%PedNrmMat = .true.
+                      write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
+                    end if
+                  else
+                    write(STDOUT, "(a)") " Calculate pedigree NRM: No"
+                  end if
+                end if
+
+              case ("pednrminv")
+                if (.not. allocated(Second)) then
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for PedNrmInv, i.e., PedNrmInv, Yes , Matrix, Ija"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                else
+                  if (ToLower(trim(Second(1))) == "yes") then
+                    Spec%PedNrmInv = .true.
+                    write(STDOUT, "(a)") " Calculate pedigree NRM inverse: Yes"
+                    nTmp = size(Second)
+                    if (nTmp > 1) then
+                      do i = 2, nTmp
+                        if (ToLower(trim(Second(i))) == "matrix") then
+                          Spec%PedNrmInvMat = .true.
+                          write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
+                        end if
+                        if (ToLower(trim(Second(i))) == "ija") then
+                          Spec%PedNrmInvIja = .true.
+                          write(STDOUT, "(a)") " Write pedigree NRM inverse format: ija"
+                        end if
+                      end do
+                    else
+                      Spec%PedNrmInvMat = .true.
+                      write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
+                    end if
+                  else
+                    write(STDOUT, "(a)") " Calculate pedigree NRM inverse: No"
+                  end if
+                end if
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%GFullMat = trim(Option) == "Yes"
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%GIJA = trim(Option) == "Yes"
+
+        ! if (Spec%GFullMat .or. Spec%GIJA) then
+        !   Spec%MakeG = .true.
+        ! end if
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%InvGFullMat = trim(Option) == "Yes"
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%InvGIJA = trim(Option) == "Yes"
+
+        ! if (Spec%InvGFullMat .or. Spec%InvGIJA) then
+        !   Spec%MakeInvG = .true.
+        ! end if
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%HFullMat = trim(Option) == "Yes"
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%HIJA = trim(Option) == "Yes"
+
+        ! if (Spec%HFullMat .or. Spec%HIJA) then
+        !   Spec%MakeH = .true.
+        !   Spec%MakeG = .true.
+        !   Spec%MakeA = .true.
+        ! end if
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%InvHFullMat = trim(Option) == "Yes"
+
+        ! read(SpecUnit,*) DumC, Option
+        ! Spec%InvHIJA = trim(Option) == "Yes"
+
+        ! if (Spec%InvHFullMat .or. Spec%InvHIJA) then
+        !   Spec%MakeInvH = .true.
+        !   Spec%MakeG    = .true.
+        !   Spec%MakeA    = .true.
+        !   Spec%MakeInvA = .true.
+        ! end if
+
+        ! n = CountLines(Spec%SpecFile)
+        ! if (n > 25) then
+        !   write(STDOUT, "(a)") " BEWARE: Using an old A matrix is an experimental feature"
+        !   write(STDOUT, "(a)") " BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
+        !   write(STDOUT, "(a)") " BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
+        !   write(STDOUT, "(a)") " BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
+        !   write(STDOUT, "(a)") " "
+        !   read(SpecUnit, *) DumC, Spec%OldAMatFile, Spec%OldAMatNInd
+        !   Spec%OldPedNrmFile = .true.
+        ! end if
+
+            end select
+          end if
+
+        end do ReadSpec
+        close(SpecUnit)
+
+        if ((Spec%PedInbreeding .or. Spec%PedNrm .or. Spec%PedNrmInv) .and. .not. Spec%PedigreePresent) then
+          write(STDERR, "(a)") " ERROR: Must provide pedigree file to calculate pedigree inbreeding, NRM, or NRM inverse"
+          write(STDERR, "(a)") ""
           stop 1
         end if
 
-        read(SpecUnit,*) DumC, Spec%DiagFudge
-
-        read(SpecUnit,*) DumC, Option
-        if (trim(Option) == "Regression") then
-          Spec%ScaleGByRegression = .true.
-          Spec%MakeG = .true.
-          Spec%MakeA = .true.
-        else
-          Spec%ScaleGToA = Char2Double(Option, "(f20.16)")
+        if ((Spec%GenInbreeding .or. Spec%GenNrm .or. Spec%GenNrmInv) .and. .not. Spec%GenotypePresent) then
+          write(STDERR, "(a)") " ERROR: Must provide genotype file to calculate genotype inbreeding, NRM, or NRM inverse"
+          write(STDERR, "(a)") ""
+          stop 1
         end if
 
-        read(SpecUnit,*) DumC ! Separator
-
-        read(SpecUnit,*) DumC, OutputPositions, OutputDigits
-        write(OutputPositionsC,*) OutputPositions
-        write(OutputDigitsC,*)    OutputDigits
-        Spec%OutputFormat="f"//trim(adjustl(OutputPositionsC))//"."//trim(adjustl(OutputDigitsC))
-
-        read(SpecUnit,*) DumC, Option
-        Spec%PedInbreeding = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%AFullMat = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%AIJA = trim(Option) == "Yes"
-
-        if (Spec%AFullMat .or. Spec%AIJA) then
-          Spec%MakeA = .true.
+        if ((Spec%HapInbreeding .or. Spec%HapNrm .or. Spec%HapNrmInv) .and. .not. Spec%HaplotypePresent) then
+          write(STDERR, "(a)") " ERROR: Must provide haplotype file to calculate haplotype inbreeding, NRM, or NRM inverse"
+          write(STDERR, "(a)") ""
+          stop 1
         end if
 
-        read(SpecUnit,*) DumC, Option
-        Spec%InvAFullMat = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%InvAIJA = trim(Option) == "Yes"
-
-        if (Spec%InvAFullMat .or. Spec%InvAIJA) then
-          Spec%MakeInvA = .true.
+        if (Spec%BlendGenNrm .and. .not. Spec%PedigreePresent) then
+          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
+          write(STDERR, "(a)") ""
+          stop 1
         end if
 
-        read(SpecUnit,*) DumC, Option
-        Spec%GFullMat = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%GIJA = trim(Option) == "Yes"
-
-        if (Spec%GFullMat .or. Spec%GIJA) then
-          Spec%MakeG = .true.
+        if (Spec%BlendHapNrm .and. .not. Spec%PedigreePresent) then
+          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
+          write(STDERR, "(a)") ""
+          stop 1
         end if
 
-        read(SpecUnit,*) DumC, Option
-        Spec%InvGFullMat = trim(Option) == "Yes"
+        ! Spec%nGenMat=0
+        ! do i = 1, Spec%nTrait
+        !   do j = i, Spec%nTrait
+        !     Spec%nGenMat = Spec%nGenMat + 1
+        !   end do
+        ! end do
 
-        read(SpecUnit,*) DumC, Option
-        Spec%InvGIJA = trim(Option) == "Yes"
+        ! if ((Spec%MakeG .or. Spec%MakeInvG .or. Spec%MakeH .or. Spec%MakeInvH) .and. .not. Spec%GenotypePresent) then
+        !   write(STDOUT, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
+        !   write(STDOUT, "(a)") " "
+        !   Spec%MakeG    = .false.
+        !   Spec%MakeInvG = .false.
+        !   Spec%MakeH    = .false.
+        !   Spec%MakeInvH = .false.
+        ! end if
 
-        if (Spec%InvGFullMat .or. Spec%InvGIJA) then
-          Spec%MakeInvG = .true.
-        end if
+        ! if ((Spec%MakeA .or. Spec%MakeInvA .or. Spec%MakeH .or. Spec%MakeInvH) .and. .not. Spec%PedigreePresent) then
+        !   write(STDOUT, "(a)") " NOTE: To create A or H matrix, a pedigree file must be given --> ommited A or H."
+        !   write(STDOUT, "(a)") " "
+        !   Spec%MakeA    = .false.
+        !   Spec%MakeInvA = .false.
+        !   Spec%MakeH    = .false.
+        !   Spec%MakeInvH = .false.
+        ! end if
 
-        read(SpecUnit,*) DumC, Option
-        Spec%HFullMat = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%HIJA = trim(Option) == "Yes"
-
-        if (Spec%HFullMat .or. Spec%HIJA) then
-          Spec%MakeH = .true.
-          Spec%MakeG = .true.
-          Spec%MakeA = .true.
-        end if
-
-        read(SpecUnit,*) DumC, Option
-        Spec%InvHFullMat = trim(Option) == "Yes"
-
-        read(SpecUnit,*) DumC, Option
-        Spec%InvHIJA = trim(Option) == "Yes"
-
-        if (Spec%InvHFullMat .or. Spec%InvHIJA) then
-          Spec%MakeInvH = .true.
-          Spec%MakeG    = .true.
-          Spec%MakeA    = .true.
-          Spec%MakeInvA = .true.
-        end if
-
-        n = CountLines(Spec%SpecFile)
-        if (n > 25) then
-          write(STDOUT, "(a)") "BEWARE: Using an old A matrix is an experimental feature"
-          write(STDOUT, "(a)") "BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
-          write(STDOUT, "(a)") "BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
-          write(STDOUT, "(a)") "BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
-          write(STDOUT, "(a)") " "
-          read(SpecUnit, *) DumC, Spec%OldAMatFile, Spec%OldAMatNInd
-          Spec%OldAMatPresent = .true.
-        end if
-
-        Spec%nGMat=0
-        do i = 1, Spec%nTrait
-          do j = i, Spec%nTrait
-            Spec%nGMat = Spec%nGMat + 1
-          end do
-        end do
-
-        if ((Spec%MakeG .or. Spec%MakeInvG .or. Spec%MakeH .or. Spec%MakeInvH) .and. .not. Spec%GenotypePresent) then
-          write(STDOUT, "(a)") "NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
-          write(STDOUT, "(a)") " "
-          Spec%MakeG    = .false.
-          Spec%MakeInvG = .false.
-          Spec%MakeH    = .false.
-          Spec%MakeInvH = .false.
-        end if
-
-        if ((Spec%MakeA .or. Spec%MakeInvA .or. Spec%MakeH .or. Spec%MakeInvH) .and. .not. Spec%PedigreePresent) then
-          write(STDOUT, "(a)") "NOTE: To create A or H matrix, a pedigree file must be given --> ommited A or H."
-          write(STDOUT, "(a)") " "
-          Spec%MakeA    = .false.
-          Spec%MakeInvA = .false.
-          Spec%MakeH    = .false.
-          Spec%MakeInvH = .false.
-        end if
-
-        close(SpecUnit)
       end if
+
     end function
 
     !###########################################################################
@@ -357,19 +605,18 @@ module AlphaRelateModule
     !> @brief   AlphaRelateData constructor
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
-    !> @return  AlphaRelateData object
     !---------------------------------------------------------------------------
     function InitAlphaRelateData(Spec) result(Data)
       implicit none
 
       ! Arguments
-      type(AlphaRelateSpec) :: Spec !< AlphaRelate specifications
-      type(AlphaRelateData) :: Data !< Assembled data
+      type(AlphaRelateSpec) :: Spec !< Specifications
+      type(AlphaRelateData) :: Data !< @return Data
 
       ! Other
       type(PedigreeHolder) :: PedObj
       integer(int32) :: i, j, Stat, nCols, GenoInPed, nMissing
-      integer(int32) :: OldAMatUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
+      integer(int32) :: OldGenNrmUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
 
       character(len=SPECOPTIONLENGTH) :: DumC
 
@@ -386,12 +633,12 @@ module AlphaRelateModule
       end if
 
       ! if (Spec%GenotypePresent) then
-      !   Data%nSnp = Spec%nSnp
+      !   Data%nLocus = Spec%nLocus
       !   Data%nTrait = Spec%nTrait
       !   Data%nAnisG = CountLines(trim(Spec%GenotypeFile))
       !   write(STDOUT, "(a2,i6,a33)") "  ", Data%nAnisG," individuals in the genotype file"
-      !   allocate(Data%Genos(Data%nAnisG,Data%nSnp))
-      !   allocate(Data%ZMat(Data%nAnisG,Data%nSnp))
+      !   allocate(Data%Genos(Data%nAnisG,Data%nLocus))
+      !   allocate(Data%ZMat(Data%nAnisG,Data%nLocus))
       !   allocate(Data%IdGeno(Data%nAnisG))
       !   !allocate(RecodeIdGeno(Data%nAnisG))
       !   open(newunit=GenotypeUnit, file=trim(Spec%GenotypeFile), status="old")
@@ -401,11 +648,11 @@ module AlphaRelateModule
       !   close(GenotypeUnit)
       !
       !   ! Allele frequencies
-      !   allocate(Data%AlleleFreq(Data%nSnp))
+      !   allocate(Data%AlleleFreq(Data%nLocus))
       !   if (.not. Spec%AlleleFreqPresent) then
       !     !Calculate Allele Freq
       !     Data%AlleleFreq(:)=0.0d0
-      !     do j = 1, Data%nSnp
+      !     do j = 1, Data%nLocus
       !       nMissing=0
       !       do i = 1, Data%nAnisG
       !         if ((Data%Genos(i,j) < 0.0) .or. (Data%Genos(i,j) > 2.0)) then
@@ -422,7 +669,7 @@ module AlphaRelateModule
       !       end if
       !     end do
       !     open(newunit=AlleleFreqUnit, file="AlleleFreq.txt",status="unknown")
-      !     do j = 1, Data%nSnp
+      !     do j = 1, Data%nLocus
       !       write(AlleleFreqUnit,*) j, Data%AlleleFreq(j)
       !     end do
       !     close(AlleleFreqUnit)
@@ -430,18 +677,18 @@ module AlphaRelateModule
       !     if (trim(Spec%AlleleFreqFile) == "Fixed") then
       !       Data%AlleleFreq(:) = Spec%AlleleFreqAll
       !       open(newunit=AlleleFreqUnit, file="AlleleFreq.txt",status="unknown")
-      !       do j = 1, nSnp
+      !       do j = 1, nLocus
       !         write(AlleleFreqUnit,*) j, Data%AlleleFreq(j)
       !       end do
       !       close(AlleleFreqUnit)
       !     else
       !       ! Read allele frequencies from file.
       !       open(newunit=AlleleFreqUnit, file=trim(Spec%AlleleFreqFile), status="old")
-      !       do i = 1, Data%nSnp
+      !       do i = 1, Data%nLocus
       !         ! AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
       !         read(AlleleFreqUnit, *, iostat=Stat) DumC, Data%AlleleFreq(i)
       !         if (Stat /= 0) then
-      !           write(STDERR, "(a)") "ERROR: Problems reading allele frequency file."
+      !           write(STDERR, "(a)") " ERROR: Problems reading allele frequency file."
       !           write(STDERR, "(a)") " "
       !           stop 1
       !         end if
@@ -451,10 +698,10 @@ module AlphaRelateModule
       !   end if
       !
       !   ! LocusWeight
-      !   allocate(Data%LocusWeight(Data%nSnp,Data%nTrait))
+      !   allocate(Data%LocusWeight(Data%nLocus,Data%nTrait))
       !   if (Spec%LocusWeightPresent) then
       !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), status="old")
-      !     do i = 1, Data%nSnp
+      !     do i = 1, Data%nLocus
       !       read(LocusWeightUnit,*) DumC, Data%LocusWeight(i,:)
       !     end do
       !     close(LocusWeightUnit)
@@ -504,7 +751,7 @@ module AlphaRelateModule
       !       Data%nAnisH = Data%nAnisH + 1
       !       Data%MapAnimal(Data%nAnisH) = i
       !       Data%MapToG(Data%nAnisH) = .true.
-      !       write(STDOUT, "(2a)") "Genotyped individual not in the pedigree file: ", trim(Data%IdGeno(i))
+      !       write(STDOUT, "(2a)") " Genotyped individual not in the pedigree file: ", trim(Data%IdGeno(i))
       !       write(STDOUT, "(a)")  " "
       !       ! stop 1
       !     end if
@@ -521,7 +768,7 @@ module AlphaRelateModule
     !---------------------------------------------------------------------------
     subroutine DestroyAlphaRelateData(This)
       implicit none
-      class(AlphaRelateData) :: This !< An AlphaRelateData object
+      class(AlphaRelateData) :: This !< Data
 
       if (allocated(This%RecPed%OriginalId)) then
         deallocate(This%RecPed%OriginalId)
@@ -545,17 +792,16 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Calculate pedigree (expected) inbreeding on AlphaRelateData
+    !> @brief   Calculate pedigree inbreeding on AlphaRelateData
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
-    !> @return  AlphaRelateData with Inbreeding coefficients
     !---------------------------------------------------------------------------
     subroutine CalcPedInbreeding(This)
       implicit none
-      class(AlphaRelateData) :: This !< An AlphaRelateData object
+      class(AlphaRelateData) :: This !< @return Data that will hold pedigree inbreeding
 
-      if (.not. allocated(This%RecPed%OriginalId)) then
-        write(STDERR, "(a)") "ERROR: Pedigree (RecPed) must be available to compute pedigree inbreeding"
+      if (.not. allocated(This%RecPed%Id)) then
+        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree inbreeding"
         write(STDERR, "(a)") " "
         stop 1
       else
@@ -567,11 +813,10 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Calculate pedigree (expected) inbreeding using the Meuwissen and
+    !> @brief   Calculate pedigree inbreeding using the Meuwissen and
     !!          Luo (1992, GSE 24: 305-313) method
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
     !> @date    December 22, 2016
-    !> @return  Inbreeding coefficients
     !---------------------------------------------------------------------------
     function PedInbreeding(RecPed, n) result(f)
       implicit none
@@ -579,7 +824,7 @@ module AlphaRelateModule
       ! Arguments
       integer(int32) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
       integer(int32) :: n               !< Number of individuals in pedigree
-      real(real64) :: f(0:n)            !< Inbreeding coefficients
+      real(real64) :: f(0:n)            !< @return Pedigree inbreeding
 
       ! Other
       integer(int32) :: i, is, id, j, k, ks, kd
@@ -651,26 +896,26 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Write pedigree (expected) inbreeding to file
+    !> @brief   Write pedigree inbreeding to a file
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
-    !> @return  File with Original Id and inbreeding coefficients
     !---------------------------------------------------------------------------
-    subroutine WritePedInbreeding(This, File)
+    subroutine WritePedInbreeding(This, Spec, File)
       implicit none
-      class(AlphaRelateData) :: This !< An AlphaRelateData object
-      character(len=*) :: File       !< File name
+      class(AlphaRelateData) :: This !< Data
+      type(AlphaRelateSpec) :: Spec  !< Specifications
+      character(len=*) :: File       !< @return File that will hold Original Id and pedigree inbreeding
 
       integer(int32) :: PedInbreedingUnit, i
 
       if (.not. allocated(This%PedInbreeding)) then
-        write(STDERR, "(a)") "ERROR: Pedigree inbreeding not calculated"
+        write(STDERR, "(a)") " ERROR: Pedigree inbreeding not calculated"
         write(STDERR, "(a)") " "
         stop 1
       else
         open(newunit=PedInbreedingUnit, file=trim(File), status="unknown")
         do i = 1, This%nIndPed
-          write(PedInbreedingUnit, "(a20,f20.16)") This%RecPed%OriginalId(i), This%PedInbreeding(i)
+          write(PedInbreedingUnit, "(a"//Int2Char(IDLENGTH)//","//Spec%OutputFormat//")") This%RecPed%OriginalId(i), This%PedInbreeding(i)
         end do
         close(PedInbreedingUnit)
       end if
@@ -678,8 +923,173 @@ module AlphaRelateModule
 
     !###########################################################################
 
-    ! subroutine MakeInvAMatrix
-    !   implicit none
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM on AlphaRelateData
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine CalcPedNrm(This, Spec)
+      implicit none
+      class(AlphaRelateData) :: This !< @return Data that will hold pedigree NRM
+      type(AlphaRelateSpec) :: Spec  !< Specifications
+
+      if (.not. allocated(This%RecPed%Id)) then
+        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree NRM"
+        write(STDERR, "(a)") " "
+        stop 1
+      else
+        if (.not. Spec%OldPedNrmPresent) then
+          allocate(This%PedNrm(0:This%nIndPed,0:This%nIndPed))
+          This%PedNrm = PedNrm(RecPed=This%RecPed%Id, n=This%nIndPed)
+        else
+          ! TODO
+        end if
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    function PedNrm(RecPed, n) result(Nrm)
+      implicit none
+
+      ! Arguments
+      integer(int32) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
+      integer(int32) :: n               !< Number of individuals in pedigree
+      real(real64) :: Nrm(0:n,0:n)      !< @return Pedigree NRM
+
+      ! Other
+      integer(int32) :: Ind1, Ind2, Par1, Par2
+
+      Nrm(0:n,0:n) = 0.0d0
+      do Ind1 = 1, n
+          Par1 = max(RecPed(2,Ind1), RecPed(3,Ind1))
+          Par2 = min(RecPed(2,Ind1), RecPed(3,Ind1))
+          do Ind2 = 1, Ind1 - 1
+              Nrm(Ind2,Ind1) = (Nrm(Ind2,Par1) + Nrm(Ind2,Par2)) / 2.0d0
+              Nrm(Ind1,Ind2) = Nrm(Ind2,Ind1)
+          end do
+
+          Nrm(Ind1,Ind2) = 1.0d0 + Nrm(Par1,Par2) / 2.0d0
+      end do
+    end function
+
+    !   integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
+
+    !   real(real64) :: AMatAvg
+
+    !   logical :: AnimToWrite(nAnisP)
+
+    !   if (OldAMatPresent) then
+    !     open(newunit=OldAMatUnit, file=OldAMatFile, status="unknown")
+    !     allocate(OldAMatId(OldAMatNInd))
+    !     do j = 1, OldAMatNInd
+    !       read(OldAMatUnit, *) OldAMatId(j)
+    !     end do
+    !     rewind(OldAMatUnit)
+    !     MinId = minval(OldAMatId)
+    !     MaxId = maxval(OldAMatId)
+    !     allocate(AMat(1:(OldAMatNInd+nAnisP-MaxId),&
+    !                   1:(OldAMatNInd+nAnisP-MaxId)))
+    !     AMat = 0.0d0
+    !     do j = 1, OldAMatNInd
+    !       read(OldAMatUnit, *) OldAMatId(j), AMat(1:OldAMatNInd,j)
+    !       if (j > 1) then
+    !         if (.not.(OldAMatId(j) > OldAMatId(j-1))) then
+    !           print *, "Id are not sequential!"
+    !           stop 1
+    !         end if
+    !       end if
+    !     end do
+    !     k = OldAMatNInd
+    !     do i=MaxId+1,nAnisP
+    !         k = k + 1
+    !         s = RecPed(i,2) - MinId + 1
+    !         d = RecPed(i,3) - MinId + 1
+    !         l = k
+    !         do j=1,k-1
+    !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
+    !             AMat(k,j)=AMat(j,k)
+    !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
+    !         end do
+    !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
+    !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
+    !     end do
+    !     RecPed(1:nAnisP,4) = 0
+    !     RecPed((MaxId+1):nAnisP,4) = 1
+    !   else
+
+    !   if (AFullMat) then
+    !     AnimToWrite = RecPed(1:nAnisP,4) == 1
+    !     s = count(AnimToWrite)
+    !     write(*,"(a32,i6,a11)") " Start writing A full matrix for", s," individuals"
+    !     write(nChar,*) s
+    !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+    !     open(unit=202,file="AFullMatrix.txt",status="unknown")
+    !     if (.not.OldAMatPresent) then
+    !       do m=1,nAnisP
+    !         if (AnimToWrite(m)) then
+    !           write(202,fmt) Id(m), pack(AMat(1:nAnisP,m), AnimToWrite)
+    !         end if
+    !       end do
+    !     else
+    !       Start = OldAMatNInd+1
+    !       Endin = size(AMat,1)
+    !       do m=Start,Endin
+    !         !write(*,fmt)   Id(m+MinId-1), AMat(Start:Endin,m)
+    !         write(202,fmt) Id(m+MinId-1), AMat(Start:Endin,m)
+    !       end do
+    !     end if
+    !     close(202)
+    !     print*, "End writing A full matrix"
+    !   end if
+
+    !   if (OldAMatPresent) then
+    !     stop
+    !   end if
+
+    !   if (AIJA) then
+    !     ! TODO: AnimToWrite is not being used here
+    !     write(*,"(a24,i6,a11)") " Start writing A ija for", s," individuals"
+    !     fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
+    !     open(unit=202,file="Aija.txt",status="unknown")
+    !     do m=1,nAnisP
+    !       do n=m,nAnisP
+    !         if (AMat(n,m) > 0.0d0)  then
+    !           write(202,fmt) Id(n),Id(m),AMat(n,m)
+    !         end if
+    !       end do
+    !     end do
+    !     close(202)
+    !     print*, "End writing A ija"
+    !   end if
+
+    !   ! Record diagonals of animals in both A and G:
+    !   if ((MakeH .or. MakeInvH) .and. ScaleGByRegression) then
+    !     n = Count(AnimalsInBoth)
+    !     allocate(Adiag(0:n))
+    !     div = dble(n**2)
+    !     AMatAvg = 0.0d0
+    !     k = 0
+    !     do i = 1,nAnisP
+    !       if (.not. AnimalsInBoth(i)) then
+    !         cycle
+    !       end if
+    !       k = k + 1
+    !       Adiag(k) = AMat(i,i)
+    !       do j=1,nAnisP
+    !         if (AnimalsInBoth(j)) then
+    !           AMatAvg=AMatAvg + AMat(j,i) * 2.0d0 / div
+    !         end if
+    !       end do
+    !     end do
+    !     Adiag(0) = AMatAvg
+    !   end if
+    ! end subroutine
 
     !   integer(int32) :: i,m,n,s,FId,MId
 
@@ -775,166 +1185,34 @@ module AlphaRelateModule
 
     !###########################################################################
 
-    ! subroutine MakeAMatrix
-    !   implicit none
-
-    !   integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
-
-    !   real(real64) :: AMatAvg
-
-    !   character(len=1000) :: nChar,fmt
-
-    !   logical :: AnimToWrite(nAnisP)
-
-    !   print*, "Start making A"
-    !   if (OldAMatPresent) then
-    !     open(newunit=OldAMatUnit, file=OldAMatFile, status="unknown")
-    !     allocate(OldAMatId(OldAMatNInd))
-    !     do j = 1, OldAMatNInd
-    !       read(OldAMatUnit, *) OldAMatId(j)
-    !     end do
-    !     rewind(OldAMatUnit)
-    !     MinId = minval(OldAMatId)
-    !     MaxId = maxval(OldAMatId)
-    !     allocate(AMat(1:(OldAMatNInd+nAnisP-MaxId),&
-    !                   1:(OldAMatNInd+nAnisP-MaxId)))
-    !     AMat = 0.0d0
-    !     do j = 1, OldAMatNInd
-    !       read(OldAMatUnit, *) OldAMatId(j), AMat(1:OldAMatNInd,j)
-    !       if (j > 1) then
-    !         if (.not.(OldAMatId(j) > OldAMatId(j-1))) then
-    !           print *, "Id are not sequential!"
-    !           stop 1
-    !         end if
-    !       end if
-    !     end do
-    !     k = OldAMatNInd
-    !     do i=MaxId+1,nAnisP
-    !         k = k + 1
-    !         s = RecPed(i,2) - MinId + 1
-    !         d = RecPed(i,3) - MinId + 1
-    !         l = k
-    !         do j=1,k-1
-    !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
-    !             AMat(k,j)=AMat(j,k)
-    !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
-    !         end do
-    !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
-    !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
-    !     end do
-    !     RecPed(1:nAnisP,4) = 0
-    !     RecPed((MaxId+1):nAnisP,4) = 1
-    !   else
-    !     allocate(AMat(0:nAnisP,0:nAnisP))
-    !     AMat=0.0d0
-    !     do i=1,nAnisP
-    !         do j=1,i-1
-    !             AMat(j,i)=(AMat(j,RecPed(i,2))+AMat(j,RecPed(i,3)))/2.0d0
-    !             AMat(i,j)=AMat(j,i)
-    !         end do
-    !         AMat(i,i)=1.0d0+AMat(RecPed(i,2),RecPed(i,3))/2.0d0
-    !     end do
-    !   end if
-    !   print*, "Finished making A"
-
-    !   if (AFullMat) then
-    !     AnimToWrite = RecPed(1:nAnisP,4) == 1
-    !     s = count(AnimToWrite)
-    !     write(*,"(a32,i6,a11)") " Start writing A full matrix for", s," individuals"
-    !     write(nChar,*) s
-    !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !     open(unit=202,file="AFullMatrix.txt",status="unknown")
-    !     if (.not.OldAMatPresent) then
-    !       do m=1,nAnisP
-    !         if (AnimToWrite(m)) then
-    !           write(202,fmt) Id(m), pack(AMat(1:nAnisP,m), AnimToWrite)
-    !         end if
-    !       end do
-    !     else
-    !       Start = OldAMatNInd+1
-    !       Endin = size(AMat,1)
-    !       do m=Start,Endin
-    !         !write(*,fmt)   Id(m+MinId-1), AMat(Start:Endin,m)
-    !         write(202,fmt) Id(m+MinId-1), AMat(Start:Endin,m)
-    !       end do
-    !     end if
-    !     close(202)
-    !     print*, "End writing A full matrix"
-    !   end if
-
-    !   if (OldAMatPresent) then
-    !     stop
-    !   end if
-
-    !   if (AIJA) then
-    !     ! TODO: AnimToWrite is not being used here
-    !     write(*,"(a24,i6,a11)") " Start writing A ija for", s," individuals"
-    !     fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-    !     open(unit=202,file="Aija.txt",status="unknown")
-    !     do m=1,nAnisP
-    !       do n=m,nAnisP
-    !         if (AMat(n,m) > 0.0d0)  then
-    !           write(202,fmt) Id(n),Id(m),AMat(n,m)
-    !         end if
-    !       end do
-    !     end do
-    !     close(202)
-    !     print*, "End writing A ija"
-    !   end if
-
-    !   ! Record diagonals of animals in both A and G:
-    !   if ((MakeH .or. MakeInvH) .and. ScaleGByRegression) then
-    !     n = Count(AnimalsInBoth)
-    !     allocate(Adiag(0:n))
-    !     div = dble(n**2)
-    !     AMatAvg = 0.0d0
-    !     k = 0
-    !     do i = 1,nAnisP
-    !       if (.not. AnimalsInBoth(i)) then
-    !         cycle
-    !       end if
-    !       k = k + 1
-    !       Adiag(k) = AMat(i,i)
-    !       do j=1,nAnisP
-    !         if (AnimalsInBoth(j)) then
-    !           AMatAvg=AMatAvg + AMat(j,i) * 2.0d0 / div
-    !         end if
-    !       end do
-    !     end do
-    !     Adiag(0) = AMatAvg
-    !   end if
-    ! end subroutine
-
-    !###########################################################################
-
     ! subroutine MakeGAndInvGMatrix
     !   implicit none
 
     !   integer(int32) :: i,j,k,l,m,n,WhichMat
 
-    !   real(real64) :: nSnpD, DMatSum, Tmp, Tmp2, Tmp3
+    !   real(real64) :: nLocusD, DMatSum, Tmp, Tmp2, Tmp3
     !   real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
 
     !   character(len=1000) :: filout,nChar,fmt
 
     !   allocate(GMat(nAnisG,nAnisG,nGMat))
-    !   allocate(tZMat(nSnp,nAnisG))
-    !   allocate(TmpZMat(nAnisG,nSnp))
+    !   allocate(tZMat(nLocus,nAnisG))
+    !   allocate(TmpZMat(nAnisG,nLocus))
     !   if (LocusWeightPresent) then
-    !     allocate(DMat(nSnp,nSnp))
+    !     allocate(DMat(nLocus,nLocus))
     !     DMat(:,:)=0.0d0
     !   end if
 
     !   print*, "Start making G - ", trim(GType)
 
-    !   nSnpD = dble(nSnp)
+    !   nLocusD = dble(nLocus)
 
     !   ! Center allele dosages (Z)
     !   if (trim(GType) == "VanRaden"  .or.&
     !       trim(GType) == "VanRaden1" .or.&
     !       trim(GType) == "VanRaden2" .or.&
     !       trim(GType) == "Yang") then
-    !     do j=1,nSnp
+    !     do j=1,nLocus
     !       do i=1,nAnisG
     !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
     !           ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
@@ -946,7 +1224,7 @@ module AlphaRelateModule
     !   end if
     !   if (trim(GType) == "Nejati-Javaremi" .or.&
     !       trim(GType) == "Day-Williams") then
-    !     do j=1,nSnp
+    !     do j=1,nLocus
     !       do i=1,nAnisG
     !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
     !           ZMat(i,j)=Genos(i,j)-1.0d0
@@ -958,7 +1236,7 @@ module AlphaRelateModule
     !   end if
     !   ! Scale centered allele dosages
     !   if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
-    !     do j=1,nSnp
+    !     do j=1,nLocus
     !       Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
     !       if (Tmp > tiny(Tmp)) then
     !         ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
@@ -977,7 +1255,7 @@ module AlphaRelateModule
     !       ! ZHZ'
     !       if (LocusWeightPresent) then
     !         DMatSum=0.0d0
-    !         do k=1,nSnp
+    !         do k=1,nLocus
     !           DMat(k,k)=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
     !           DMatSum=DMatSum+DMat(k,k)
     !         end do
@@ -997,13 +1275,13 @@ module AlphaRelateModule
     !       if (trim(GType) == "VanRaden2" .or.&
     !           trim(GType) == "Yang"      .or.&
     !           trim(GType) == "Nejati-Javaremi") then
-    !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nSnpD
+    !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocusD
     !       end if
 
     !       ! Put back scale from [-1,1] to [0,2]
     !       if (trim(GType) == "Nejati-Javaremi") then
     !         if (LocusWeightPresent) then
-    !           Tmp=DMatSum/nSnpD
+    !           Tmp=DMatSum/nLocusD
     !         else
     !           Tmp=1.0d0
     !         end if
@@ -1013,16 +1291,16 @@ module AlphaRelateModule
     !       ! TODO: needs testing (was getting some weird values)
     !       ! if (trim(GType) == "Day-Williams") then
     !       !   Tmp=0.0d0
-    !       !   do k=1,nSnp
+    !       !   do k=1,nLocus
     !       !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
     !       !   end do
     !       !   do k=1,nAnisG
     !       !     do l=1,nAnisG
     !       !       ! TODO: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
     !       !       !       which is faster?
-    !       !       ! GMat(l,k,WhichMat)+nSnp is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
+    !       !       ! GMat(l,k,WhichMat)+nLocus is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
     !       !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
-    !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nSnpD)/2.0d0-Tmp)/(nSnpD-Tmp)
+    !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocusD)/2.0d0-Tmp)/(nLocusD-Tmp)
     !       !     end do
     !       !   end do
     !       ! end if
@@ -1032,7 +1310,7 @@ module AlphaRelateModule
     !         do l=1,nAnisG
     !           GMat(l,l,WhichMat)=0.0d0
     !         end do
-    !         do k=1,nSnp
+    !         do k=1,nLocus
     !           Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
     !           if (Tmp > tiny(Tmp)) then
     !             if (LocusWeightPresent) then
@@ -1041,7 +1319,7 @@ module AlphaRelateModule
     !               Tmp2=1.0d0
     !             end if
     !             do l=1,nAnisG
-    !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nSnpD
+    !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocusD
     !               GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
     !             end do
     !           end if
@@ -1556,18 +1834,21 @@ module AlphaRelateModule
     !###########################################################################
 
     subroutine AlphaRelateTitle
-       print*, ""
-       write(*,"(a30,a,a30)") " ","**********************"," "
-       write(*,"(a30,a,a30)") " ","*                    *"," "
-       write(*,"(a30,a,a30)") " ","*    AlphaRelate     *"," "
-       write(*,"(a30,a,a30)") " ","*                    *"," "
-       write(*,"(a30,a,a30)") " ","**********************"
-       write(*,"(a30,a,a30)") " ","VERSION:"//TOSTRING(VERS)," "
-       print*, "              Software for bulding numerator relationship matrices       "
-       print*, ""
-       print*, "                                    No Liability              "
-       print*, "                          Bugs to John.Hickey@roslin.ed.ac.uk"
-       print*, ""
+      implicit none
+      write(STDOUT, "(a)") ""
+      write(STDOUT, "(a)") "                            ***********************                           "
+      write(STDOUT, "(a)") "                            *                     *                           "
+      write(STDOUT, "(a)") "                            *     AlphaRelate     *                           "
+      write(STDOUT, "(a)") "                            *                     *                           "
+      write(STDOUT, "(a)") "                            ***********************                           "
+      write(STDOUT, "(a)") "                                                                              "
+      write(STDOUT, "(a)") "           Software for calculating relationships among individuals           "
+      write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
+      write(STDOUT, "(a)") "                                 No liability                                 "
+      write(STDOUT, "(a)") ""
+      write(STDOUT, "(a)") "                       Commit:   "//TOSTRING(COMMIT),"                        "
+      write(STDOUT, "(a)") "                       Compiled: "//__DATE__//", "//__TIME__
+      write(STDOUT, "(a)") ""
     end subroutine
 
     !###########################################################################
