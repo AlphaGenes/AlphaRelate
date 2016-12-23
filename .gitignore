@@ -1,5 +1,6 @@
 CMakeFiles
 CMakeCache.txt
+CMakeCache.txt.tmp
 *.cmake
 Makefile
 bin
