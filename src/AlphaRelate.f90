@@ -20,7 +20,7 @@ program AlphaRelate
   Data = AlphaRelateData(Spec=Spec)
 
   if (Spec%PedInbreeding) then
-    call Data%CalcPedInbreeding()
+    call Data%CalcPedInbreeding
     call Data%WritePedInbreeding(File="PedigreeInbreeding.txt", Spec=Spec)
   end if
 
@@ -29,10 +29,10 @@ program AlphaRelate
     call Data%WritePedNrm(File="PedigreeNrm.txt", Spec=Spec)
   end if
 
-  !if (Spec%PedNrmInv) then
-  !  call Data%CalcPedNrmInv()
-  !  call Data%WritePedNrmInv(File="PedigreeNrmInv.txt", Mat=Spec%PedNrmInvMat, Ija=Spec%PedNrmInvIja)
-  !end if
+  if (Spec%PedNrmInv) then
+    call Data%CalcPedNrmInv
+    call Data%WritePedNrmInv(File="PedigreeNrmInv.txt", Spec=Spec)
+  end if
 
   call cpu_time(EndTime)
   call AlphaRelateTitle

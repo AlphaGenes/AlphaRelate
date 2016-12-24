@@ -100,8 +100,8 @@ module AlphaRelateModule
       procedure :: WritePedInbreeding
       procedure :: CalcPedNrm
       procedure :: WritePedNrm
-      !procedure :: CalcPedNrmInv
-      !procedure :: WritePedNrmInv
+      procedure :: CalcPedNrmInv
+      procedure :: WritePedNrmInv
   end type
 
   interface AlphaRelateData
@@ -786,7 +786,7 @@ module AlphaRelateModule
     !---------------------------------------------------------------------------
     subroutine CalcPedInbreeding(This)
       implicit none
-      class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree inbreeding
+      class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
       if (allocated(This%RecPed%Id)) then
         allocate(This%PedInbreeding(0:This%nIndPed))
@@ -806,24 +806,24 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    function PedInbreeding(RecPed, n) result(f)
+    pure function PedInbreeding(RecPed, n) result(f)
       implicit none
 
       ! Arguments
       integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-      real(real64) :: f(0:n)                        !< @return Pedigree inbreeding
+      real(real64) :: f(0:n)                        !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
       ! Other
       integer(int32) :: i, is, id, j, k, ks, kd
       integer(int32) :: ped(3,0:n), point(0:n)
       real(real64) :: l(n), d(n), fi, r
 
-      point(:) = 0
-      l(:) = 0.0d0
-      d(:) = 0.0d0
+      point = 0
+      l = 0.0d0
+      d = 0.0d0
 
-      f(:) = 0.0d0
+      f = 0.0d0
       ped(1,:) = RecPed(1,:)
       ped(2,:) = RecPed(2,:)
       ped(3,:) = RecPed(3,:)
@@ -953,7 +953,7 @@ module AlphaRelateModule
       allocate(OriginalId(0:n))
       allocate(Inbreeding(0:n))
       OriginalId(0) = "0"
-      Inbreeding(0) = 0.0d0
+      Inbreeding(0) = -1.0d0
       open(newunit=Unit, file=trim(File), action="read", status="old")
       do Ind = 1, n
         read(Unit, *) OriginalId(Ind), Inbreeding(Ind)
@@ -975,7 +975,8 @@ module AlphaRelateModule
 
       if (allocated(This%RecPed%Id)) then
         if (Spec%OldPedNrmPresent) then
-          ! TODO
+          ! TODO: make use of existing/old PedNrm
+          ! TODO: Colleau method?
         else
           allocate(This%PedNrm(0:This%nIndPed,0:This%nIndPed))
           This%PedNrm = PedNrm(RecPed=This%RecPed%Id, n=This%nIndPed)
@@ -994,7 +995,7 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    function PedNrm(RecPed, n) result(Nrm)
+    pure function PedNrm(RecPed, n) result(Nrm)
       implicit none
 
       ! Arguments
@@ -1005,7 +1006,7 @@ module AlphaRelateModule
       ! Other
       integer(int32) :: Ind1, Ind2, Par1, Par2
 
-      Nrm(0:n,0:n) = 0.0d0
+      Nrm = 0.0d0
       do Ind1 = 1, n
           Par1 = max(RecPed(2,Ind1), RecPed(3,Ind1))
           Par2 = min(RecPed(2,Ind1), RecPed(3,Ind1))
@@ -1040,6 +1041,132 @@ module AlphaRelateModule
                       File=File)
       else
         write(STDERR, "(a)") " ERROR: Pedigree NRM not calculated"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM inverse on AlphaRelateData
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine CalcPedNrmInv(This)
+      implicit none
+      class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM inverse
+
+      if (allocated(This%RecPed%Id)) then
+        allocate(This%PedNrmInv(0:This%nIndPed,0:This%nIndPed))
+        if (.not. allocated(This%PedInbreeding)) then
+          call This%CalcPedInbreeding
+        end if
+        This%PedNrmInv = PedNrmInv(RecPed=This%RecPed%Id, n=This%nIndPed, Inb=This%PedInbreeding)
+      else
+        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree NRM inverse"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM inverse
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    pure function PedNrmInv(RecPed, n, Inb) result(NrmInv)
+      implicit none
+
+      ! Arguments
+      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
+      integer(int32), intent(in) :: n               !< Number of individuals in pedigree
+      real(real64), intent(in) :: Inb(0:n)          !< Inbreeding coefficients
+      real(real64) :: NrmInv(0:n,0:n)               !< @return Pedigree NRM
+
+      ! Other
+      integer(int32) :: Ind, Par1, Par2
+      real(real64) :: D, DInv
+      logical :: Par1Known, Par2Known
+
+      ! TODO: can we use -1 for Inb(0) and get rid of some if?
+      ! TODO: can we make use of NrmInv(0,0) and get rid of some if?
+      NrmInv = 0.0d0
+      do Ind = 1, n
+        Par1 = RecPed(2,Ind)
+        Par1Known = Par1 /= 0
+        Par2 = RecPed(3,Ind)
+        Par2Known = Par2 /= 0
+        ! Variance of founder effects and Mendelian sampling terms
+        D = 1.0d0
+        if (Par1Known) then
+          D = D - 0.25d0 * (1.0d0 + Inb(Par1))
+        end if
+        if (Par2Known) then
+          D = D - 0.25d0 * (1.0d0 + Inb(Par2))
+        end if
+        ! Precision for the individual
+        DInv = 1.0d0 / D
+        NrmInv(Ind,Ind) = DInv
+        ! Add precision to the first parent and set the co-precision
+        if (Par1Known) then
+          NrmInv(Par1,Par1) = NrmInv(Par1,Par1) + DInv / 4.0d0
+          NrmInv(Ind,Par1)  = NrmInv(Ind,Par1)  - DInv / 2.0d0
+          NrmInv(Par1,Ind)  = NrmInv(Ind,Par1)
+        end if
+        ! Add precision to the second parent and set the co-precision
+        if (Par2Known) then
+          NrmInv(Par2,Par2) = NrmInv(Par2,Par2) + DInv / 4.0d0
+          NrmInv(Ind,Par2)  = NrmInv(Ind,Par2)  - DInv / 2.0d0
+          NrmInv(Par2,Ind)  = NrmInv(Ind,Par2)
+        end if
+        ! Add co-precision between the parents
+        if (Par1Known .and. Par2Known) then
+          NrmInv(Par1,Par2) = NrmInv(Par1,Par2) + DInv / 4.0d0
+          NrmInv(Par2,Par1) = NrmInv(Par1,Par2)
+        end if
+      end do
+    end function
+
+    ! TODO: is this usefull when dealing with the single-step H matrix?
+    !   if (InvAFullMat) then
+    !     AnimToWrite = RecPed(1:nAnisP,4) == 1
+    !     s = count(AnimToWrite)
+    !     write(*,"(a40,i6,a11)") " Start writing A inverse full matrix for", s," individuals"
+    !     write(nChar,*) s
+    !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+    !     open(unit=202,file="InvAFullMatrix.txt",status="unknown")
+    !     do m=1,nAnisP
+    !       if (AnimToWrite(m)) then
+    !         write(202,fmt) Id(m), pack(InvAMat(1:nAnisP,m), AnimToWrite)
+    !       end if
+    !     end do
+    !     close(202)
+    !     print*, "End writing A inverse full matrix"
+    !   end if
+
+    !---------------------------------------------------------------------------
+    !> @brief   Write pedigree NRM inverse to a file
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine WritePedNrmInv(This, Spec, File)
+      implicit none
+      class(AlphaRelateData), intent(in) :: This !< Data
+      type(AlphaRelateSpec), intent(in) :: Spec  !< Specifications
+      character(len=*), intent(in) :: File       !< @return File that will hold Original Id and pedigree NRM inverse
+
+      if (allocated(This%PedNrmInv)) then
+        call WriteNrm(OriginalId=This%RecPed%OriginalId,&
+                      Nrm=This%PedNrmInv,&
+                      n=This%nIndPed,&
+                      Ija=Spec%PedNrmInvIja,&
+                      OutputPrecision=Spec%OutputPrecision,&
+                      File=File)
+      else
+        write(STDERR, "(a)") " ERROR: Pedigree NRM inverse not calculated"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -1128,7 +1255,7 @@ module AlphaRelateModule
         close(Unit2)
         ! Triplets
         allocate(Nrm(0:n,0:n))
-        Nrm(0:n,0:n) = 0.0d0
+        Nrm = 0.0d0
         do Line = 1, (nLine - 1)
           read(Unit, *) Ind2, Ind1, Nrm(Ind2,Ind1)
           Nrm(Ind1,Ind2) = Nrm(Ind2,Ind1)
@@ -1137,7 +1264,7 @@ module AlphaRelateModule
         n = nLine
         allocate(OriginalId(0:n))
         allocate(Nrm(0:n,0:n))
-        Nrm(0:n,0:n) = 0.0d0
+        Nrm = 0.0d0
         do Ind1 = 1, n
           read(Unit, *) OriginalId(Ind1), Nrm(1:n,Ind1)
         end do
@@ -1241,98 +1368,6 @@ module AlphaRelateModule
     !       end do
     !     end do
     !     Adiag(0) = AMatAvg
-    !   end if
-    ! end subroutine
-
-    !   integer(int32) :: i,m,n,s,FId,MId
-
-    !   real(real64) :: Inbreeding(0:nAnisP),Dii(nAnisP),InvDii
-
-    !   character(len=1000) :: nChar,fmt
-
-    !   logical :: AnimToWrite(nAnisP),FIdKnown,MIdKnown
-
-    !   allocate(InvAMat(0:nAnisP,0:nAnisP))
-
-    !   print*, "Start calculating inbreeding coefficients"
-    !   call dinbreeding(RecPed(0:nAnisP,1),RecPed(0:nAnisP,2),RecPed(0:nAnisP,3),Inbreeding,nAnisP)
-    !   open(unit=202,file="PedigreeBasedInbreeding.txt",status="unknown")
-    !   print*, "End calculating inbreeding coefficients"
-    !   do i=1,nAnisP
-    !     write(202,"(a20,20000f10.5)") Id(i),Inbreeding(i)
-    !   end do
-    !   close(202)
-
-    !   print*, "Start making A inverse"
-    !   InvAMat=0.0d0
-    !   ! TODO: could remove the if statements bellow since InvAMat has zeroth row and column
-    !   !       and could simply increment values in those positions - they are omitted on
-    !   !       printout anyhow
-    !   do i=1,nAnisP
-    !     FId=RecPed(i,2)
-    !     FIdKnown=FId/=0
-    !     MId=RecPed(i,3)
-    !     MIdKnown=MId/=0
-    !     ! Variance of founder effects and Mendelian sampling terms
-    !     Dii(i)=1.0d0
-    !     if (FIdKnown) then
-    !       Dii(i)=Dii(i)-0.25d0*(1.0d0+Inbreeding(FId))
-    !     end if
-    !     if (MIdKnown) then
-    !       Dii(i)=Dii(i)-0.25d0*(1.0d0+Inbreeding(MId))
-    !     end if
-    !     ! Precision for the individual
-    !     InvDii=1.0d0/Dii(i)
-    !     InvAMat(i,i)=InvDii
-    !     ! Add precision to the father and set the co-precision
-    !     if (FIdKnown) then
-    !       InvAMat(FId,FId)=InvAMat(FId,FId)+InvDii/4.0d0
-    !       InvAMat(i,FId)=InvAMat(i,FId)-InvDii/2.0d0
-    !       InvAMat(FId,i)=InvAMat(i,FId)
-    !     end if
-    !     ! Add precision to the mother and set the co-precision
-    !     if (MIdKnown) then
-    !       InvAMat(MId,MId)=InvAMat(MId,MId)+InvDii/4.0d0
-    !       InvAMat(i,MId)=InvAMat(i,MId)-InvDii/2.0d0
-    !       InvAMat(MId,i)=InvAMat(i,MId)
-    !     end if
-    !     ! Add co-precision between the father and mother
-    !     if (FIdKnown .and. MIdKnown) then
-    !       InvAMat(FId,MId)=InvAMat(FId,MId)+InvDii/4.0d0
-    !       InvAMat(MId,FId)=InvAMat(FId,MId)
-    !     end if
-    !   end do
-    !   print*, "Finished making A inverse"
-
-    !   if (InvAFullMat) then
-    !     AnimToWrite = RecPed(1:nAnisP,4) == 1
-    !     s = count(AnimToWrite)
-    !     write(*,"(a40,i6,a11)") " Start writing A inverse full matrix for", s," individuals"
-    !     write(nChar,*) s
-    !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !     open(unit=202,file="InvAFullMatrix.txt",status="unknown")
-    !     do m=1,nAnisP
-    !       if (AnimToWrite(m)) then
-    !         write(202,fmt) Id(m), pack(InvAMat(1:nAnisP,m), AnimToWrite)
-    !       end if
-    !     end do
-    !     close(202)
-    !     print*, "End writing A inverse full matrix"
-    !   end if
-
-    !   if (InvAIJA) then
-    !     print*, "Start writing A inverse ija"
-    !     fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-    !     open(unit=202,file="InvAija.txt",status="unknown")
-    !     do m=1,nAnisP
-    !       do n=m,nAnisP
-    !         if (InvAMat(n,m) /= 0.0d0) then
-    !           write(202,fmt) Id(n),Id(m),InvAMat(n,m)
-    !         end if
-    !       end do
-    !     end do
-    !     close(202)
-    !     print*, "End writing A inverse ija"
     !   end if
     ! end subroutine
 
