@@ -944,7 +944,7 @@ module AlphaRelateModule
       implicit none
       character(len=*), intent(in) :: File                                          !< File that holds Original Id and inbreeding (created by WriteInbreeding)
       character(len=IDLENGTH), allocatable, dimension(:), intent(out) :: OriginalId !< @return Original Id
-      real(real64), allocatable, dimension(:), intent(out) :: Inbreeding            !< @return Inbreeding
+      real(real64), allocatable, dimension(:), intent(out) :: Inbreeding            !< @return Inbreeding, note Inbreeding(0) = -1.0
       integer(int32), intent(out) :: n                                              !< @return Number of individuals
 
       integer(int32) :: Unit, Ind
@@ -1014,7 +1014,6 @@ module AlphaRelateModule
               Nrm(Ind2,Ind1) = (Nrm(Ind2,Par1) + Nrm(Ind2,Par2)) / 2.0d0
               Nrm(Ind1,Ind2) = Nrm(Ind2,Ind1)
           end do
-
           Nrm(Ind1,Ind2) = 1.0d0 + Nrm(Par1,Par2) / 2.0d0
       end do
     end function
@@ -1062,7 +1061,8 @@ module AlphaRelateModule
         if (.not. allocated(This%PedInbreeding)) then
           call This%CalcPedInbreeding
         end if
-        This%PedNrmInv = PedNrmInv(RecPed=This%RecPed%Id, n=This%nIndPed, Inb=This%PedInbreeding)
+        This%PedNrmInv = PedNrmInv(RecPed=This%RecPed%Id, n=This%nIndPed,&
+                                   Inbreeding=This%PedInbreeding)
       else
         write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree NRM inverse"
         write(STDERR, "(a)") " "
@@ -1077,57 +1077,54 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    pure function PedNrmInv(RecPed, n, Inb) result(NrmInv)
+    pure function PedNrmInv(RecPed, n, Inbreeding) result(NrmInv)
       implicit none
 
       ! Arguments
       integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-      real(real64), intent(in) :: Inb(0:n)          !< Inbreeding coefficients
+      real(real64), intent(in) :: Inbreeding(0:n)   !< Inbreeding coefficients; note Inbreeding(0) must be -1.0!
       real(real64) :: NrmInv(0:n,0:n)               !< @return Pedigree NRM
 
       ! Other
       integer(int32) :: Ind, Par1, Par2
       real(real64) :: D, DInv
-      logical :: Par1Known, Par2Known
 
-      ! TODO: can we use -1 for Inb(0) and get rid of some if?
-      ! TODO: can we make use of NrmInv(0,0) and get rid of some if?
+      ! Must not have I/O in a pure function.
+      ! if (Inbreeding(0) /= -1.0d0) then
+      !   write(STDERR, "(a)") " ERROR: Inbreeding(0) must equal -1.0"
+      !   write(STDERR, "(a)") ""
+      !   stop 1
+      ! end if
+
       NrmInv = 0.0d0
       do Ind = 1, n
         Par1 = RecPed(2,Ind)
-        Par1Known = Par1 /= 0
         Par2 = RecPed(3,Ind)
-        Par2Known = Par2 /= 0
         ! Variance of founder effects and Mendelian sampling terms
         D = 1.0d0
-        if (Par1Known) then
-          D = D - 0.25d0 * (1.0d0 + Inb(Par1))
-        end if
-        if (Par2Known) then
-          D = D - 0.25d0 * (1.0d0 + Inb(Par2))
-        end if
+        D = D - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2))
         ! Precision for the individual
         DInv = 1.0d0 / D
         NrmInv(Ind,Ind) = DInv
         ! Add precision to the first parent and set the co-precision
-        if (Par1Known) then
-          NrmInv(Par1,Par1) = NrmInv(Par1,Par1) + DInv / 4.0d0
-          NrmInv(Ind,Par1)  = NrmInv(Ind,Par1)  - DInv / 2.0d0
-          NrmInv(Par1,Ind)  = NrmInv(Ind,Par1)
-        end if
+        NrmInv(Par1,Par1) = NrmInv(Par1,Par1) + DInv / 4.0d0
+        NrmInv(Ind,Par1)  = NrmInv(Ind,Par1)  - DInv / 2.0d0
+        NrmInv(Par1,Ind)  = NrmInv(Ind,Par1)
         ! Add precision to the second parent and set the co-precision
-        if (Par2Known) then
-          NrmInv(Par2,Par2) = NrmInv(Par2,Par2) + DInv / 4.0d0
-          NrmInv(Ind,Par2)  = NrmInv(Ind,Par2)  - DInv / 2.0d0
-          NrmInv(Par2,Ind)  = NrmInv(Ind,Par2)
-        end if
+        NrmInv(Par2,Par2) = NrmInv(Par2,Par2) + DInv / 4.0d0
+        NrmInv(Ind,Par2)  = NrmInv(Ind,Par2)  - DInv / 2.0d0
+        NrmInv(Par2,Ind)  = NrmInv(Ind,Par2)
         ! Add co-precision between the parents
-        if (Par1Known .and. Par2Known) then
-          NrmInv(Par1,Par2) = NrmInv(Par1,Par2) + DInv / 4.0d0
-          NrmInv(Par2,Par1) = NrmInv(Par1,Par2)
-        end if
+        NrmInv(Par1,Par2) = NrmInv(Par1,Par2) + DInv / 4.0d0
+        NrmInv(Par2,Par1) = NrmInv(Par1,Par2)
       end do
+      ! Reset the "margins"
+      ! (the above algorithm does not need ifs for testing unknown parents as it
+      !  relies on using the zeroth "margin" as a placeholder that needs to be
+      !  cleared at the end)
+      NrmInv(0:n,0) = 0.0d0
+      NrmInv(0,0:n) = 0.0d0
     end function
 
     ! TODO: is this usefull when dealing with the single-step H matrix?
@@ -1175,7 +1172,7 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Write NRM to a file
+    !> @brief   Write NRM (or its inverse) to a file
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
@@ -1206,8 +1203,7 @@ module AlphaRelateModule
         Fmt = "(2i8,"//OutputPrecision//")"
         do Ind1 = 1, n
           do Ind2 = Ind1, n
-            ! TODO: how to test for this "near" zero condition reliably?
-            if (Nrm(Ind2,Ind1) /= 0.d0) then
+            if (abs(Nrm(Ind2,Ind1)) .gt. 0.d0) then
               write(Unit, Fmt) Ind2, Ind1, Nrm(Ind2,Ind1)
             end if
           end do
@@ -1224,7 +1220,7 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Read NRM from a file
+    !> @brief   Read NRM (or its inverse) from a file
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
