@@ -35,11 +35,10 @@ module AlphaRelateModule
 
   implicit none
 
+  ! TODO: clean-up this
   ! integer(int32) :: AllFreqSelCycle
-  ! integer(int32) :: nGMat, GlobalExtraAnimals, OldAMatNInd
-  ! integer(int32) :: NRMmem, shell, shellmax, shellWarning
-  ! integer(int32),allocatable :: seqid(:),seqsire(:),seqdam(:),seqoutput(:)
-  ! integer(int32),allocatable :: RecodeGenotypeId(:),passedorder(:),dooutput(:)
+  ! integer(int32) :: nGMat, OldAMatNInd
+  ! integer(int32),allocatable :: RecodeGenotypeId(:),dooutput(:)
   ! integer(int32),allocatable :: OldAMatId(:)
 
   ! real(real64),allocatable :: Adiag(:)
@@ -48,7 +47,7 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, Nrm
   ! Methods
   public :: PedInbreeding, PedNrm
   public :: WriteInbreeding, ReadInbreeding, WriteNrm, ReadNrm
@@ -77,14 +76,38 @@ module AlphaRelateModule
     module procedure InitAlphaRelateSpec
   end interface AlphaRelateSpec
 
+  !> @brief Inbreeding holder
+  type Inbreeding
+    integer(int32) :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    real(real64), allocatable, dimension(:) :: Value
+  end type
+
+  !> @brief Numerator relationship (or its inverse) holder
+  type Nrm
+    integer(int32) :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    real(real64), allocatable, dimension(:, :) :: Value
+    ! TODO: create dense and sparse version?
+  end type
+
   !> @brief AlphaRelate data
   type AlphaRelateData
-    integer(int32) :: nIndPed
+    ! Pedigree-based
     type(RecodedPedigreeArray) :: RecPed
-    real(real64), allocatable, dimension(:) :: PedInbreeding
-    real(real64), allocatable, dimension(:,:) :: PedNrm
-    real(real64), allocatable, dimension(:,:) :: PedNrmInv
+    type(Inbreeding) :: PedInbreeding
+    type(Nrm) :: PedNrm
+    type(Nrm) :: PedNrmInv
+    ! Genotype-based
+    type(Inbreeding) :: GenInbreeding
+    type(Nrm) :: GenNrm
+    type(Nrm) :: GenNrmInv
+    ! Haplotype-based
+    type(Inbreeding) :: HapInbreeding
+    type(Nrm) :: HapNrm
+    type(Nrm) :: HapNrmInv
 
+    ! TODO: clean-up this
     !character(len=IDLENGTH), allocatable :: IdGeno(:)
 
     !integer(int32):: nAnisRawPedigree, nAnisP, nAnisG, nAnisH, nLocus, nTrait
@@ -94,14 +117,18 @@ module AlphaRelateModule
     !real(real64), allocatable :: Genos(:,:), ZMat(:,:), LocusWeight(:,:)
 
     !logical, allocatable :: MapToG(:), AnimalsInBoth(:)
+
     contains
       procedure :: Destroy => DestroyAlphaRelateData
       procedure :: CalcPedInbreeding
       procedure :: WritePedInbreeding
+      procedure :: ReadPedInbreeding
       procedure :: CalcPedNrm
       procedure :: WritePedNrm
+      procedure :: ReadPedNrm
       procedure :: CalcPedNrmInv
       procedure :: WritePedNrmInv
+      procedure :: ReadPedNrmInv
   end type
 
   interface AlphaRelateData
@@ -611,10 +638,9 @@ module AlphaRelateModule
       if (Spec%PedigreePresent) then
         ! Read in the pedigree
         PedObj = PedigreeHolder(Spec%PedigreeFile)
-        Data%nIndPed = PedObj%PedigreeSize
 
         ! Sort and recode pedigree
-        Data%RecPed = PedObj%MakeRecodedPedigreeArray()
+        call PedObj%MakeRecodedPedigreeArray(RecPed=Data%RecPed)
 
         ! Free some memory
         call PedObj%DestroyPedigree
@@ -624,7 +650,7 @@ module AlphaRelateModule
       !   Data%nLocus = Spec%nLocus
       !   Data%nTrait = Spec%nTrait
       !   Data%nAnisG = CountLines(trim(Spec%GenotypeFile))
-      !   write(STDOUT, "(a2,i6,a33)") "  ", Data%nAnisG," individuals in the genotype file"
+      !   write(STDOUT, "(a2, i6, a33)") "  ", Data%nAnisG," individuals in the genotype file"
       !   allocate(Data%Genos(Data%nAnisG,Data%nLocus))
       !   allocate(Data%ZMat(Data%nAnisG,Data%nLocus))
       !   allocate(Data%IdGeno(Data%nAnisG))
@@ -754,26 +780,39 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    subroutine DestroyAlphaRelateData(This)
+    pure subroutine DestroyAlphaRelateData(This)
       implicit none
       class(AlphaRelateData), intent(inout) :: This !< Data
 
       if (allocated(This%RecPed%OriginalId)) then
         deallocate(This%RecPed%OriginalId)
+      end if
+      if (allocated(This%RecPed%Generation)) then
         deallocate(This%RecPed%Generation)
+      end if
+      if (allocated(This%RecPed%Id)) then
         deallocate(This%RecPed%Id)
       end if
 
-      if (allocated(This%PedInbreeding)) then
-        deallocate(This%PedInbreeding)
+      if (allocated(This%PedInbreeding%OriginalId)) then
+        deallocate(This%PedInbreeding%OriginalId)
+      end if
+      if (allocated(This%PedInbreeding%Value)) then
+        deallocate(This%PedInbreeding%Value)
       end if
 
-      if (allocated(This%PedNrm)) then
-        deallocate(This%PedNrm)
+      if (allocated(This%PedNrm%OriginalId)) then
+        deallocate(This%PedNrm%OriginalId)
+      end if
+      if (allocated(This%PedNrm%Value)) then
+        deallocate(This%PedNrm%Value)
       end if
 
-      if (allocated(This%PedNrmInv)) then
-        deallocate(This%PedNrmInv)
+      if (allocated(This%PedNrmInv%OriginalId)) then
+        deallocate(This%PedNrmInv%OriginalId)
+      end if
+      if (allocated(This%PedNrmInv%Value)) then
+        deallocate(This%PedNrmInv%Value)
       end if
     end subroutine
 
@@ -784,18 +823,23 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    subroutine CalcPedInbreeding(This)
+    pure subroutine CalcPedInbreeding(This)
       implicit none
       class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
-      if (allocated(This%RecPed%Id)) then
-        allocate(This%PedInbreeding(0:This%nIndPed))
-        This%PedInbreeding = PedInbreeding(RecPed=This%RecPed%Id, n=This%nIndPed)
-      else
-        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree inbreeding"
-        write(STDERR, "(a)") " "
-        stop 1
+      This%PedInbreeding%nInd = This%RecPed%nInd
+      if (allocated(This%PedInbreeding%OriginalId)) then
+        deallocate(This%PedInbreeding%OriginalId)
       end if
+      allocate(This%PedInbreeding%OriginalId(0:This%PedInbreeding%nInd))
+      This%PedInbreeding%OriginalId = This%RecPed%OriginalId
+
+      if (allocated(This%PedInbreeding%Value)) then
+        deallocate(This%PedInbreeding%Value)
+      end if
+      allocate(This%PedInbreeding%Value(0:This%PedInbreeding%nInd))
+
+      This%PedInbreeding%Value = PedInbreeding(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
     end subroutine
 
     !###########################################################################
@@ -884,27 +928,51 @@ module AlphaRelateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief   Write pedigree inbreeding to a file
+    !> @brief   Write pedigree inbreeding from AlphaRelateData to a file
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
     subroutine WritePedInbreeding(This, Spec, File)
       implicit none
-      class(AlphaRelateData), intent(in) :: This !< Data
-      type(AlphaRelateSpec), intent(in) :: Spec  !< Specifications
+      class(AlphaRelateData), intent(in) :: This !< Data that hold pedigree inbreeding
+      type(AlphaRelateSpec), intent(in) :: Spec  !< Specifications (in particular OutputPrecision)
       character(len=*), intent(in) :: File       !< @return File that will hold Original Id and pedigree inbreeding
 
-      if (allocated(This%PedInbreeding)) then
-        call WriteInbreeding(OriginalId=This%RecPed%OriginalId,&
-                             Inbreeding=This%PedInbreeding,&
-                             n=This%nIndPed,&
-                             OutputPrecision=Spec%OutputPrecision,&
-                             File=File)
-      else
-        write(STDERR, "(a)") " ERROR: Pedigree inbreeding not calculated"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
+      call WriteInbreeding(OriginalId=This%PedInbreeding%OriginalId,&
+                           Inbreeding=This%PedInbreeding%Value,&
+                           n=This%PedInbreeding%nInd,&
+                           OutputPrecision=Spec%OutputPrecision,&
+                           File=File)
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Read pedigree inbreeding from a file into AlphaRelateData
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine ReadPedInbreeding(This, File)
+      implicit none
+      class(AlphaRelateData), intent(inout) :: This !< @return Data
+      character(len=*), intent(in) :: File          !< File that holds Original Id and pedigree inbreeding
+
+      This%PedInbreeding%nInd = CountLines(trim(File))
+
+      if (allocated(This%PedInbreeding%OriginalId)) then
+        deallocate(This%PedInbreeding%OriginalId)
+      endif
+      allocate(This%PedInbreeding%OriginalId(0:This%PedInbreeding%nInd))
+
+      if (allocated(This%PedInbreeding%Value)) then
+        deallocate(This%PedInbreeding%Value)
+      endif
+      allocate(This%PedInbreeding%Value(0:This%PedInbreeding%nInd))
+
+      call ReadInbreeding(File=File,&
+                          OriginalId=This%PedInbreeding%OriginalId,&
+                          Inbreeding=This%PedInbreeding%Value,&
+                          n=This%PedInbreeding%nInd)
     end subroutine
 
     !###########################################################################
@@ -926,7 +994,7 @@ module AlphaRelateModule
       character(len=:), allocatable :: Fmt
 
       open(newunit=Unit, file=trim(File), status="unknown")
-      Fmt = "(a"//Int2Char(IDLENGTH)//","//OutputPrecision//")"
+      Fmt = "(a"//Int2Char(IDLENGTH)//", "//OutputPrecision//")"
       do Ind = 1, n
         write(Unit, Fmt) OriginalId(Ind), Inbreeding(Ind)
       end do
@@ -968,23 +1036,29 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    subroutine CalcPedNrm(This, Spec)
+    pure subroutine CalcPedNrm(This, Spec)
       implicit none
       class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM
       type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
-      if (allocated(This%RecPed%Id)) then
-        if (Spec%OldPedNrmPresent) then
-          ! TODO: make use of existing/old PedNrm
-          ! TODO: Colleau method?
-        else
-          allocate(This%PedNrm(0:This%nIndPed,0:This%nIndPed))
-          This%PedNrm = PedNrm(RecPed=This%RecPed%Id, n=This%nIndPed)
-        end if
+      if (Spec%OldPedNrmPresent) then
+        ! TODO: make use of existing/old PedNrm
+        ! TODO: Colleau method?
       else
-        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree NRM"
-        write(STDERR, "(a)") " "
-        stop 1
+        This%PedNrm%nInd = This%RecPed%nInd
+
+        if (allocated(This%PedNrm%OriginalId)) then
+          deallocate(This%PedNrm%OriginalId)
+        end if
+        allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
+        This%PedNrm%OriginalId = This%RecPed%OriginalId
+
+        if (allocated(This%PedNrm%Value)) then
+          deallocate(This%PedNrm%Value)
+        end if
+        allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+
+        This%PedNrm%Value = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
       end if
     end subroutine
 
@@ -1001,20 +1075,20 @@ module AlphaRelateModule
       ! Arguments
       integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-      real(real64) :: Nrm(0:n,0:n)                  !< @return Pedigree NRM
+      real(real64) :: Nrm(0:n, 0:n)                 !< @return Pedigree NRM
 
       ! Other
       integer(int32) :: Ind1, Ind2, Par1, Par2
 
       Nrm = 0.0d0
       do Ind1 = 1, n
-          Par1 = max(RecPed(2,Ind1), RecPed(3,Ind1))
-          Par2 = min(RecPed(2,Ind1), RecPed(3,Ind1))
+          Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1))
+          Par2 = min(RecPed(2, Ind1), RecPed(3, Ind1))
           do Ind2 = 1, Ind1 - 1
-              Nrm(Ind2,Ind1) = (Nrm(Ind2,Par1) + Nrm(Ind2,Par2)) / 2.0d0
-              Nrm(Ind1,Ind2) = Nrm(Ind2,Ind1)
+              Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
+              Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
           end do
-          Nrm(Ind1,Ind2) = 1.0d0 + Nrm(Par1,Par2) / 2.0d0
+          Nrm(Ind1, Ind2) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
       end do
     end function
 
@@ -1031,18 +1105,46 @@ module AlphaRelateModule
       type(AlphaRelateSpec), intent(in) :: Spec  !< Specifications
       character(len=*), intent(in) :: File       !< @return File that will hold Original Id and pedigree NRM
 
-      if (allocated(This%PedNrm)) then
-        call WriteNrm(OriginalId=This%RecPed%OriginalId,&
-                      Nrm=This%PedNrm,&
-                      n=This%nIndPed,&
-                      Ija=Spec%PedNrmIja,&
-                      OutputPrecision=Spec%OutputPrecision,&
-                      File=File)
+      call WriteNrm(OriginalId=This%PedNrm%OriginalId,&
+                    Nrm=This%PedNrm%Value,&
+                    n=This%PedNrm%nInd,&
+                    Ija=Spec%PedNrmIja,& ! TODO: could, in future, figure this from type of Nrm
+                    OutputPrecision=Spec%OutputPrecision,&
+                    File=File)
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Read pedigree NRM from a file
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine ReadPedNrm(This, Spec, File)
+      implicit none
+      class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM
+      type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+      character(len=*), intent(in) :: File          !< File that holds Original Id and pedigree NRM
+
+      if (Spec%PedNrmIja) then
+        This%PedNrm%nInd = CountLines(trim(File)//"_IdMap")
       else
-        write(STDERR, "(a)") " ERROR: Pedigree NRM not calculated"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
+        This%PedNrm%nInd = CountLines(trim(File))
+      endif
+
+      if (allocated(This%PedNrm%OriginalId)) then
+        deallocate(This%PedNrm%OriginalId)
+      endif
+      allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
+
+      if (allocated(This%PedNrm%Value)) then
+        deallocate(This%PedNrm%Value)
+      endif
+      allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+
+      call ReadNrm(File=File, Ija=Spec%PedNrmIja,&
+                   OriginalId=This%PedNrm%OriginalId,&
+                   Nrm=This%PedNrm%Value, n=This%PedNrm%nInd)
     end subroutine
 
     !###########################################################################
@@ -1052,22 +1154,29 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 22, 2016
     !---------------------------------------------------------------------------
-    subroutine CalcPedNrmInv(This)
+    pure subroutine CalcPedNrmInv(This)
       implicit none
       class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM inverse
 
-      if (allocated(This%RecPed%Id)) then
-        allocate(This%PedNrmInv(0:This%nIndPed,0:This%nIndPed))
-        if (.not. allocated(This%PedInbreeding)) then
-          call This%CalcPedInbreeding
-        end if
-        This%PedNrmInv = PedNrmInv(RecPed=This%RecPed%Id, n=This%nIndPed,&
-                                   Inbreeding=This%PedInbreeding)
-      else
-        write(STDERR, "(a)") " ERROR: Pedigree (RecPed) must be available to calculate pedigree NRM inverse"
-        write(STDERR, "(a)") " "
-        stop 1
+      This%PedNrmInv%nInd = This%RecPed%nInd
+
+      if (allocated(This%PedNrmInv%OriginalId)) then
+        deallocate(This%PedNrmInv%OriginalId)
       end if
+      allocate(This%PedNrmInv%OriginalId(0:This%PedNrmInv%nInd))
+      This%PedNrmInv%OriginalId = This%RecPed%OriginalId
+
+      if (.not. allocated(This%PedInbreeding%Value)) then
+        call This%CalcPedInbreeding
+      end if
+
+      if (allocated(This%PedNrmInv%Value)) then
+        deallocate(This%PedNrmInv%Value)
+      end if
+      allocate(This%PedNrmInv%Value(0:This%PedNrmInv%nInd, 0:This%PedNrmInv%nInd))
+
+      This%PedNrmInv%Value = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
+                                       Inbreeding=This%PedInbreeding%Value)
     end subroutine
 
     !###########################################################################
@@ -1084,47 +1193,39 @@ module AlphaRelateModule
       integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
       real(real64), intent(in) :: Inbreeding(0:n)   !< Inbreeding coefficients; note Inbreeding(0) must be -1.0!
-      real(real64) :: NrmInv(0:n,0:n)               !< @return Pedigree NRM
+      real(real64) :: NrmInv(0:n, 0:n)              !< @return Pedigree NRM inverse
 
       ! Other
       integer(int32) :: Ind, Par1, Par2
-      real(real64) :: D, DInv
-
-      ! Must not have I/O in a pure function.
-      ! if (Inbreeding(0) /= -1.0d0) then
-      !   write(STDERR, "(a)") " ERROR: Inbreeding(0) must equal -1.0"
-      !   write(STDERR, "(a)") ""
-      !   stop 1
-      ! end if
+      real(real64) :: DInv
 
       NrmInv = 0.0d0
       do Ind = 1, n
-        Par1 = RecPed(2,Ind)
-        Par2 = RecPed(3,Ind)
+        Par1 = RecPed(2, Ind)
+        Par2 = RecPed(3, Ind)
         ! Variance of founder effects and Mendelian sampling terms
-        D = 1.0d0
-        D = D - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2))
+        ! DInv = 1.0d0 / (1.0d0 - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2)))
+        DInv = 1.0d0 / (0.5d0 - 0.25d0 * (Inbreeding(Par1) + Inbreeding(Par2)))
         ! Precision for the individual
-        DInv = 1.0d0 / D
         NrmInv(Ind,Ind) = DInv
         ! Add precision to the first parent and set the co-precision
-        NrmInv(Par1,Par1) = NrmInv(Par1,Par1) + DInv / 4.0d0
-        NrmInv(Ind,Par1)  = NrmInv(Ind,Par1)  - DInv / 2.0d0
-        NrmInv(Par1,Ind)  = NrmInv(Ind,Par1)
+        NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + DInv / 4.0d0
+        NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - DInv / 2.0d0
+        NrmInv(Par1, Ind)  = NrmInv(Ind, Par1)
         ! Add precision to the second parent and set the co-precision
-        NrmInv(Par2,Par2) = NrmInv(Par2,Par2) + DInv / 4.0d0
-        NrmInv(Ind,Par2)  = NrmInv(Ind,Par2)  - DInv / 2.0d0
-        NrmInv(Par2,Ind)  = NrmInv(Ind,Par2)
+        NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + DInv / 4.0d0
+        NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - DInv / 2.0d0
+        NrmInv(Par2, Ind)  = NrmInv(Ind, Par2)
         ! Add co-precision between the parents
-        NrmInv(Par1,Par2) = NrmInv(Par1,Par2) + DInv / 4.0d0
-        NrmInv(Par2,Par1) = NrmInv(Par1,Par2)
+        NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + DInv / 4.0d0
+        NrmInv(Par2, Par1) = NrmInv(Par1, Par2)
       end do
       ! Reset the "margins"
       ! (the above algorithm does not need ifs for testing unknown parents as it
-      !  relies on using the zeroth "margin" as a placeholder that needs to be
-      !  cleared at the end)
-      NrmInv(0:n,0) = 0.0d0
-      NrmInv(0,0:n) = 0.0d0
+      !  relies on using the zeroth "margin" and Inbreeding(0)=-1. as placeholders;
+      !  so should clear the "margin" now)
+      NrmInv(0:n, 0) = 0.0d0
+      NrmInv(0, 0:n) = 0.0d0
     end function
 
     ! TODO: is this usefull when dealing with the single-step H matrix?
@@ -1155,18 +1256,48 @@ module AlphaRelateModule
       type(AlphaRelateSpec), intent(in) :: Spec  !< Specifications
       character(len=*), intent(in) :: File       !< @return File that will hold Original Id and pedigree NRM inverse
 
-      if (allocated(This%PedNrmInv)) then
-        call WriteNrm(OriginalId=This%RecPed%OriginalId,&
-                      Nrm=This%PedNrmInv,&
-                      n=This%nIndPed,&
-                      Ija=Spec%PedNrmInvIja,&
-                      OutputPrecision=Spec%OutputPrecision,&
-                      File=File)
+      call WriteNrm(OriginalId=This%PedNrmInv%OriginalId,&
+                    Nrm=This%PedNrmInv%Value,&
+                    n=This%PedNrmInv%nInd,&
+                    Ija=Spec%PedNrmInvIja,& ! TODO: could, in future, figure this from type of Nrm
+                    OutputPrecision=Spec%OutputPrecision,&
+                    File=File)
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Read pedigree NRM inverse from a file
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 22, 2016
+    !---------------------------------------------------------------------------
+    subroutine ReadPedNrmInv(This, Spec, File)
+      implicit none
+      class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM inverse
+      type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+      character(len=*), intent(in) :: File          !< File that holds Original Id and pedigree NRM inverse
+
+      integer(int32) :: n
+
+      if (Spec%PedNrmInvIja) then
+        This%PedNrmInv%nInd = CountLines(trim(File)//"_IdMap")
       else
-        write(STDERR, "(a)") " ERROR: Pedigree NRM inverse not calculated"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
+        This%PedNrmInv%nInd = CountLines(trim(File))
+      endif
+
+      if (allocated(This%PedNrmInv%OriginalId)) then
+        deallocate(This%PedNrmInv%OriginalId)
+      endif
+      allocate(This%PedNrmInv%OriginalId(0:This%PedNrmInv%nInd))
+
+      if (allocated(This%PedNrmInv%Value)) then
+        deallocate(This%PedNrmInv%Value)
+      endif
+      allocate(This%PedNrmInv%Value(0:This%PedNrmInv%nInd, 0:This%PedNrmInv%nInd))
+
+      call ReadNrm(File=File, Ija=Spec%PedNrmInvIja,&
+                   OriginalId=This%PedNrmInv%OriginalId,&
+                   Nrm=This%PedNrmInv%Value, n=This%PedNrmInv%nInd)
     end subroutine
 
     !###########################################################################
@@ -1179,7 +1310,7 @@ module AlphaRelateModule
     subroutine WriteNrm(OriginalId, Nrm, n, Ija, OutputPrecision, File)
       implicit none
       character(len=IDLENGTH), intent(in) :: OriginalId(0:n) !< Original Id
-      real(real64), intent(in) :: Nrm(0:n,0:n)               !< NRM
+      real(real64), intent(in) :: Nrm(0:n, 0:n)              !< NRM
       integer(int32), intent(in) :: n                        !< Number of individuals
       logical, intent(in) :: Ija                             !< Write in sparse ija format
       character(len=*), intent(in) :: OutputPrecision        !< Format for inbreeding
@@ -1194,24 +1325,24 @@ module AlphaRelateModule
         write(Unit, "(i)") n
         ! Original Ids
         open(newunit=Unit2, file=trim(File)//"_IdMap", status="unknown")
-        Fmt = "(i8,a1,a"//Int2Char(IDLENGTH)//")"
+        Fmt = "(i8, a1, a"//Int2Char(IDLENGTH)//")"
         do Ind1 = 1, n
           write(Unit2, Fmt) Ind1, "", OriginalId(Ind1)
         end do
         close(Unit2)
         ! Triplets
-        Fmt = "(2i8,"//OutputPrecision//")"
+        Fmt = "(2i8, "//OutputPrecision//")"
         do Ind1 = 1, n
           do Ind2 = Ind1, n
-            if (abs(Nrm(Ind2,Ind1)) .gt. 0.d0) then
-              write(Unit, Fmt) Ind2, Ind1, Nrm(Ind2,Ind1)
+            if (abs(Nrm(Ind2, Ind1)) .gt. 0.d0) then
+              write(Unit, Fmt) Ind2, Ind1, Nrm(Ind2, Ind1)
             end if
           end do
         end do
       else
-        Fmt = "(a"//Int2Char(IDLENGTH)//","//Int2Char(n)//OutputPrecision//")"
+        Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(n)//OutputPrecision//")"
         do Ind1 = 1, n
-          write(Unit, Fmt) OriginalId(Ind1), Nrm(1:n,Ind1)
+          write(Unit, Fmt) OriginalId(Ind1), Nrm(1:n, Ind1)
         end do
       end if
       close(Unit)
@@ -1229,7 +1360,7 @@ module AlphaRelateModule
       character(len=*), intent(in) :: File                                          !< File that holds Original Id and NRM
       logical, intent(in) :: Ija                                                    !< Read from a sparse ija format
       character(len=IDLENGTH), allocatable, dimension(:), intent(out) :: OriginalId !< @return Original Id
-      real(real64), allocatable, dimension(:,:), intent(out) :: Nrm                 !< @return NRM
+      real(real64), allocatable, dimension(:, :), intent(out) :: Nrm                !< @return NRM(0:n,0:n)
       integer(int32), intent(out) :: n                                              !< @return Number of individuals
 
       integer(int32) :: Line, nLine, Unit, Unit2, Ind1, Ind2
@@ -1250,19 +1381,19 @@ module AlphaRelateModule
         end do
         close(Unit2)
         ! Triplets
-        allocate(Nrm(0:n,0:n))
+        allocate(Nrm(0:n, 0:n))
         Nrm = 0.0d0
         do Line = 1, (nLine - 1)
-          read(Unit, *) Ind2, Ind1, Nrm(Ind2,Ind1)
-          Nrm(Ind1,Ind2) = Nrm(Ind2,Ind1)
+          read(Unit, *) Ind2, Ind1, Nrm(Ind2, Ind1)
+          Nrm(Ind1,Ind2) = Nrm(Ind2, Ind1)
         end do
       else
         n = nLine
         allocate(OriginalId(0:n))
-        allocate(Nrm(0:n,0:n))
+        allocate(Nrm(0:n, 0:n))
         Nrm = 0.0d0
         do Ind1 = 1, n
-          read(Unit, *) OriginalId(Ind1), Nrm(1:n,Ind1)
+          read(Unit, *) OriginalId(Ind1), Nrm(1:n, Ind1)
         end do
       end if
       close(Unit)
