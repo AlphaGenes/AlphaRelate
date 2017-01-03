@@ -54,22 +54,22 @@ module AlphaRelateModule
 
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
-    character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile, HaplotypeFile
-    character(len=FILELENGTH) :: LocusWeightFile, AlleleFreqFile, OldPedNrmFile
-    character(len=SPECOPTIONLENGTH) :: GenNrmType, OutputPrecision
+    character(len=FILELENGTH) :: SpecFile, PedigreeFile!, GenotypeFile, HaplotypeFile
+    character(len=FILELENGTH) :: PedNrmSelectFile!, PedNrmOldFile, LocusWeightFile, AlleleFreqFile
+    character(len=SPECOPTIONLENGTH) :: OutputPrecision!, GenNrmType
 
-    logical :: SpecPresent, PedigreePresent, GenotypePresent, HaplotypePresent
-    logical :: LocusWeightPresent, AlleleFreqPresent, AlleleFreqFixed, OldPedNrmPresent
+    logical :: SpecPresent, PedigreePresent!, GenotypePresent, HaplotypePresent
+    logical :: PedNrmSelectPresent, PedNrmOldPresent!, LocusWeightPresent, AlleleFreqPresent, AlleleFreqFixed
 
     logical :: PedInbreeding, PedNrm, PedNrmMat, PedNrmIja, PedNrmInv, PedNrmInvMat, PedNrmInvIja
-    logical :: GenInbreeding, GenNrm, GenNrmMat, GenNrmIja, GenNrmInv, GenNrmInvMat, GenNrmInvIja
-    logical :: HapInbreeding, HapNrm, HapNrmMat, HapNrmIja, HapNrmInv, HapNrmInvMat, HapNrmInvIja
-    logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
+    ! logical :: GenInbreeding, GenNrm, GenNrmMat, GenNrmIja, GenNrmInv, GenNrmInvMat, GenNrmInvIja
+    ! logical :: HapInbreeding, HapNrm, HapNrmMat, HapNrmIja, HapNrmInv, HapNrmInvMat, HapNrmInvIja
+    ! logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
 
-    integer(int32):: nTrait, nGenMat, nLocus, OldPedNrmNInd
+    !integer(int32):: nTrait, nGenMat, nLocus
 
-    real(real64):: AlleleFreqAll
-    real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
+    !real(real64):: AlleleFreqAll
+    !real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
   end type
 
   interface AlphaRelateSpec
@@ -78,34 +78,42 @@ module AlphaRelateModule
 
   !> @brief Inbreeding holder
   type Inbreeding
-    integer(int32) :: nInd
+    integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-    real(real64), allocatable, dimension(:) :: Value
+    real(real64), allocatable, dimension(:)            :: Value
   end type
 
   !> @brief Numerator relationship (or its inverse) holder
   type Nrm
-    integer(int32) :: nInd
+    integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-    real(real64), allocatable, dimension(:, :) :: Value
+    real(real64), allocatable, dimension(:, :)         :: Value
     ! TODO: create dense and sparse version?
+  end type
+
+  !> @brief
+  type IndSelect
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
   end type
 
   !> @brief AlphaRelate data
   type AlphaRelateData
     ! Pedigree-based
     type(RecodedPedigreeArray) :: RecPed
-    type(Inbreeding) :: PedInbreeding
-    type(Nrm) :: PedNrm
-    type(Nrm) :: PedNrmInv
+    type(Inbreeding)           :: PedInbreeding
+    type(Nrm)                  :: PedNrm
+    type(IndSelect)            :: PedNrmSelect
+    type(Nrm)                  :: PedNrmInv
     ! Genotype-based
-    type(Inbreeding) :: GenInbreeding
-    type(Nrm) :: GenNrm
-    type(Nrm) :: GenNrmInv
+    type(Inbreeding)           :: GenInbreeding
+    type(Nrm)                  :: GenNrm
+    type(Nrm)                  :: GenNrmInv
     ! Haplotype-based
-    type(Inbreeding) :: HapInbreeding
-    type(Nrm) :: HapNrm
-    type(Nrm) :: HapNrmInv
+    type(Inbreeding)           :: HapInbreeding
+    type(Nrm)                  :: HapNrm
+    type(Nrm)                  :: HapNrmInv
 
     ! TODO: clean-up this
     !character(len=IDLENGTH), allocatable :: IdGeno(:)
@@ -160,64 +168,65 @@ module AlphaRelateModule
       integer(int32) :: SpecUnit, Stat
 
       ! Defaults
-      Spec%SpecFile        = "None"
-      Spec%PedigreeFile    = "None"
-      Spec%GenotypeFile    = "None"
-      Spec%HaplotypeFile   = "None"
-      Spec%LocusWeightFile = "None"
-      Spec%AlleleFreqFile  = "None"
-      Spec%OldPedNrmFile   = "None"
+      Spec%SpecFile         = "None"
+      Spec%PedigreeFile     = "None"
+      Spec%PedNrmSelectFile = "None"
+      ! Spec%PedNrmOldFile    = "None"
+      ! Spec%GenotypeFile     = "None"
+      ! Spec%HaplotypeFile    = "None"
+      ! Spec%LocusWeightFile  = "None"
+      ! Spec%AlleleFreqFile   = "None"
 
-      Spec%GenNrmType   = "None"
-      Spec%OutputPrecision = "f"
+      ! Spec%GenNrmType       = "None"
+      Spec%OutputPrecision  = "f"
 
-      Spec%SpecPresent        = .false.
-      Spec%PedigreePresent    = .false.
-      Spec%GenotypePresent    = .false.
-      Spec%HaplotypePresent   = .false.
-      Spec%LocusWeightPresent = .false.
-      Spec%AlleleFreqPresent  = .false.
-      Spec%AlleleFreqFixed    = .false.
-      Spec%OldPedNrmPresent   = .false.
+      Spec%SpecPresent         = .false.
+      Spec%PedigreePresent     = .false.
+      Spec%PedNrmSelectPresent = .false.
+      Spec%PedNrmOldPresent    = .false.
+      ! Spec%GenotypePresent     = .false.
+      ! Spec%HaplotypePresent    = .false.
+      ! Spec%LocusWeightPresent  = .false.
+      ! Spec%AlleleFreqPresent   = .false.
+      ! Spec%AlleleFreqFixed     = .false.
 
-      Spec%PedInbreeding      = .false.
-      Spec%PedNrm             = .false.
-      Spec%PedNrmMat          = .false.
-      Spec%PedNrmIja          = .false.
-      Spec%PedNrmInv          = .false.
-      Spec%PedNrmInvMat       = .false.
-      Spec%PedNrmInvIja       = .false.
+      Spec%PedInbreeding       = .false.
+      Spec%PedNrm              = .false.
+      Spec%PedNrmMat           = .false.
+      Spec%PedNrmIja           = .false.
+      Spec%PedNrmInv           = .false.
+      Spec%PedNrmInvMat        = .false.
+      Spec%PedNrmInvIja        = .false.
 
-      Spec%GenInbreeding      = .false.
-      Spec%GenNrm             = .false.
-      Spec%GenNrmMat          = .false.
-      Spec%GenNrmIja          = .false.
-      Spec%GenNrmInv          = .false.
-      Spec%GenNrmInvMat       = .false.
-      Spec%GenNrmInvIja       = .false.
-      Spec%FudgeGenNrmDiag    = .false.
-      Spec%BlendGenNrm        = .false.
+      ! Spec%GenInbreeding       = .false.
+      ! Spec%GenNrm              = .false.
+      ! Spec%GenNrmMat           = .false.
+      ! Spec%GenNrmIja           = .false.
+      ! Spec%GenNrmInv           = .false.
+      ! Spec%GenNrmInvMat        = .false.
+      ! Spec%GenNrmInvIja        = .false.
+      ! Spec%FudgeGenNrmDiag     = .false.
+      ! Spec%BlendGenNrm         = .false.
 
-      Spec%HapInbreeding      = .false.
-      Spec%HapNrm             = .false.
-      Spec%HapNrmMat          = .false.
-      Spec%HapNrmIja          = .false.
-      Spec%HapNrmInv          = .false.
-      Spec%HapNrmInvMat       = .false.
-      Spec%HapNrmInvIja       = .false.
-      Spec%FudgeHapNrmDiag    = .false.
-      Spec%BlendHapNrm        = .false.
+      ! Spec%HapInbreeding       = .false.
+      ! Spec%HapNrm              = .false.
+      ! Spec%HapNrmMat           = .false.
+      ! Spec%HapNrmIja           = .false.
+      ! Spec%HapNrmInv           = .false.
+      ! Spec%HapNrmInvMat        = .false.
+      ! Spec%HapNrmInvIja        = .false.
+      ! Spec%FudgeHapNrmDiag     = .false.
+      ! Spec%BlendHapNrm         = .false.
 
-      Spec%nTrait        = 1
-      Spec%nGenMat       = 0
-      Spec%nLocus        = 0
-      Spec%OldPedNrmNInd = 0
+      ! Spec%nTrait           = 1
+      ! Spec%nGenMat          = 0
+      ! Spec%nLocus           = 0
 
-      Spec%AlleleFreqAll         = 0.5d0
-      Spec%FudgeHapNrmDiagFactor = 0.0d0
-      Spec%BlendHapNrmFactor     = 0.0d0
-      Spec%FudgeHapNrmDiagFactor = 0.0d0
-      Spec%BlendHapNrmFactor     = 0.0d0
+      ! Spec%AlleleFreqAll         = 0.5d0
+      ! Spec%FudgeHapNrmDiagFactor = 0.0d0
+      ! Spec%BlendHapNrmFactor     = 0.0d0
+      ! Spec%FudgeHapNrmDiagFactor = 0.0d0
+      ! Spec%BlendHapNrmFactor     = 0.0d0
 
       if (present(SpecFile)) then
 
@@ -242,7 +251,7 @@ module AlphaRelateModule
               case ("pedigreefile")
                 if (allocated(Second)) then
                   if (ToLower(trim(Second(1))) == "none") then
-                    write(STDOUT, "(a)") " Not using pedigree"
+                    write(STDOUT, "(a)") " Not using pedigree file"
                   else
                     Spec%PedigreePresent = .true.
                     write(Spec%PedigreeFile, *) trim(Second(1))
@@ -257,7 +266,7 @@ module AlphaRelateModule
               ! case ("genotypefile")
               !   if (allocated(Second)) then
               !     if (ToLower(trim(Second(1))) == "none") then
-              !       write(STDOUT, "(a)") " Not using genotypes"
+              !       write(STDOUT, "(a)") " Not using genotype file"
               !     else
               !       Spec%GenotypePresent = .true.
               !       write(Spec%GenotypeFile, *) trim(Second(1))
@@ -272,7 +281,7 @@ module AlphaRelateModule
               ! case ("haplotypefile")
               !   if (allocated(Second)) then
               !     if (ToLower(trim(Second(1))) == "none") then
-              !       write(STDOUT, "(a)") " Not using haplotypes"
+              !       write(STDOUT, "(a)") " Not using haplotype file"
               !     else
               !       Spec%HaplotypePresent = .true.
               !       write(Spec%HaplotypeFile, *) trim(Second(1))
@@ -287,7 +296,7 @@ module AlphaRelateModule
               ! case ("locusweightfile")
               !   if (allocated(Second)) then
               !     if (ToLower(trim(Second(1))) == "none") then
-              !       write(STDOUT, "(a)") " Not using locus weights"
+              !       write(STDOUT, "(a)") " Not using locus weights file"
               !     else
               !       Spec%LocusWeightPresent = .true.
               !       write(Spec%LocusWeightFile, *) trim(Second(1))
@@ -302,7 +311,7 @@ module AlphaRelateModule
               ! case ("allelefreqfile")
               !   if (allocated(Second)) then
               !     if (ToLower(trim(Second(1))) == "none") then
-              !       write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies"
+              !       write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies file"
               !     else
               !       Spec%AlleleFreqPresent = .true.
               !       if (ToLower(trim(Second(1))) == "fixed") then
@@ -464,6 +473,32 @@ module AlphaRelateModule
                   stop 1
                 end if
 
+              case ("pednrmselectfile")
+                if (allocated(Second)) then
+                  if (ToLower(trim(Second(1))) == "none") then
+                    write(STDOUT, "(a)") " Not using pedigree NRM select file"
+                  else
+                    Spec%PedNrmSelectPresent = .true.
+                    write(Spec%PedNrmSelectFile, *) trim(Second(1))
+                    write(STDOUT, "(2a)") " Using pedigree NRM select file: ", trim(Spec%PedNrmSelectFile)
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a file for PedNrmSelectFile, i.e., PedNrmSelectFile, PedNrmSelect.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              ! n = CountLines(Spec%SpecFile)
+              ! if (n > 25) then
+              !   write(STDOUT, "(a)") " BEWARE: Using an old A matrix is an experimental feature"
+              !   write(STDOUT, "(a)") " BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
+              !   write(STDOUT, "(a)") " BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
+              !   write(STDOUT, "(a)") " BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
+              !   write(STDOUT, "(a)") " "
+              !   read(SpecUnit, *) DumC, Spec%OldAMatFile, Spec%OldAMatNInd
+              !   Spec%OldPedNrmFile = .true.
+              ! end if
+
               case ("pednrminv")
                 if (allocated(Second)) then
                   if (ToLower(trim(Second(1))) == "yes") then
@@ -539,17 +574,6 @@ module AlphaRelateModule
               !   Spec%MakeInvA = .true.
               ! end if
 
-              ! n = CountLines(Spec%SpecFile)
-              ! if (n > 25) then
-              !   write(STDOUT, "(a)") " BEWARE: Using an old A matrix is an experimental feature"
-              !   write(STDOUT, "(a)") " BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
-              !   write(STDOUT, "(a)") " BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
-              !   write(STDOUT, "(a)") " BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
-              !   write(STDOUT, "(a)") " "
-              !   read(SpecUnit, *) DumC, Spec%OldAMatFile, Spec%OldAMatNInd
-              !   Spec%OldPedNrmFile = .true.
-              ! end if
-
               case default
                 write(STDOUT, "(3a)") " NOTE: Specification '", trim(Line), "' ignored"
                 write(STDOUT, "(a)") " "
@@ -558,35 +582,38 @@ module AlphaRelateModule
         end do ReadSpec
         close(SpecUnit)
 
-        if ((Spec%PedInbreeding .or. Spec%PedNrm .or. Spec%PedNrmInv) .and. .not. Spec%PedigreePresent) then
+        if ((Spec%PedInbreeding .or. Spec%PedNrm .or. Spec%PedNrmInv .or. Spec%PedNrmSelectPresent)&
+            .and. .not. Spec%PedigreePresent) then
           write(STDERR, "(a)") " ERROR: Must provide pedigree file to calculate pedigree inbreeding, NRM, or NRM inverse"
           write(STDERR, "(a)") ""
           stop 1
         end if
 
-        if ((Spec%GenInbreeding .or. Spec%GenNrm .or. Spec%GenNrmInv) .and. .not. Spec%GenotypePresent) then
-          write(STDERR, "(a)") " ERROR: Must provide genotype file to calculate genotype inbreeding, NRM, or NRM inverse"
-          write(STDERR, "(a)") ""
-          stop 1
-        end if
+        ! if ((Spec%GenInbreeding .or. Spec%GenNrm .or. Spec%GenNrmInv)&
+        !     .and. .not. Spec%GenotypePresent) then
+        !   write(STDERR, "(a)") " ERROR: Must provide genotype file to calculate genotype inbreeding, NRM, or NRM inverse"
+        !   write(STDERR, "(a)") ""
+        !   stop 1
+        ! end if
 
-        if ((Spec%HapInbreeding .or. Spec%HapNrm .or. Spec%HapNrmInv) .and. .not. Spec%HaplotypePresent) then
-          write(STDERR, "(a)") " ERROR: Must provide haplotype file to calculate haplotype inbreeding, NRM, or NRM inverse"
-          write(STDERR, "(a)") ""
-          stop 1
-        end if
+        ! if ((Spec%HapInbreeding .or. Spec%HapNrm .or. Spec%HapNrmInv)&
+        !     .and. .not. Spec%HaplotypePresent) then
+        !   write(STDERR, "(a)") " ERROR: Must provide haplotype file to calculate haplotype inbreeding, NRM, or NRM inverse"
+        !   write(STDERR, "(a)") ""
+        !   stop 1
+        ! end if
 
-        if (Spec%BlendGenNrm .and. .not. Spec%PedigreePresent) then
-          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
-          write(STDERR, "(a)") ""
-          stop 1
-        end if
+        ! if (Spec%BlendGenNrm .and. .not. Spec%PedigreePresent) then
+        !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
+        !   write(STDERR, "(a)") ""
+        !   stop 1
+        ! end if
 
-        if (Spec%BlendHapNrm .and. .not. Spec%PedigreePresent) then
-          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
-          write(STDERR, "(a)") ""
-          stop 1
-        end if
+        ! if (Spec%BlendHapNrm .and. .not. Spec%PedigreePresent) then
+        !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
+        !   write(STDERR, "(a)") ""
+        !   stop 1
+        ! end if
 
         ! Spec%nGenMat=0
         ! do i = 1, Spec%nTrait
@@ -632,8 +659,10 @@ module AlphaRelateModule
 
       ! Other
       type(PedigreeHolder) :: PedObj
-      integer(int32) :: i, j, Stat, nCols, GenoInPed, nMissing
-      integer(int32) :: OldGenNrmUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
+      integer(int32) :: i, j!, Stat, nCols, GenoInPed, nMissing
+      integer(int32) :: PedNrmSelectUnit!, PedNrmOldUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
+      character(len=IDLENGTH) :: DumC
+      logical :: IdMatchNotFound
 
       if (Spec%PedigreePresent) then
         ! Read in the pedigree
@@ -644,6 +673,34 @@ module AlphaRelateModule
 
         ! Free some memory
         call PedObj%DestroyPedigree
+
+        if (Spec%PedNrmSelectPresent) then
+          Data%PedNrmSelect%nInd = CountLines(Spec%PedNrmSelectFile)
+          allocate(Data%PedNrmSelect%OriginalId(0:Data%PedNrmSelect%nInd))
+          allocate(Data%PedNrmSelect%Id(0:Data%PedNrmSelect%nInd))
+          open(newunit=PedNrmSelectUnit, file=trim(Spec%PedNrmSelectFile), action="read", status="old")
+          Data%PedNrmSelect%OriginalId(0) = "0"
+          Data%PedNrmSelect%Id(0) = 0
+          do i = 1, Data%PedNrmSelect%nInd
+            read(PedNrmSelectUnit, *) DumC
+            ! TODO: a better way to do this Id matching?
+            IdMatchNotFound = .true.
+            do j = 1, Data%RecPed%nInd
+              if (DumC == Data%RecPed%OriginalId(j)) then
+                Data%PedNrmSelect%OriginalId(i) = DumC
+                Data%PedNrmSelect%Id(i) = j
+                IdMatchNotFound = .false.
+                exit
+              end if
+            end do
+            if (IdMatchNotFound) then
+              write(STDERR, "(2a)") " ERROR: No match found in pedigree for the following pedigree NRM select identification:", trim(DumC)
+              write(STDERR, "(a)")  ""
+              stop 1
+            end if
+          end do
+          close(PedNrmSelectUnit)
+        end if
       end if
 
       ! if (Spec%GenotypePresent) then
@@ -655,7 +712,7 @@ module AlphaRelateModule
       !   allocate(Data%ZMat(Data%nAnisG,Data%nLocus))
       !   allocate(Data%IdGeno(Data%nAnisG))
       !   !allocate(RecodeIdGeno(Data%nAnisG))
-      !   open(newunit=GenotypeUnit, file=trim(Spec%GenotypeFile), status="old")
+      !   open(newunit=GenotypeUnit, file=trim(Spec%GenotypeFile), action="read", status="old")
       !   do i = 1, Data%nAnisG
       !     read(GenotypeUnit,*) Data%IdGeno(i),Data%Genos(i,:)
       !   end do
@@ -682,7 +739,7 @@ module AlphaRelateModule
       !         Data%AlleleFreq(j) = 0.0d0
       !       end if
       !     end do
-      !     open(newunit=AlleleFreqUnit, file="AlleleFreq.txt",status="unknown")
+      !     open(newunit=AlleleFreqUnit, file="AlleleFreq.txt", action=???, status="unknown")
       !     do j = 1, Data%nLocus
       !       write(AlleleFreqUnit,*) j, Data%AlleleFreq(j)
       !     end do
@@ -690,14 +747,14 @@ module AlphaRelateModule
       !   else
       !     if (trim(Spec%AlleleFreqFile) == "Fixed") then
       !       Data%AlleleFreq(:) = Spec%AlleleFreqAll
-      !       open(newunit=AlleleFreqUnit, file="AlleleFreq.txt",status="unknown")
+      !       open(newunit=AlleleFreqUnit, file="AlleleFreq.txt", action=???, status="unknown")
       !       do j = 1, nLocus
       !         write(AlleleFreqUnit,*) j, Data%AlleleFreq(j)
       !       end do
       !       close(AlleleFreqUnit)
       !     else
       !       ! Read allele frequencies from file.
-      !       open(newunit=AlleleFreqUnit, file=trim(Spec%AlleleFreqFile), status="old")
+      !       open(newunit=AlleleFreqUnit, file=trim(Spec%AlleleFreqFile), action="read", status="old")
       !       do i = 1, Data%nLocus
       !         ! AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
       !         read(AlleleFreqUnit, *, iostat=Stat) DumC, Data%AlleleFreq(i)
@@ -714,7 +771,7 @@ module AlphaRelateModule
       !   ! LocusWeight
       !   allocate(Data%LocusWeight(Data%nLocus,Data%nTrait))
       !   if (Spec%LocusWeightPresent) then
-      !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), status="old")
+      !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), action="read", status="old")
       !     do i = 1, Data%nLocus
       !       read(LocusWeightUnit,*) DumC, Data%LocusWeight(i,:)
       !     end do
@@ -1041,20 +1098,49 @@ module AlphaRelateModule
       class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM
       type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
-      type(Nrm) :: OldNrm
-      integer(int32) :: Ind, MinOldId, MaxOldId
-      logical :: OldIdUnknown
+      if (Spec%PedNrmSelectPresent) then
+        ! Using the Colleau/Tier method to get Nrm for a selected subset of individuals
+        This%PedNrm%nInd = This%PedNrmSelect%nInd
 
-      ! TODO: Implement Colleau/Tier method
-      !       https://gsejournal.biomedcentral.com/articles/10.1186/1297-9686-34-4-409
+        if (allocated(This%PedNrm%OriginalId)) then
+          deallocate(This%PedNrm%OriginalId)
+        end if
+        allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
+        This%PedNrm%OriginalId = This%PedNrmSelect%OriginalId
 
-      if (Spec%OldPedNrmPresent) then
-        ! NOTE: The code assumes that the Nrm calculated pertains to new generations
-        ! of individuals that are descendants of individuals in the OldNrm.
-        ! It also assumes that ids in RecPed are sequential.
+        if (allocated(This%PedNrm%Value)) then
+          deallocate(This%PedNrm%Value)
+        end if
+        allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
 
-        ! TODO: if old PedNrm is present, make it read already in the Data function!!!
+        block
+          integer(int32) :: Ind, xPos
+          real(real64), allocatable, dimension(:) :: x, NrmCol
+          allocate(     x(0:This%RecPed%nInd))
+          allocate(NrmCol(0:This%RecPed%nInd))
 
+          call This%CalcPedInbreeding
+          This%PedNrm%Value(0:This%PedNrm%nInd, 0) = 0.0d0 ! 0th row handled by PedNrmTimesVector()
+          x = 0.0d0
+          ! TODO: this could be run in parallel (is it worth it?; x must be made private!!!)
+          do Ind = 1, This%PedNrm%nInd
+            xPos = This%PedNrmSelect%Id(Ind)
+            x(xPos) = 1.0d0
+            NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+                                       Inbreeding=This%PedInbreeding%Value, Vector=x)
+            This%PedNrm%Value(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSelect%Id)
+            x(xPos) = 0.0d0
+          end do
+          deallocate(NrmCol)
+          deallocate(x)
+        end block
+      else if (Spec%PedNrmOldPresent) then
+        ! TODO: this needs work
+        ! TODO: Put this into a block
+        ! type(Nrm) :: OldNrm
+        ! integer(int32) :: Ind, MinOldId, MaxOldId
+        ! logical :: OldIdUnknown
+        ! TODO: read this already in the Data function!!!
         ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
         !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Value, n=OldNrm%nInd)
         ! MinOldId = 1
@@ -1077,26 +1163,27 @@ module AlphaRelateModule
         !     OldIdUnknown = .false.
         !   end if
         ! end do
-
+        !
         ! This%PedNrm%nInd = This%RecPed%nInd - MaxOldId
-
+        !
         ! if (allocated(This%PedNrm%OriginalId)) then
         !   deallocate(This%PedNrm%OriginalId)
         ! end if
         ! allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
         ! This%PedNrm%OriginalId(0) = "0"
         ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
-
+        !
         ! if (allocated(This%PedNrm%Value)) then
         !   deallocate(This%PedNrm%Value)
         ! end if
         ! allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
-
+        !
         ! This%PedNrm%Value = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
         !                                      nNew=This%PedNrm%nInd,&
         !                                      OldNrm=OldNrm%Value, nOld=OldNrm%nInd,&
         !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
       else
+        ! Standard method for all individuals
         This%PedNrm%nInd = This%RecPed%nInd
 
         if (allocated(This%PedNrm%OriginalId)) then
@@ -1160,7 +1247,7 @@ module AlphaRelateModule
       integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
       real(real64), intent(in) :: Inbreeding(0:n)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-      real(real64), intent(in) :: Vector(n)         !< Vector to multiply NRM with
+      real(real64), intent(in) :: Vector(0:n)       !< Vector to multiply NRM with
       real(real64) :: Result(0:n)                   !< @return PedNrm*Vector, i.e., Ax=b
 
       ! Other
@@ -1197,9 +1284,13 @@ module AlphaRelateModule
     !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date    December 31, 2016
     !---------------------------------------------------------------------------
+    ! TODO: would be the best to write code such that we work with one Nrm
+    !       and can then have say 1) base Nrm and this function kind of behaves
+    !       like PedNrm, or 2) provide Nrm for the middle of pedigree and then
+    !       this function gives Nrm for these individuals and the rest of pedigree
     ! pure function PedNrmForANewGeneration(RecPed, n, nNew, OldNrm, nOld, MinOldId, MaxOldId) result(Nrm)
     !   implicit none
-
+    !
     !   ! Arguments
     !   integer(int32), intent(in) :: RecPed(1:3,0:n)      !< Sorted and recoded pedigree array (unknown parents as 0)
     !   integer(int32), intent(in) :: n                    !< Number of individuals in pedigree
@@ -1209,41 +1300,41 @@ module AlphaRelateModule
     !   integer(int32), intent(in) :: MinOldId             !< Minimal sequential id for the old NRM
     !   integer(int32), intent(in) :: MaxOldId             !< Maximal sequential id for the old NRM
     !   real(real64) :: Nrm(0:n, 0:n)                      !< @return Pedigree NRM for the new generation individuals
-
+    !
     !   ! Other
     !   integer(int32) :: Ind1, Ind2, Par1, Par2
-
+    !
     !   ! NOTE: The code assumes that the Nrm calculated pertains to a new generation
     !   ! of individuals, i.e., individuals in the OldNrm are ancestors of
     !   ! individuals in Nrm. It also assumes that ids in RecPed are sequential.
-
+    !
     !   Nrm = 0.0d0
-    !   ! TODO
-    !   ! do Ind1 = (MaxOldId + 1), n
-    !   !     Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1)) - MinOldId + 1
-    !   !     Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1)) - MinOldId + 1
-    !   !     do Ind2 = 1, Ind1 - 1
-    !   !         Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
-    !   !         Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
-    !   !     end do
-    !   !     Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
-    !   ! end do
+    !   do Ind1 = (MaxOldId + 1), n
+    !       Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1)) - MinOldId + 1
+    !       Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1)) - MinOldId + 1
+    !       do Ind2 = 1, Ind1 - 1
+    !           Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
+    !           Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
+    !       end do
+    !       Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
+    !   end do
     ! end function
-
-    ! !     k = OldAMatNInd
-    ! !     do i=MaxId+1,nAnisP
-    ! !         k = k + 1
-    ! !         s = RecPed(i,2) - MinId + 1
-    ! !         d = RecPed(i,3) - MinId + 1
-    ! !         l = k
-    ! !         do j=1,k-1
-    ! !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
-    ! !             AMat(k,j)=AMat(j,k)
-    ! !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
-    ! !         end do
-    ! !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
-    ! !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
-    ! !     end do
+    !
+    ! TODO: Cleanup this old code
+    ! k = OldAMatNInd
+    ! do i=MaxId+1,nAnisP
+    !     k = k + 1
+    !     s = RecPed(i,2) - MinId + 1
+    !     d = RecPed(i,3) - MinId + 1
+    !     l = k
+    !     do j=1,k-1
+    !         AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
+    !         AMat(k,j)=AMat(j,k)
+    !         !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
+    !     end do
+    !     AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
+    !     !print *,i,k,s,d,AMat(s,d),AMat(k,k)
+    ! end do
 
     !###########################################################################
 
@@ -1430,8 +1521,6 @@ module AlphaRelateModule
       type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
       character(len=*), intent(in) :: File          !< File that holds Original Id and pedigree NRM inverse
 
-      integer(int32) :: n
-
       if (Spec%PedNrmInvIja) then
         This%PedNrmInv%nInd = CountLines(trim(File)//"_IdMap")
       else
@@ -1527,6 +1616,7 @@ module AlphaRelateModule
         read(Unit, *) n
         ! Original Ids
         allocate(OriginalId(0:n))
+        OriginalId(0) = "0"
         open(newunit=Unit2, file=trim(File)//"_IdMap", action="read", status="old")
         Fmt = "(i8,a"//Int2Char(IDLENGTH)//")"
         do Ind1 = 1, n
@@ -1544,6 +1634,7 @@ module AlphaRelateModule
         n = nLine
         allocate(OriginalId(0:n))
         allocate(Nrm(0:n, 0:n))
+        OriginalId(0) = "0"
         Nrm = 0.0d0
         do Ind1 = 1, n
           read(Unit, *) OriginalId(Ind1), Nrm(1:n, Ind1)
