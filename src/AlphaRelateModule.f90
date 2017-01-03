@@ -47,9 +47,9 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, Nrm
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, Inbreeding, Nrm
   ! Methods
-  public :: PedInbreeding, PedNrm
+  public :: PedInbreeding, PedNrm, PedNrmTimesVector, PedNrmInv
   public :: WriteInbreeding, ReadInbreeding, WriteNrm, ReadNrm
 
   !> @brief AlphaRelate specifications
@@ -854,7 +854,7 @@ module AlphaRelateModule
       implicit none
 
       ! Arguments
-      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
+      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
       real(real64) :: f(0:n)                        !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
@@ -1041,9 +1041,61 @@ module AlphaRelateModule
       class(AlphaRelateData), intent(inout) :: This !< @return Data that will hold pedigree NRM
       type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
+      type(Nrm) :: OldNrm
+      integer(int32) :: Ind, MinOldId, MaxOldId
+      logical :: OldIdUnknown
+
+      ! TODO: Implement Colleau/Tier method
+      !       https://gsejournal.biomedcentral.com/articles/10.1186/1297-9686-34-4-409
+
       if (Spec%OldPedNrmPresent) then
-        ! TODO: make use of existing/old PedNrm
-        ! TODO: Colleau method?
+        ! NOTE: The code assumes that the Nrm calculated pertains to new generations
+        ! of individuals that are descendants of individuals in the OldNrm.
+        ! It also assumes that ids in RecPed are sequential.
+
+        ! TODO: if old PedNrm is present, make it read already in the Data function!!!
+
+        ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
+        !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Value, n=OldNrm%nInd)
+        ! MinOldId = 1
+        ! MaxOldId = 1
+        ! OldIdUnknown = .true.
+        ! Ind = 0
+        ! do while (OldIdUnknown)
+        !   Ind = Ind + 1
+        !   if (OldNrm%OriginalId(1)           == This%RecPed%OriginalId(Ind)) then
+        !     MinOldId = Ind
+        !     OldIdUnknown = .false.
+        !   end if
+        ! end do
+        ! OldIdUnknown = .true.
+        ! Ind = 0
+        ! do while (OldIdUnknown)
+        !   Ind = Ind + 1
+        !   if (OldNrm%OriginalId(OldNrm%nInd) == This%RecPed%OriginalId(Ind)) then
+        !     MaxOldId = Ind
+        !     OldIdUnknown = .false.
+        !   end if
+        ! end do
+
+        ! This%PedNrm%nInd = This%RecPed%nInd - MaxOldId
+
+        ! if (allocated(This%PedNrm%OriginalId)) then
+        !   deallocate(This%PedNrm%OriginalId)
+        ! end if
+        ! allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
+        ! This%PedNrm%OriginalId(0) = "0"
+        ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
+
+        ! if (allocated(This%PedNrm%Value)) then
+        !   deallocate(This%PedNrm%Value)
+        ! end if
+        ! allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+
+        ! This%PedNrm%Value = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+        !                                      nNew=This%PedNrm%nInd,&
+        !                                      OldNrm=OldNrm%Value, nOld=OldNrm%nInd,&
+        !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
       else
         This%PedNrm%nInd = This%RecPed%nInd
 
@@ -1073,7 +1125,7 @@ module AlphaRelateModule
       implicit none
 
       ! Arguments
-      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
+      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
       real(real64) :: Nrm(0:n, 0:n)                 !< @return Pedigree NRM
 
@@ -1083,14 +1135,115 @@ module AlphaRelateModule
       Nrm = 0.0d0
       do Ind1 = 1, n
           Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1))
-          Par2 = min(RecPed(2, Ind1), RecPed(3, Ind1))
+          Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1))
           do Ind2 = 1, Ind1 - 1
               Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
               Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
           end do
-          Nrm(Ind1, Ind2) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
+          Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
       end do
     end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM times a vector using the Colleau
+    !!          (2002, GSE 34: 409-421) method - adapted the code after
+    !!          Aguilar et al. (2011, JABG 128: 422-428)
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 31, 2016
+    !---------------------------------------------------------------------------
+    pure function PedNrmTimesVector(RecPed, n, Inbreeding, Vector) result(Result)
+      implicit none
+
+      ! Arguments
+      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
+      integer(int32), intent(in) :: n               !< Number of individuals in pedigree
+      real(real64), intent(in) :: Inbreeding(0:n)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+      real(real64), intent(in) :: Vector(n)         !< Vector to multiply NRM with
+      real(real64) :: Result(0:n)                   !< @return PedNrm*Vector, i.e., Ax=b
+
+      ! Other
+      integer(int32) :: Ind, Par1, Par2
+      real(real64) :: q(0:n), VarM, Tmp
+
+      Result = 0.0d0
+      q = 0.0d0
+
+      do Ind = n, 1, -1
+        q(Ind) = q(Ind) + Vector(Ind)
+        Tmp = 0.5d0 * q(Ind)
+        Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
+        Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
+        q(Par1) = q(Par1) + Tmp
+        q(Par2) = q(Par2) + Tmp
+      end do
+
+      do Ind = 1, n
+        Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
+        Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
+        ! Variance of founder effects and Mendelian sampling terms
+        VarM = 0.5d0 - 0.25d0 * (Inbreeding(Par1) + Inbreeding(Par2))
+        Tmp = 0.0d0
+        Tmp = Tmp + Result(Par1) + Result(Par2)
+        Result(Ind) = 0.5d0 * Tmp + VarM * q(Ind)
+      end do
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Calculate pedigree NRM with an old NRM as input
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    December 31, 2016
+    !---------------------------------------------------------------------------
+    ! pure function PedNrmForANewGeneration(RecPed, n, nNew, OldNrm, nOld, MinOldId, MaxOldId) result(Nrm)
+    !   implicit none
+
+    !   ! Arguments
+    !   integer(int32), intent(in) :: RecPed(1:3,0:n)      !< Sorted and recoded pedigree array (unknown parents as 0)
+    !   integer(int32), intent(in) :: n                    !< Number of individuals in pedigree
+    !   integer(int32), intent(in) :: nNew                 !< Number of new generation individuals
+    !   real(real64), intent(in) :: OldNrm(0:nOld, 0:nOld) !< Old NRM
+    !   integer(int32), intent(in) :: nOld                 !< Number of individuals in the old NRM
+    !   integer(int32), intent(in) :: MinOldId             !< Minimal sequential id for the old NRM
+    !   integer(int32), intent(in) :: MaxOldId             !< Maximal sequential id for the old NRM
+    !   real(real64) :: Nrm(0:n, 0:n)                      !< @return Pedigree NRM for the new generation individuals
+
+    !   ! Other
+    !   integer(int32) :: Ind1, Ind2, Par1, Par2
+
+    !   ! NOTE: The code assumes that the Nrm calculated pertains to a new generation
+    !   ! of individuals, i.e., individuals in the OldNrm are ancestors of
+    !   ! individuals in Nrm. It also assumes that ids in RecPed are sequential.
+
+    !   Nrm = 0.0d0
+    !   ! TODO
+    !   ! do Ind1 = (MaxOldId + 1), n
+    !   !     Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1)) - MinOldId + 1
+    !   !     Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1)) - MinOldId + 1
+    !   !     do Ind2 = 1, Ind1 - 1
+    !   !         Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
+    !   !         Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
+    !   !     end do
+    !   !     Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
+    !   ! end do
+    ! end function
+
+    ! !     k = OldAMatNInd
+    ! !     do i=MaxId+1,nAnisP
+    ! !         k = k + 1
+    ! !         s = RecPed(i,2) - MinId + 1
+    ! !         d = RecPed(i,3) - MinId + 1
+    ! !         l = k
+    ! !         do j=1,k-1
+    ! !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
+    ! !             AMat(k,j)=AMat(j,k)
+    ! !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
+    ! !         end do
+    ! !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
+    ! !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
+    ! !     end do
 
     !###########################################################################
 
@@ -1190,34 +1343,34 @@ module AlphaRelateModule
       implicit none
 
       ! Arguments
-      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array
+      integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
       integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-      real(real64), intent(in) :: Inbreeding(0:n)   !< Inbreeding coefficients; note Inbreeding(0) must be -1.0!
+      real(real64), intent(in) :: Inbreeding(0:n)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
       real(real64) :: NrmInv(0:n, 0:n)              !< @return Pedigree NRM inverse
 
       ! Other
       integer(int32) :: Ind, Par1, Par2
-      real(real64) :: DInv
+      real(real64) :: PreM
 
       NrmInv = 0.0d0
       do Ind = 1, n
         Par1 = RecPed(2, Ind)
         Par2 = RecPed(3, Ind)
-        ! Variance of founder effects and Mendelian sampling terms
-        ! DInv = 1.0d0 / (1.0d0 - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2)))
-        DInv = 1.0d0 / (0.5d0 - 0.25d0 * (Inbreeding(Par1) + Inbreeding(Par2)))
+        ! Precision (1/variance) of founder effects and Mendelian sampling terms
+        ! PreM = 1.0d0 / (1.0d0 - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2)))
+        PreM = 1.0d0 / (0.5d0 - 0.25d0 * (Inbreeding(Par1) + Inbreeding(Par2)))
         ! Precision for the individual
-        NrmInv(Ind,Ind) = DInv
+        NrmInv(Ind,Ind) = PreM
         ! Add precision to the first parent and set the co-precision
-        NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + DInv / 4.0d0
-        NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - DInv / 2.0d0
+        NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + PreM / 4.0d0
+        NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - PreM / 2.0d0
         NrmInv(Par1, Ind)  = NrmInv(Ind, Par1)
         ! Add precision to the second parent and set the co-precision
-        NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + DInv / 4.0d0
-        NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - DInv / 2.0d0
+        NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + PreM / 4.0d0
+        NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - PreM / 2.0d0
         NrmInv(Par2, Ind)  = NrmInv(Ind, Par2)
         ! Add co-precision between the parents
-        NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + DInv / 4.0d0
+        NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + PreM / 4.0d0
         NrmInv(Par2, Par1) = NrmInv(Par1, Par2)
       end do
       ! Reset the "margins"
@@ -1401,51 +1554,6 @@ module AlphaRelateModule
 
     !###########################################################################
 
-    !   integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
-
-    !   real(real64) :: AMatAvg
-
-    !   logical :: AnimToWrite(nAnisP)
-
-    !   if (OldAMatPresent) then
-    !     open(newunit=OldAMatUnit, file=OldAMatFile, status="unknown")
-    !     allocate(OldAMatId(OldAMatNInd))
-    !     do j = 1, OldAMatNInd
-    !       read(OldAMatUnit, *) OldAMatId(j)
-    !     end do
-    !     rewind(OldAMatUnit)
-    !     MinId = minval(OldAMatId)
-    !     MaxId = maxval(OldAMatId)
-    !     allocate(AMat(1:(OldAMatNInd+nAnisP-MaxId),&
-    !                   1:(OldAMatNInd+nAnisP-MaxId)))
-    !     AMat = 0.0d0
-    !     do j = 1, OldAMatNInd
-    !       read(OldAMatUnit, *) OldAMatId(j), AMat(1:OldAMatNInd,j)
-    !       if (j > 1) then
-    !         if (.not.(OldAMatId(j) > OldAMatId(j-1))) then
-    !           print *, "Id are not sequential!"
-    !           stop 1
-    !         end if
-    !       end if
-    !     end do
-    !     k = OldAMatNInd
-    !     do i=MaxId+1,nAnisP
-    !         k = k + 1
-    !         s = RecPed(i,2) - MinId + 1
-    !         d = RecPed(i,3) - MinId + 1
-    !         l = k
-    !         do j=1,k-1
-    !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
-    !             AMat(k,j)=AMat(j,k)
-    !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
-    !         end do
-    !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
-    !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
-    !     end do
-    !     RecPed(1:nAnisP,4) = 0
-    !     RecPed((MaxId+1):nAnisP,4) = 1
-    !   else
-
     !   if (AFullMat) then
     !     AnimToWrite = RecPed(1:nAnisP,4) == 1
     !     s = count(AnimToWrite)
@@ -1469,10 +1577,6 @@ module AlphaRelateModule
     !     end if
     !     close(202)
     !     print*, "End writing A full matrix"
-    !   end if
-
-    !   if (OldAMatPresent) then
-    !     stop
     !   end if
 
     !   ! Record diagonals of animals in both A and G:

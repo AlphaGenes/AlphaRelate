@@ -313,27 +313,78 @@ module TestAlphaRelateModule
       allocate(ExpPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
 
       CalPedNrm = PedNrm(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
-      ExpPedNrm(1:Data%RecPed%nInd, 1) = [1.00, 0.000, 0.000, 0.5000, 0.5000, 0.5000, 0.2500]
-      ExpPedNrm(1:Data%RecPed%nInd, 2) = [0.00, 1.000, 0.000, 0.5000, 0.0000, 0.2500, 0.6250]
-      ExpPedNrm(1:Data%RecPed%nInd, 3) = [0.00, 0.000, 1.000, 0.0000, 0.5000, 0.2500, 0.1250]
-      ExpPedNrm(1:Data%RecPed%nInd, 4) = [0.50, 0.500, 0.000, 1.0000, 0.2500, 0.6250, 0.5625]
-      ExpPedNrm(1:Data%RecPed%nInd, 5) = [0.50, 0.000, 0.500, 0.2500, 1.0000, 0.6250, 0.3125]
-      ExpPedNrm(1:Data%RecPed%nInd, 6) = [0.50, 0.250, 0.250, 0.6250, 0.6250, 1.1250, 0.6875]
-      ExpPedNrm(1:Data%RecPed%nInd, 7) = [0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250]
+      ExpPedNrm(0:Data%RecPed%nInd, 0) = [0.00, 0.00, 0.000, 0.000, 0.0000, 0.0000, 0.0000, 0.0000]
+      ExpPedNrm(0:Data%RecPed%nInd, 1) = [0.00, 1.00, 0.000, 0.000, 0.5000, 0.5000, 0.5000, 0.2500]
+      ExpPedNrm(0:Data%RecPed%nInd, 2) = [0.00, 0.00, 1.000, 0.000, 0.5000, 0.0000, 0.2500, 0.6250]
+      ExpPedNrm(0:Data%RecPed%nInd, 3) = [0.00, 0.00, 0.000, 1.000, 0.0000, 0.5000, 0.2500, 0.1250]
+      ExpPedNrm(0:Data%RecPed%nInd, 4) = [0.00, 0.50, 0.500, 0.000, 1.0000, 0.2500, 0.6250, 0.5625]
+      ExpPedNrm(0:Data%RecPed%nInd, 5) = [0.00, 0.50, 0.000, 0.500, 0.2500, 1.0000, 0.6250, 0.3125]
+      ExpPedNrm(0:Data%RecPed%nInd, 6) = [0.00, 0.50, 0.250, 0.250, 0.6250, 0.6250, 1.1250, 0.6875]
+      ExpPedNrm(0:Data%RecPed%nInd, 7) = [0.00, 0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250]
 
       ! write(STDOUT, "(3a9, "//Int2Char(Data%RecPed%nInd)//"i16)") "", "", "", (Ind1, Ind1 = 1, Data%RecPed%nInd)
-      do Ind1 = 1, Data%RecPed%nInd
+      do Ind1 = 0, Data%RecPed%nInd
         ! write(STDOUT, "(i8, a1, 2a9, "//Int2Char(Data%RecPed%nInd)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", CalPedNrm(1:Data%RecPed%nInd, Ind1)
         ! write(STDOUT, "(i8, a1, 2a9, "//Int2Char(Data%RecPed%nInd)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ", ExpPedNrm(1:Data%RecPed%nInd, Ind1)
         ! write(STDOUT, "(a)") ""
         ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
-        do Ind2 = 1, Data%RecPed%nInd
+        do Ind2 = 0, Data%RecPed%nInd
           ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, CalPedNrm(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
           @AssertEqual(CalPedNrm(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example for function")
         end do
       end do
       deallocate(CalPedNrm)
       deallocate(ExpPedNrm)
+      call Data%Destroy
+      call DeletePedigreeExampleFile
+      ! R code to test using the pedigreemm package
+      ! library(pedigreemm)
+      ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
+      ! Ped[1, ] <- c("A","0","0")
+      ! Ped[2, ] <- c("B","0","0")
+      ! Ped[3, ] <- c("dum001","0","0")
+      ! Ped[4, ] <- c("C","A","B")
+      ! Ped[5, ] <- c("D","A","dum001")
+      ! Ped[6, ] <- c("E","D","C")
+      ! Ped[7, ] <- c("F","E","B")
+      ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+      ! getA(Ped)
+    end subroutine
+    !###########################################################################
+
+    @test
+    subroutine TestPedNrmTimesVector
+      implicit none
+      type(AlphaRelateSpec) :: Spec
+      type(AlphaRelateData) :: Data
+      integer(int32) :: Ind
+      real(real64), allocatable, dimension(:) :: CalPedNrmColumn, ExpPedNrmColumn, x
+
+      call CreateTinyPedigreeExampleFile
+      Spec = AlphaRelateSpec()
+      Spec%PedigreePresent = .true.
+      Spec%PedigreeFile = TESTPEDFILE
+      Data = AlphaRelateData(Spec=Spec)
+
+      allocate(x(0:Data%RecPed%nInd))
+      allocate(CalPedNrmColumn(0:Data%RecPed%nInd))
+      allocate(ExpPedNrmColumn(0:Data%RecPed%nInd))
+
+      call Data%CalcPedInbreeding()
+      ! This application of PedNrmTimesVector() is to get the 7th column of Pedigree NRM
+      x = [0, 0, 0, 0, 0, 0, 1]
+      CalPedNrmColumn = PedNrmTimesVector(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd,&
+                                          Inbreeding=Data%PedInbreeding%Value,&
+                                          Vector=x)
+      ExpPedNrmColumn(0:Data%RecPed%nInd) = [0.00, 0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250]
+
+      ! write(STDOUT, "(a8, 2a16)") " ", "Calculated", "Expected"
+      do Ind = 0, Data%RecPed%nInd
+        ! write(STDOUT, "(i8, 2f16.8)") Ind, CalPedNrmColumn(Ind), ExpPedNrmColumn(Ind)
+        @AssertEqual(CalPedNrmColumn(Ind), ExpPedNrmColumn(Ind), "Pedigree NRM times a vector is not calculated correctly - tiny example for function")
+      end do
+      deallocate(CalPedNrmColumn)
+      deallocate(ExpPedNrmColumn)
       call Data%Destroy
       call DeletePedigreeExampleFile
       ! R code to test using the pedigreemm package
@@ -494,21 +545,22 @@ module TestAlphaRelateModule
 
       call Data%CalcPedInbreeding()
       CalPedNrmInv = PedNrmInv(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd, Inbreeding=Data%PedInbreeding%Value)
-      ExpPedNrmInv(1:Data%RecPed%nInd, 1) = [ 2.0,  0.5000000,  0.5, -1.0, -1.0,  0.0000000,  0.000000]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 2) = [ 0.5,  2.0333333,  0.0, -1.0,  0.0,  0.5333333, -1.066667]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 3) = [ 0.5,  0.0000000,  1.5,  0.0, -1.0,  0.0000000,  0.000000]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 4) = [-1.0, -1.0000000,  0.0,  2.5,  0.5, -1.0000000,  0.000000]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 5) = [-1.0,  0.0000000, -1.0,  0.5,  2.5, -1.0000000,  0.000000]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 6) = [ 0.0,  0.5333333,  0.0, -1.0, -1.0,  2.5333333, -1.066667]
-      ExpPedNrmInv(1:Data%RecPed%nInd, 7) = [ 0.0, -1.0666667,  0.0,  0.0,  0.0, -1.0666667,  2.133333]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 0) = [0.0,  0.0,  0.0000000,  0.0,  0.0,  0.0,  0.0000000,  0.000000]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 1) = [0.0,  2.0,  0.5000000,  0.5, -1.0, -1.0,  0.0000000,  0.000000]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 2) = [0.0,  0.5,  2.0333333,  0.0, -1.0,  0.0,  0.5333333, -1.066667]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 3) = [0.0,  0.5,  0.0000000,  1.5,  0.0, -1.0,  0.0000000,  0.000000]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 4) = [0.0, -1.0, -1.0000000,  0.0,  2.5,  0.5, -1.0000000,  0.000000]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 5) = [0.0, -1.0,  0.0000000, -1.0,  0.5,  2.5, -1.0000000,  0.000000]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 6) = [0.0,  0.0,  0.5333333,  0.0, -1.0, -1.0,  2.5333333, -1.066667]
+      ExpPedNrmInv(0:Data%RecPed%nInd, 7) = [0.0,  0.0, -1.0666667,  0.0,  0.0,  0.0, -1.0666667,  2.133333]
 
       ! write(STDOUT, "(3a9, "//Int2Char(Data%RecPed%nInd)//"i16)") "", "", "", (Ind1, Ind1 = 1, Data%RecPed%nInd)
-      do Ind1 = 1, Data%RecPed%nInd
+      do Ind1 = 0, Data%RecPed%nInd
         ! write(STDOUT, "(i8, a1, 2a9,"//Int2Char(Data%RecPed%nInd)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", CalPedNrmInv(1:Data%RecPed%nInd, Ind1)
         ! write(STDOUT, "(i8, a1, 2a9,"//Int2Char(Data%RecPed%nInd)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ", ExpPedNrmInv(1:Data%RecPed%nInd, Ind1)
         ! write(STDOUT, "(a)") ""
         ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
-        do Ind2 = 1, Data%RecPed%nInd
+        do Ind2 = 0, Data%RecPed%nInd
           ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, CalPedNrmInv(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1)
           @AssertEqual(CalPedNrmInv(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1), 0.000001d0, "Pedigree NRM inverse is not calculated correctly - tiny example for function")
         end do
