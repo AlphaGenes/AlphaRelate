@@ -1321,20 +1321,40 @@ module AlphaRelateModule
     ! end function
     !
     ! TODO: Cleanup this old code
-    ! k = OldAMatNInd
-    ! do i=MaxId+1,nAnisP
-    !     k = k + 1
-    !     s = RecPed(i,2) - MinId + 1
-    !     d = RecPed(i,3) - MinId + 1
-    !     l = k
-    !     do j=1,k-1
-    !         AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
-    !         AMat(k,j)=AMat(j,k)
-    !         !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
+    !   integer(int32) :: i,j,k,l,m,n,s,d,div,MinId,MaxId,Start,Endin
+    !     open(newunit=OldAMatUnit, file=OldAMatFile, status="unknown")
+    !     allocate(OldAMatId(OldAMatNInd))
+    !     do j = 1, OldAMatNInd
+    !       read(OldAMatUnit, *) OldAMatId(j)
     !     end do
-    !     AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
-    !     !print *,i,k,s,d,AMat(s,d),AMat(k,k)
-    ! end do
+    !     rewind(OldAMatUnit)
+    !     MinId = minval(OldAMatId)
+    !     MaxId = maxval(OldAMatId)
+    !     allocate(AMat(1:(OldAMatNInd+nAnisP-MaxId),&
+    !                   1:(OldAMatNInd+nAnisP-MaxId)))
+    !     do j = 1, OldAMatNInd
+    !       read(OldAMatUnit, *) OldAMatId(j), AMat(1:OldAMatNInd,j)
+    !       if (j > 1) then
+    !         if (.not.(OldAMatId(j) > OldAMatId(j-1))) then
+    !           print *, "Id are not sequential!"
+    !           stop 1
+    !         end if
+    !       end if
+    !     end do
+    !     k = OldAMatNInd
+    !     do i=MaxId+1,nAnisP
+    !         k = k + 1
+    !         s = RecPed(i,2) - MinId + 1
+    !         d = RecPed(i,3) - MinId + 1
+    !         l = k
+    !         do j=1,k-1
+    !             AMat(j,k)=(AMat(j,s)+AMat(j,d))/2.0d0
+    !             AMat(k,j)=AMat(j,k)
+    !             !print *,i,k,j,s,d,AMat(j,s),AMat(j,d),AMat(j,k)
+    !         end do
+    !         AMat(k,k)=1.0d0+AMat(s,d)/2.0d0
+    !         !print *,i,k,s,d,AMat(s,d),AMat(k,k)
+    !     end do
 
     !###########################################################################
 
