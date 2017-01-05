@@ -13,7 +13,7 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTPEDFILE = "TestPedigree.txt"
   CHARACTER(len=100), PARAMETER :: TESTINBFILE = "TestInb.txt"
   CHARACTER(len=100), PARAMETER :: TESTNRMFILE = "TestNrm.txt"
-  CHARACTER(len=100), PARAMETER :: TESTPEDNRMSELECTFILE = "TestPedNrmSelect.txt"
+  CHARACTER(len=100), PARAMETER :: TESTPEDNRMSETFILE = "TestPedNrmSet.txt"
 
   contains
 
@@ -88,10 +88,10 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    subroutine CreateTinyPedNrmSelectFile
+    subroutine CreateTinyPedNrmSetFile
       implicit none
       integer(int32) :: Unit
-      open(newunit=Unit, file=TESTPEDNRMSELECTFILE, action="write", status="unknown")
+      open(newunit=Unit, file=TESTPEDNRMSETFILE, action="write", status="unknown")
       write(Unit, "(a)") "B"
       write(Unit, "(a)") "D"
       write(Unit, "(a)") "F"
@@ -100,10 +100,10 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    subroutine DeletePedNrmSelectFile
+    subroutine DeletePedNrmSetFile
       implicit none
       integer(int32) :: Unit
-      open(newunit=Unit, file=TESTPEDNRMSELECTFILE, status="old")
+      open(newunit=Unit, file=TESTPEDNRMSETFILE, status="old")
       close(Unit, status="delete")
     end subroutine
 
@@ -118,10 +118,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       allocate(CalPedInbreeding(0:Data%RecPed%nInd))
       allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
@@ -163,10 +163,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:) :: ExpPedInbreeding
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedInbreeding
 
@@ -194,10 +194,10 @@ module TestAlphaRelateModule
       ! inbreeding(Ped)
 
       call CreatePedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedInbreeding
 
@@ -245,67 +245,27 @@ module TestAlphaRelateModule
     subroutine TestReadWriteInbreeding
       implicit none
       type(AlphaRelateSpec) :: Spec
-      type(AlphaRelateData) :: Data
-      integer(int32) :: Ind, ObsNInd
-      character(len=IDLENGTH), allocatable, dimension(:) :: ObsOriginalId
-      real(real64), allocatable, dimension(:) :: ObsPedInbreeding
-
-      call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
-      Spec%PedigreePresent = .true.
-      Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
-
-      call Data%CalcPedInbreeding
-
-      call Data%WritePedInbreeding(File=TESTINBFILE, Spec=Spec)
-      call ReadInbreeding(File=TESTINBFILE, OriginalId=ObsOriginalId, Inbreeding=ObsPedInbreeding, n=ObsNInd)
-
-      ! write(STDOUT, "(i8, 2a16)") "Ind", "Expected", "Observed"
-      do Ind = 1, Data%PedInbreeding%nInd
-        ! write(STDOUT, "(i8, 2a16)") Ind, Data%PedInbreeding%OriginalId(Ind), ObsOriginalId(Ind)
-        @AssertEqual(Data%PedInbreeding%OriginalId(Ind), ObsOriginalId(Ind), "Pedigree inbreeding original id was not written/read correctly")
-      end do
-      ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
-      do Ind = 1, Data%PedInbreeding%nInd
-        ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Value(Ind), ObsPedInbreeding(Ind)
-        @AssertEqual(Data%PedInbreeding%Value(Ind), ObsPedInbreeding(Ind), "Pedigree inbreeding value was not written/read correctly")
-      end do
-
-      deallocate(ObsOriginalId)
-      deallocate(ObsPedInbreeding)
-      call Data%Destroy
-      call DeletePedigreeFile
-    end subroutine
-
-    !###########################################################################
-
-    @test
-    subroutine TestReadWritePedInbreeding
-      implicit none
-      type(AlphaRelateSpec) :: Spec
       type(AlphaRelateData) :: Data, Data2
       integer(int32) :: Ind
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
-
+      call Data%Init(Spec=Spec)
+      Data2 = Data
       call Data%CalcPedInbreeding
 
-      call Data%WritePedInbreeding(File=TESTINBFILE, Spec=Spec)
-      Data2 = Data
-      call Data2%ReadPedInbreeding(File=TESTINBFILE)
+      call Data%PedInbreeding%Write(File=TESTINBFILE, OutputFormat=Spec%OutputFormat)
+      call Data2%PedInbreeding%Read(File=TESTINBFILE)
 
       ! write(STDOUT, "(i8, 2a16)") "Ind", "Expected", "Observed"
-      do Ind = 1, Data%PedInbreeding%nInd
+      do Ind = 0, Data%PedInbreeding%nInd
         ! write(STDOUT, "(i8, 2a16)") Ind, Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind)
         @AssertEqual(Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind), "Pedigree inbreeding original id was not written/read correctly")
       end do
       ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
-      do Ind = 1, Data%PedInbreeding%nInd
+      do Ind = 0, Data%PedInbreeding%nInd
         ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Value(Ind), Data2%PedInbreeding%Value(Ind)
         @AssertEqual(Data%PedInbreeding%Value(Ind), Data2%PedInbreeding%Value(Ind), "Pedigree inbreeding value was not written/read correctly")
       end do
@@ -326,10 +286,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:, :) :: CalPedNrm, ExpPedNrm
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       allocate(CalPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
       allocate(ExpPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
@@ -384,10 +344,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:, :) :: ExpPedNrm
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedNrm(Spec=Spec)
 
@@ -429,10 +389,10 @@ module TestAlphaRelateModule
       ! getA(Ped)
 
       call CreatePedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedNrm(Spec=Spec)
 
@@ -510,10 +470,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:) :: CalPedNrmColumn, ExpPedNrmColumn, x
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       allocate(x(0:Data%RecPed%nInd))
       allocate(CalPedNrmColumn(0:Data%RecPed%nInd))
@@ -552,61 +512,61 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    @test
-    subroutine TestCalcPedNrmWithSelect
-      implicit none
-      type(AlphaRelateSpec) :: Spec
-      type(AlphaRelateData) :: Data
-      integer(int32) :: Ind1, Ind2
-      real(real64), allocatable, dimension(:, :) :: ExpPedNrm
+    ! @test
+    ! subroutine TestCalcPedNrmWithSubset
+    !   implicit none
+    !   type(AlphaRelateSpec) :: Spec
+    !   type(AlphaRelateData) :: Data
+    !   integer(int32) :: Ind1, Ind2
+    !   real(real64), allocatable, dimension(:, :) :: ExpPedNrm
 
-      call CreateTinyPedigreeFile
-      call CreateTinyPedNrmSelectFile
-      Spec = AlphaRelateSpec()
-      Spec%PedigreePresent = .true.
-      Spec%PedigreeFile = TESTPEDFILE
-      call Data%CalcPedNrm(Spec=Spec)
-      Spec%PedNrmSelectPresent = .true.
-      Spec%PedNrmSelectFile = TESTPEDNRMSELECTFILE
-      Data = AlphaRelateData(Spec=Spec)
+    !   call CreateTinyPedigreeFile
+    !   call CreateTinyPedNrmSetFile
+    !   call Spec%Init
+    !   Spec%PedigreePresent = .true.
+    !   Spec%PedigreeFile = TESTPEDFILE
+    !   call Data%CalcPedNrm(Spec=Spec)
+    !   Spec%PedNrmSetPresent = .true.
+    !   Spec%PedNrmSetFile = TESTPEDNRMSETFILE
+    !   call Data%Init(Spec=Spec)
 
-      call Data%CalcPedNrm(Spec=Spec)
-      call Data%WritePedNrm(File="TestNrm2.txt", Spec=Spec)
-      ! For individuals 0, B=2-->1, D=5-->2, F=7-->3
-      allocate(ExpPedNrm(0:Data%PedNrm%nInd, 0:Data%PedNrm%nInd))
-      ExpPedNrm(0:Data%PedNrm%nInd, 0) = [0.00, 0.000, 0.0000, 0.0000] ! 0
-      ExpPedNrm(0:Data%PedNrm%nInd, 1) = [0.00, 1.000, 0.0000, 0.6250] ! B
-      ExpPedNrm(0:Data%PedNrm%nInd, 2) = [0.00, 0.000, 1.0000, 0.3125] ! D
-      ExpPedNrm(0:Data%PedNrm%nInd, 3) = [0.00, 0.625, 0.3125, 1.1250] ! F
+    !   call Data%CalcPedNrm(Spec=Spec)
+    !   call Data%WritePedNrm(File="TestNrm2.txt", Spec=Spec)
+    !   ! For individuals 0, B=2-->1, D=5-->2, F=7-->3
+    !   allocate(ExpPedNrm(0:Data%PedNrm%nInd, 0:Data%PedNrm%nInd))
+    !   ExpPedNrm(0:Data%PedNrm%nInd, 0) = [0.00, 0.000, 0.0000, 0.0000] ! 0
+    !   ExpPedNrm(0:Data%PedNrm%nInd, 1) = [0.00, 1.000, 0.0000, 0.6250] ! B
+    !   ExpPedNrm(0:Data%PedNrm%nInd, 2) = [0.00, 0.000, 1.0000, 0.3125] ! D
+    !   ExpPedNrm(0:Data%PedNrm%nInd, 3) = [0.00, 0.625, 0.3125, 1.1250] ! F
 
-      ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%PedNrm%nInd)
-      do Ind1 = 0, Data%PedNrm%nInd
-        ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%PedNrm%nInd, Ind1)
-        ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "expected  ",         ExpPedNrm(0:Data%PedNrm%nInd, Ind1)
-        ! write(STDOUT, "(a)") ""
-        ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
-        do Ind2 = 0, Data%PedNrm%nInd
-          ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
-          @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example")
-        end do
-      end do
-      deallocate(ExpPedNrm)
-      call Data%Destroy
-      call DeletePedigreeFile
-      call DeletePedNrmSelectFile
-      ! R code to test using the pedigreemm package
-      ! library(pedigreemm)
-      ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
-      ! Ped[1, ] <- c("A","0","0")
-      ! Ped[2, ] <- c("B","0","0")
-      ! Ped[3, ] <- c("dum001","0","0")
-      ! Ped[4, ] <- c("C","A","B")
-      ! Ped[5, ] <- c("D","A","dum001")
-      ! Ped[6, ] <- c("E","D","C")
-      ! Ped[7, ] <- c("F","E","B")
-      ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
-      ! getA(Ped)
-    end subroutine
+    !   ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%PedNrm%nInd)
+    !   do Ind1 = 0, Data%PedNrm%nInd
+    !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%PedNrm%nInd, Ind1)
+    !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "expected  ",         ExpPedNrm(0:Data%PedNrm%nInd, Ind1)
+    !     ! write(STDOUT, "(a)") ""
+    !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
+    !     do Ind2 = 0, Data%PedNrm%nInd
+    !       ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
+    !       @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example")
+    !     end do
+    !   end do
+    !   deallocate(ExpPedNrm)
+    !   call Data%Destroy
+    !   call DeletePedigreeFile
+    !   call DeletePedNrmSetFile
+    !   ! R code to test using the pedigreemm package
+    !   ! library(pedigreemm)
+    !   ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
+    !   ! Ped[1, ] <- c("A","0","0")
+    !   ! Ped[2, ] <- c("B","0","0")
+    !   ! Ped[3, ] <- c("dum001","0","0")
+    !   ! Ped[4, ] <- c("C","A","B")
+    !   ! Ped[5, ] <- c("D","A","dum001")
+    !   ! Ped[6, ] <- c("E","D","C")
+    !   ! Ped[7, ] <- c("F","E","B")
+    !   ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+    !   ! getA(Ped)
+    ! end subroutine
 
     !###########################################################################
 
@@ -619,10 +579,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:, :) :: CalPedNrmInv, ExpPedNrmInv
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       allocate(CalPedNrmInv(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
       allocate(ExpPedNrmInv(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
@@ -678,10 +638,10 @@ module TestAlphaRelateModule
       real(real64), allocatable, dimension(:, :) :: ExpPedNrmInv
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedNrmInv
 
@@ -722,10 +682,10 @@ module TestAlphaRelateModule
       ! getAInv(Ped)
 
       call CreatePedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
+      call Data%Init(Spec=Spec)
 
       call Data%CalcPedNrmInv
 
@@ -798,133 +758,34 @@ module TestAlphaRelateModule
     subroutine TestWriteReadNrm
       implicit none
       type(AlphaRelateSpec) :: Spec
-      type(AlphaRelateData) :: Data
-      integer(int32) :: Ind1, Ind2, n, i, Unit
-      real(real64), allocatable, dimension(:, :) :: Nrm
-      logical :: Ija(2)
-      character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-
-      call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
-      Spec%PedigreePresent = .true.
-      Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
-
-      call Data%CalcPedNrm(Spec=Spec)
-
-      Ija(1:2) = [.false., .true.]
-      do i = 1, 2
-        Spec%PedNrmIja = Ija(i)
-        call Data%WritePedNrm(File=TESTNRMFILE, Spec=Spec)
-        call ReadNrm(File=TESTNRMFILE, Ija=Ija(i), OriginalId=OriginalId, Nrm=Nrm, n=n)
-
-        ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1=0, Data%RecPed%nInd)
-        do Ind1 = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(            OriginalId(Ind1))), "observed",                Nrm(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected",  Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(a)") ""
-          @AssertEqual(Data%RecPed%OriginalId(Ind1), OriginalId(Ind1), "Pedigree NRM original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
-          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
-          do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Nrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
-            @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), Nrm(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
-          end do
-        end do
-      end do
-
-      deallocate(OriginalId)
-      deallocate(Nrm)
-      call Data%Destroy
-      call DeletePedigreeFile
-      open(newunit=Unit, file=TESTNRMFILE, status="old")
-      close(Unit, status="delete")
-      open(newunit=Unit, file=trim(TESTNRMFILE)//"_IdMap", status="old")
-      close(Unit, status="delete")
-    end subroutine
-
-    !###########################################################################
-
-    @test
-    subroutine TestWriteReadPedNrm
-      implicit none
-      type(AlphaRelateSpec) :: Spec
       type(AlphaRelateData) :: Data, Data2
       integer(int32) :: Ind1, Ind2, i, Unit
       logical :: Ija(2)
 
       call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
+      call Spec%Init
       Spec%PedigreePresent = .true.
       Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
-
-      call Data%CalcPedNrm(Spec=Spec)
+      call Data%Init(Spec=Spec)
       Data2 = Data
+      call Data%CalcPedNrm(Spec=Spec)
 
       Ija(1:2) = [.false., .true.]
       do i = 1, 2
         Spec%PedNrmIja = Ija(i)
-        call Data%WritePedNrm(File=TESTNRMFILE, Spec=Spec)
-        call Data2%ReadPedNrm(File=TESTNRMFILE, Spec=Spec)
+        call Data%PedNrm%Write(File=TESTNRMFILE, OutputFormat=Spec%OutputFormat, Ija=Ija(i))
+        call Data2%PedNrm%Read(File=TESTNRMFILE, Ija=Ija(i))
 
         ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1=0, Data%RecPed%nInd)
         do Ind1 = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%PedNrm%OriginalId(Ind1))), "observed", Data2%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))),  "expected",  Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed",  Data2%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",   Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           @AssertEqual(Data%RecPed%OriginalId(Ind1), Data2%RecPed%OriginalId(Ind1), "Pedigree NRM original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
           do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data2%PedNrm%Value(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Nrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
             @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), Data2%PedNrm%Value(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
-          end do
-        end do
-      end do
-
-      call Data%Destroy
-      call Data2%Destroy
-      call DeletePedigreeFile
-      open(newunit=Unit, file=TESTNRMFILE, status="old")
-      close(Unit, status="delete")
-      open(newunit=Unit, file=trim(TESTNRMFILE)//"_IdMap", status="old")
-      close(Unit, status="delete")
-    end subroutine
-
-    !###########################################################################
-
-    @test
-    subroutine TestWriteReadPedNrmInv
-      implicit none
-      type(AlphaRelateSpec) :: Spec
-      type(AlphaRelateData) :: Data, Data2
-      integer(int32) :: Ind1, Ind2, i, Unit
-      logical :: Ija(2)
-
-      call CreateTinyPedigreeFile
-      Spec = AlphaRelateSpec()
-      Spec%PedigreePresent = .true.
-      Spec%PedigreeFile = TESTPEDFILE
-      Data = AlphaRelateData(Spec=Spec)
-
-      call Data%CalcPedNrmInv
-      Data2 = Data
-
-      Ija(1:2) = [.false., .true.]
-      do i = 1, 2
-        Spec%PedNrmInvIja = Ija(i)
-        call Data%WritePedNrmInv(File=TESTNRMFILE, Spec=Spec)
-        call Data2%ReadPedNrmInv(File=TESTNRMFILE, Spec=Spec)
-
-        ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
-        do Ind1 = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed", Data2%PedNrmInv%Value(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",  Data%PedNrmInv%Value(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(a)") ""
-          @AssertEqual(Data%RecPed%OriginalId(Ind1), Data2%RecPed%OriginalId(Ind1), "Pedigree NRM inverse original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
-          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
-          do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data2%PedNrmInv%Value(Ind2, Ind1), Data%PedNrmInv%Value(Ind2, Ind1)
-            @AssertEqual(Data%PedNrmInv%Value(Ind2, Ind1), Data2%PedNrmInv%Value(Ind2, Ind1), "Pedigree NRM inverse values were not written/read correctly with Ija="//Log2Char(Ija(i)))
           end do
         end do
       end do
