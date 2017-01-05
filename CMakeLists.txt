@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
 PROJECT(AlphaRelate)
-ENABLE_LANGUAGE (Fortran)
+ENABLE_LANGUAGE(Fortran)
 
 OPTION(RUN_TESTS "Run and compile tests" ON)
 OPTION(USE_HDF5 "Use hdf" OFF)
@@ -55,6 +55,10 @@ INCLUDE(${CMAKE_MODULE_PATH}/findMKL.cmake)
 IF(${USE_HDF5})
   INCLUDE(${CMAKE_MODULE_PATH}/findHDF5.cmake)
 ENDIF(${USE_HDF5})
+
+# Doxygen
+FIND_PACKAGE(Doxygen)
+INCLUDE(${CMAKE_MODULE_PATH}/findDoxygen.cmake)
 
 # This INCLUDE statement executes code that sets the compile flags for DEBUG,
 # RELEASE, and TESTING.  You should  review this file and make sure the flags
