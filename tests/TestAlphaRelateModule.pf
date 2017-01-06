@@ -13,7 +13,7 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTPEDFILE = "TestPedigree.txt"
   CHARACTER(len=100), PARAMETER :: TESTINBFILE = "TestInb.txt"
   CHARACTER(len=100), PARAMETER :: TESTNRMFILE = "TestNrm.txt"
-  CHARACTER(len=100), PARAMETER :: TESTPEDNRMSETFILE = "TestPedNrmSet.txt"
+  CHARACTER(len=100), PARAMETER :: TESTPEDNRMSUBSETFILE = "TestPedNrmSubset.txt"
 
   contains
 
@@ -88,10 +88,10 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    subroutine CreateTinyPedNrmSetFile
+    subroutine CreateTinyPedNrmSubsetFile
       implicit none
       integer(int32) :: Unit
-      open(newunit=Unit, file=TESTPEDNRMSETFILE, action="write", status="unknown")
+      open(newunit=Unit, file=TESTPEDNRMSUBSETFILE, action="write", status="unknown")
       write(Unit, "(a)") "B"
       write(Unit, "(a)") "D"
       write(Unit, "(a)") "F"
@@ -100,10 +100,138 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    subroutine DeletePedNrmSetFile
+    subroutine DeletePedNrmSubsetFile
       implicit none
       integer(int32) :: Unit
-      open(newunit=Unit, file=TESTPEDNRMSETFILE, status="old")
+      open(newunit=Unit, file=TESTPEDNRMSUBSETFILE, status="old")
+      close(Unit, status="delete")
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestMatchId
+      implicit none
+      character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+      integer(int32) :: i
+      integer(int32), allocatable, dimension(:) :: RetObs, RetExp
+
+      allocate(Id1(4))
+      allocate(Id2(6))
+      Id1 = ["D", "C", "A", "X"]
+      Id2 = ["A", "B", "C", "D", "E", "F"]
+      allocate(RetObs(4))
+      allocate(RetExp(4))
+      RetObs = MatchId(IdSet=Id1, IdSuperset=Id2)
+      RetExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
+        @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 1")
+      end do
+
+      RetObs = MatchId(IdSet=Id1, IdSuperset=Id1)
+      RetExp = [1, 2, 3, 4]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
+        @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 2")
+      end do
+
+      deallocate(RetObs)
+      deallocate(RetExp)
+      allocate(RetObs(6))
+      allocate(RetExp(6))
+      RetObs = MatchId(IdSet=Id2, IdSuperset=Id1)
+      RetExp = [3, 0, 2, 1, 0, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 6
+        ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
+        @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 3")
+      end do
+
+      deallocate(Id1)
+      deallocate(Id2)
+      deallocate(RetObs)
+      deallocate(RetExp)
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestMatchIdIndSet
+      implicit none
+      type(IndSet) :: x
+      character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+      integer(int32) :: i
+      integer(int32), allocatable, dimension(:) :: IdExp
+
+      allocate(Id1(4))
+      allocate(Id2(6))
+      allocate(IdExp(4))
+      Id1 = ["D", "C", "A", "X"]
+      Id2 = ["A", "B", "C", "D", "E", "F"]
+      call x%Init(nInd=4, OriginalId=Id1)
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 1")
+      end do
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [3, 2, 0, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 2")
+      end do
+
+      deallocate(Id2)
+      allocate(Id2(0:6))
+      Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [5, 4, 2, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 3")
+      end do
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 4")
+      end do
+      deallocate(Id1)
+      deallocate(Id2)
+      deallocate(IdExp)
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestReadWriteIndSet
+      implicit none
+      type(IndSet) :: x, y
+      integer(int32) :: i, Unit
+      character(len=IDLENGTH) :: Ids(4)
+      Ids = ["B", "A", "D", "C"]
+      call x%Init(nInd=4, OriginalId=Ids)
+      call x%Write(File="TestIndSet.txt")
+      call y%Read(File="TestIndSet.txt")
+      @AssertEqual(x%nInd, y%nInd, "ReadWriteIndSet broken 1")
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2a9)") i, x%OriginalId(i), y%OriginalId(i)
+        @AssertEqual(x%OriginalId(i), y%OriginalId(i), "ReadWriteIndSet broken 2")
+        ! write(STDOUT, "(i8, a1, 2i9)") i, x%Id(i), y%Id(i)
+        @AssertEqual(x%Id(i), y%Id(i), "ReadWriteIndSet broken 3")
+      end do
+      call x%Destroy
+      call y%Destroy
+      open(newunit=Unit, file="TestIndSet.txt", status="old")
       close(Unit, status="delete")
     end subroutine
 
@@ -512,61 +640,61 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    ! @test
-    ! subroutine TestCalcPedNrmWithSubset
-    !   implicit none
-    !   type(AlphaRelateSpec) :: Spec
-    !   type(AlphaRelateData) :: Data
-    !   integer(int32) :: Ind1, Ind2
-    !   real(real64), allocatable, dimension(:, :) :: ExpPedNrm
+    @test
+    subroutine TestCalcPedNrmWithSubset
+      implicit none
+      type(AlphaRelateSpec) :: Spec
+      type(AlphaRelateData) :: Data
+      integer(int32) :: Ind1, Ind2
+      real(real64), allocatable, dimension(:, :) :: ExpPedNrm
 
-    !   call CreateTinyPedigreeFile
-    !   call CreateTinyPedNrmSetFile
-    !   call Spec%Init
-    !   Spec%PedigreePresent = .true.
-    !   Spec%PedigreeFile = TESTPEDFILE
-    !   call Data%CalcPedNrm(Spec=Spec)
-    !   Spec%PedNrmSetPresent = .true.
-    !   Spec%PedNrmSetFile = TESTPEDNRMSETFILE
-    !   call Data%Init(Spec=Spec)
+      call CreateTinyPedigreeFile
+      call CreateTinyPedNrmSubsetFile
+      call Spec%Init
+      Spec%PedigreePresent = .true.
+      Spec%PedigreeFile = TESTPEDFILE
+      call Data%CalcPedNrm(Spec=Spec)
+      Spec%PedNrmSubsetPresent = .true.
+      Spec%PedNrmSubsetFile = TESTPEDNRMSUBSETFILE
+      call Data%Init(Spec=Spec)
 
-    !   call Data%CalcPedNrm(Spec=Spec)
-    !   call Data%WritePedNrm(File="TestNrm2.txt", Spec=Spec)
-    !   ! For individuals 0, B=2-->1, D=5-->2, F=7-->3
-    !   allocate(ExpPedNrm(0:Data%PedNrm%nInd, 0:Data%PedNrm%nInd))
-    !   ExpPedNrm(0:Data%PedNrm%nInd, 0) = [0.00, 0.000, 0.0000, 0.0000] ! 0
-    !   ExpPedNrm(0:Data%PedNrm%nInd, 1) = [0.00, 1.000, 0.0000, 0.6250] ! B
-    !   ExpPedNrm(0:Data%PedNrm%nInd, 2) = [0.00, 0.000, 1.0000, 0.3125] ! D
-    !   ExpPedNrm(0:Data%PedNrm%nInd, 3) = [0.00, 0.625, 0.3125, 1.1250] ! F
+      call Data%CalcPedNrm(Spec=Spec)
+      ! call Data%PedNrm%Write(File="TestNrm2.txt", OutputFormat=Spec%OutputFormat)
+      ! For individuals 0, B was 2nd now 1st, D was 5th now 2nd, F was 7th now 3rd
+      allocate(ExpPedNrm(0:Data%PedNrm%nInd, 0:Data%PedNrm%nInd))
+      ExpPedNrm(0:Data%PedNrm%nInd, 0) = [0.00, 0.000, 0.0000, 0.0000] ! 0
+      ExpPedNrm(0:Data%PedNrm%nInd, 1) = [0.00, 1.000, 0.0000, 0.6250] ! B
+      ExpPedNrm(0:Data%PedNrm%nInd, 2) = [0.00, 0.000, 1.0000, 0.3125] ! D
+      ExpPedNrm(0:Data%PedNrm%nInd, 3) = [0.00, 0.625, 0.3125, 1.1250] ! F
 
-    !   ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%PedNrm%nInd)
-    !   do Ind1 = 0, Data%PedNrm%nInd
-    !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%PedNrm%nInd, Ind1)
-    !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "expected  ",         ExpPedNrm(0:Data%PedNrm%nInd, Ind1)
-    !     ! write(STDOUT, "(a)") ""
-    !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
-    !     do Ind2 = 0, Data%PedNrm%nInd
-    !       ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
-    !       @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example")
-    !     end do
-    !   end do
-    !   deallocate(ExpPedNrm)
-    !   call Data%Destroy
-    !   call DeletePedigreeFile
-    !   call DeletePedNrmSetFile
-    !   ! R code to test using the pedigreemm package
-    !   ! library(pedigreemm)
-    !   ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
-    !   ! Ped[1, ] <- c("A","0","0")
-    !   ! Ped[2, ] <- c("B","0","0")
-    !   ! Ped[3, ] <- c("dum001","0","0")
-    !   ! Ped[4, ] <- c("C","A","B")
-    !   ! Ped[5, ] <- c("D","A","dum001")
-    !   ! Ped[6, ] <- c("E","D","C")
-    !   ! Ped[7, ] <- c("F","E","B")
-    !   ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
-    !   ! getA(Ped)
-    ! end subroutine
+      ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%PedNrm%nInd)
+      do Ind1 = 0, Data%PedNrm%nInd
+        ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%PedNrm%nInd, Ind1)
+        ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "expected  ",         ExpPedNrm(0:Data%PedNrm%nInd, Ind1)
+        ! write(STDOUT, "(a)") ""
+        ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
+        do Ind2 = 0, Data%PedNrm%nInd
+          ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
+          @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM with subset is not calculated correctly")
+        end do
+      end do
+      deallocate(ExpPedNrm)
+      call Data%Destroy
+      call DeletePedigreeFile
+      call DeletePedNrmSubsetFile
+      ! R code to test using the pedigreemm package
+      ! library(pedigreemm)
+      ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
+      ! Ped[1, ] <- c("A","0","0")
+      ! Ped[2, ] <- c("B","0","0")
+      ! Ped[3, ] <- c("dum001","0","0")
+      ! Ped[4, ] <- c("C","A","B")
+      ! Ped[5, ] <- c("D","A","dum001")
+      ! Ped[6, ] <- c("E","D","C")
+      ! Ped[7, ] <- c("F","E","B")
+      ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+      ! getA(Ped)
+    end subroutine
 
     !###########################################################################
 
