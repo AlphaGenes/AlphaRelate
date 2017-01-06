@@ -179,12 +179,25 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
         @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 1")
       end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 1b")
+      end do
+
       call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
       IdExp = [3, 2, 0, 0]
       ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
       do i = 1, 4
         ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
         @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 2")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 2b")
       end do
 
       deallocate(Id2)
@@ -197,12 +210,25 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
         @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 3")
       end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 3b")
+      end do
+
       call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
       IdExp = [4, 3, 1, 0]
       ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
       do i = 1, 4
         ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
         @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 4")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 4b")
       end do
       deallocate(Id1)
       deallocate(Id2)
@@ -403,6 +429,85 @@ module TestAlphaRelateModule
       call DeletePedigreeFile
       open(newunit=Unit, file=TESTINBFILE, status="old")
       close(Unit, status="delete")
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestMatchInbreeding
+      implicit none
+      type(Inbreeding) :: x
+      character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+      integer(int32) :: i
+      integer(int32), allocatable, dimension(:) :: IdExp
+
+      allocate(Id1(4))
+      allocate(Id2(6))
+      allocate(IdExp(4))
+      Id1 = ["D", "C", "A", "X"]
+      Id2 = ["A", "B", "C", "D", "E", "F"]
+      call x%Init(nInd=4, OriginalId=Id1)
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1b")
+      end do
+
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [3, 2, 0, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2b")
+      end do
+
+      deallocate(Id2)
+      allocate(Id2(0:6))
+      Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [5, 4, 2, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3b")
+      end do
+
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4b")
+      end do
+      deallocate(Id1)
+      deallocate(Id2)
+      deallocate(IdExp)
     end subroutine
 
     !###########################################################################
@@ -927,6 +1032,85 @@ module TestAlphaRelateModule
       close(Unit, status="delete")
       open(newunit=Unit, file=trim(TESTNRMFILE)//"_IdMap", status="old")
       close(Unit, status="delete")
+    end subroutine
+
+    !###########################################################################
+
+    @test
+    subroutine TestMatchNrm
+      implicit none
+      type(Nrm) :: x
+      character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+      integer(int32) :: i
+      integer(int32), allocatable, dimension(:) :: IdExp
+
+      allocate(Id1(4))
+      allocate(Id2(6))
+      allocate(IdExp(4))
+      Id1 = ["D", "C", "A", "X"]
+      Id2 = ["A", "B", "C", "D", "E", "F"]
+      call x%Init(nInd=4, OriginalId=Id1)
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 1")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 1b")
+      end do
+
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [3, 2, 0, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 2")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 2b")
+      end do
+
+      deallocate(Id2)
+      allocate(Id2(0:6))
+      Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+      call x%MatchId(OriginalIdSuperset=Id2)
+      IdExp = [5, 4, 2, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 3")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 3b")
+      end do
+
+      call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+      IdExp = [4, 3, 1, 0]
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 4")
+      end do
+      call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+      ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+      do i = 1, 4
+        ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+        @AssertEqual(x%Id(i), IdExp(i), "MatchNrm broken 4b")
+      end do
+      deallocate(Id1)
+      deallocate(Id2)
+      deallocate(IdExp)
     end subroutine
 
     !###########################################################################
