@@ -374,7 +374,7 @@ module TestAlphaRelateModule
       implicit none
       type(AlphaRelateSpec) :: Spec
       type(AlphaRelateData) :: Data, Data2
-      integer(int32) :: Ind
+      integer(int32) :: Ind, Unit
 
       call CreateTinyPedigreeFile
       call Spec%Init
@@ -401,6 +401,8 @@ module TestAlphaRelateModule
       call Data%Destroy
       call Data2%Destroy
       call DeletePedigreeFile
+      open(newunit=Unit, file=TESTINBFILE, status="old")
+      close(Unit, status="delete")
     end subroutine
 
     !###########################################################################
