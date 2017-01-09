@@ -28,11 +28,12 @@
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
-  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH,&
+                             EMPTYID, MISSINGGENOTYPECODE
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char,&
                             ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
-  !use GenotypeModule, only : Genotype
+  use GenotypeModule, only : Genotype
 
   implicit none
 
@@ -48,7 +49,7 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, Inbreeding, Nrm, IndSet
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, Inbreeding, Nrm, IndSet, GenotypeArray
   ! Functions
   public :: PedInbreeding, PedNrm, PedNrmTimesVector, PedNrmInv, MatchId
 
@@ -61,12 +62,12 @@ module AlphaRelateModule
     logical :: SpecPresent, PedigreePresent, GenotypePresent!, HaplotypePresent
     logical :: PedNrmSubsetPresent, PedNrmOldPresent!, LocusWeightPresent, AlleleFreqPresent, AlleleFreqFixed
 
-    logical :: PedInbreeding, PedNrm, PedNrmMat, PedNrmIja, PedNrmInv, PedNrmInvMat, PedNrmInvIja
-    logical :: GenInbreeding, GenNrm, GenNrmMat, GenNrmIja, GenNrmInv, GenNrmInvMat, GenNrmInvIja
-    ! logical :: HapInbreeding, HapNrm, HapNrmMat, HapNrmIja, HapNrmInv, HapNrmInvMat, HapNrmInvIja
+    logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
+    logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
+    ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
     ! logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
 
-    !integer(int32):: nTrait, nGenMat, nLocus
+    integer(int32):: nLoc!, nTrait, nGenMat
 
     !real(real64):: AlleleFreqAll
     !real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
@@ -93,7 +94,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:)            :: Value
+    real(real64), allocatable, dimension(:)            :: Inb
     contains
       procedure :: Init    => InitInbreeding
       procedure :: Destroy => DestroyInbreeding
@@ -108,7 +109,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:, :)         :: Value
+    real(real64), allocatable, dimension(:, :)         :: Nrm
     ! @todo: create dense and sparse version?
     contains
       procedure :: Init    => InitNrm
@@ -118,13 +119,23 @@ module AlphaRelateModule
       procedure :: Read    => ReadNrm
   end type
 
-  !> @brief Genotype data holder
-  ! type GenotypeArray
-  !   ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
-  !   integer(int32)                                     :: nInd
-  !   character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-  !   type(Genotype), allocatable, dimension(:)          :: Genotype
-  ! end type
+  !> @brief Genotype data set holder
+  type GenotypeArray
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32)                                     :: nLoc
+    type(Genotype), allocatable, dimension(:)          :: Genotype
+    real(real64), allocatable, dimension(:)            :: AlleleFreq
+    contains
+      procedure :: Init           => InitGenotypeArray
+      procedure :: Destroy        => DestroyGenotypeArray
+      procedure :: MatchId        => MatchIdGenotypeArray
+      procedure :: Write          => WriteGenotypeArray
+      procedure :: Read           => ReadGenotypeArray
+      procedure :: CalcAlleleFreq => CalcAlleleFreqGenotypeArray
+  end type
 
   !> @brief AlphaRelate data
   type AlphaRelateData
@@ -135,7 +146,7 @@ module AlphaRelateModule
     type(IndSet)               :: PedNrmSubset
     type(Nrm)                  :: PedNrmInv
     ! Genotype-based
-    ! type(GenotypeArray)        :: Gen
+    type(GenotypeArray)        :: Gen
     ! type(Inbreeding)           :: GenInbreeding
     type(Nrm)                  :: GenNrm
     type(Nrm)                  :: GenNrmInv
@@ -145,7 +156,7 @@ module AlphaRelateModule
     ! type(Nrm)                  :: HapNrmInv
 
     ! @todo: cleanup this code
-    !integer(int32):: nAnisRawPedigree, nAnisP, nAnisG, nAnisH, nLocus, nTrait
+    !integer(int32):: nAnisRawPedigree, nAnisP, nAnisG, nAnisH, nTrait
     !integer(int32), allocatable :: MapAnimal(:)
 
     !real(real64), allocatable :: AlleleFreq(:)
@@ -207,7 +218,7 @@ module AlphaRelateModule
 
 
         ! Other
-        integer(int32) :: i, Start
+        integer(int32) :: Ind, Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -222,7 +233,7 @@ module AlphaRelateModule
         end if
         allocate(This%OriginalId(0:nInd))
         if (present(OriginalId)) then
-          This%OriginalId(0) = "0"
+          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         end if
 
@@ -235,7 +246,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(i, i=0, nInd)]
+          This%Id = [(Ind, Ind=0, nInd)]
         end if
       end subroutine
 
@@ -375,7 +386,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitInbreeding(This, nInd, OriginalId, OriginalIdSuperset, Skip, Value)
+      pure subroutine InitInbreeding(This, nInd, OriginalId, OriginalIdSuperset, Skip, InbInput)
         implicit none
 
         ! Arguments
@@ -384,10 +395,10 @@ module AlphaRelateModule
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: Value(nInd)                      !< Inbreeding coefficients
+        real(real64), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients
 
         ! Other
-        integer(int32) :: i, Start
+        integer(int32) :: Ind, Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -402,10 +413,10 @@ module AlphaRelateModule
         end if
         allocate(This%OriginalId(0:nInd))
         if (present(OriginalId)) then
-          This%OriginalId(0) = "0"
+          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         else
-          This%OriginalId = "0"
+          This%OriginalId = EMPTYID
         end if
 
         if (allocated(This%Id)) then
@@ -417,19 +428,18 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(i, i=0, nInd)]
+          This%Id = [(Ind, Ind=0, nInd)]
         end if
 
-        if (allocated(This%Value)) then
-          deallocate(This%Value)
+        if (allocated(This%Inb)) then
+          deallocate(This%Inb)
         end if
-        allocate(This%Value(0:nInd))
-        if (present(Value)) then
-          This%Value(0) = -1.0d0
-          This%Value(1:nInd) = Value
+        allocate(This%Inb(0:nInd))
+        This%Inb(0) = -1.0d0
+        if (present(InbInput)) then
+          This%Inb(1:nInd) = InbInput
         else
-          This%Value(0) = -1.0d0
-          This%Value(1:nInd) = 0.0d0
+          This%Inb(1:nInd) = 0.0d0
         end if
       end subroutine
 
@@ -450,8 +460,8 @@ module AlphaRelateModule
         if (allocated(This%Id)) then
          deallocate(This%Id)
         end if
-        if (allocated(This%Value)) then
-         deallocate(This%Value)
+        if (allocated(This%Inb)) then
+         deallocate(This%Inb)
         end if
       end subroutine
 
@@ -492,11 +502,11 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteInbreeding(This, OutputFormat, File)
+      subroutine WriteInbreeding(This, File, OutputFormat)
         implicit none
         class(Inbreeding), intent(in) :: This                  !< Inbreeding holder
-        character(len=*), intent(in), optional :: OutputFormat !< Format for inbreeding coefficients
         character(len=*), intent(in), optional :: File         !< File that will hold Original Id and inbreeding coefficients
+        character(len=*), intent(in), optional :: OutputFormat !< Format for inbreeding coefficients, default is "f"
 
         integer(int32) :: Unit, Ind
         character(len=:), allocatable :: OutputFormatInternal, Fmt
@@ -514,7 +524,7 @@ module AlphaRelateModule
         end if
         Fmt = "(a"//Int2Char(IDLENGTH)//", "//OutputFormatInternal//")"
         do Ind = 1, This%nInd
-          write(Unit, Fmt) This%OriginalId(Ind), This%Value(Ind)
+          write(Unit, Fmt) This%OriginalId(Ind), This%Inb(Ind)
         end do
         if (present(File)) then
           close(Unit)
@@ -539,7 +549,7 @@ module AlphaRelateModule
         call This%Init(nInd=nInd)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, nInd
-          read(Unit, *) This%OriginalId(Ind), This%Value(Ind)
+          read(Unit, *) This%OriginalId(Ind), This%Inb(Ind)
         end do
         close(Unit)
       end subroutine
@@ -557,7 +567,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitNrm(This, nInd, OriginalId, OriginalIdSuperset, Skip, Value)
+      pure subroutine InitNrm(This, nInd, OriginalId, OriginalIdSuperset, Skip, NrmInput)
         implicit none
 
         ! Arguments
@@ -566,10 +576,10 @@ module AlphaRelateModule
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: Value(nInd, nInd)                !< Relationship coefficients
+        real(real64), intent(in), optional :: NrmInput(nInd, nInd)             !< Relationship coefficients
 
         ! Other
-        integer(int32) :: i, Start
+        integer(int32) :: Ind, Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -584,10 +594,10 @@ module AlphaRelateModule
         end if
         allocate(This%OriginalId(0:nInd))
         if (present(OriginalId)) then
-          This%OriginalId(0) = "0"
+          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         else
-          This%OriginalId = "0"
+          This%OriginalId = EMPTYID
         end if
 
         if (allocated(This%Id)) then
@@ -599,19 +609,19 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(i, i=0, nInd)]
+          This%Id = [(Ind, Ind=0, nInd)]
         end if
 
-        if (allocated(This%Value)) then
-          deallocate(This%Value)
+        if (allocated(This%Nrm)) then
+          deallocate(This%Nrm)
         end if
-        allocate(This%Value(0:nInd, 0:nInd))
-        if (present(Value)) then
-          This%Value(0:nInd, 0) = 0.0d0
-          This%Value(0, 0:nInd) = 0.0d0
-          This%Value(1:nInd, 1:nInd) = Value
+        allocate(This%Nrm(0:nInd, 0:nInd))
+        if (present(NrmInput)) then
+          This%Nrm(0:nInd, 0) = 0.0d0
+          This%Nrm(0, 0:nInd) = 0.0d0
+          This%Nrm(1:nInd, 1:nInd) = NrmInput
         else
-          This%Value = 0.0d0
+          This%Nrm = 0.0d0
         end if
       end subroutine
 
@@ -632,8 +642,8 @@ module AlphaRelateModule
         if (allocated(This%Id)) then
          deallocate(This%Id)
         end if
-        if (allocated(This%Value)) then
-         deallocate(This%Value)
+        if (allocated(This%Nrm)) then
+         deallocate(This%Nrm)
         end if
       end subroutine
 
@@ -674,12 +684,12 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteNrm(This, Ija, OutputFormat, File)
+      subroutine WriteNrm(This, File, Ija, OutputFormat)
         implicit none
         class(Nrm), intent(in) :: This                         !< Nrm Holder
-        logical, intent(in), optional :: Ija                   !< Write in sparse ija format
-        character(len=*), intent(in), optional :: OutputFormat !< Format for inbreeding
         character(len=*), intent(in), optional :: File         !< File that will hold Original Id and NRM
+        logical, intent(in), optional :: Ija                   !< Write in sparse ija format
+        character(len=*), intent(in), optional :: OutputFormat !< Format for relationship values, default is "f"
 
         integer(int32) :: Unit, Unit2, Ind1, Ind2
         character(len=:), allocatable :: Fmt, OutputFormatInternal
@@ -722,15 +732,15 @@ module AlphaRelateModule
           Fmt = "(2i"//Int2Char(IDINTLENGTH)//", "//OutputFormatInternal//")"
           do Ind1 = 1, This%nInd
             do Ind2 = Ind1, This%nInd
-              if (abs(This%Value(Ind2, Ind1)) .gt. 0.d0) then
-                write(Unit, Fmt) Ind2, Ind1, This%Value(Ind2, Ind1)
+              if (abs(This%Nrm(Ind2, Ind1)) .gt. 0.d0) then
+                write(Unit, Fmt) Ind2, Ind1, This%Nrm(Ind2, Ind1)
               end if
             end do
           end do
         else
           Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(This%nInd)//OutputFormatInternal//")"
           do Ind1 = 1, This%nInd
-            write(Unit, Fmt) This%OriginalId(Ind1), This%Value(1:This%nInd, Ind1)
+            write(Unit, Fmt) This%OriginalId(Ind1), This%Nrm(1:This%nInd, Ind1)
           end do
         end if
         if (present(File)) then
@@ -747,7 +757,7 @@ module AlphaRelateModule
       !-------------------------------------------------------------------------
       subroutine ReadNrm(This, File, Ija)
         implicit none
-        class(Nrm), intent(out) :: This      ! @return Nrm holder
+        class(Nrm), intent(out) :: This      !< @return Nrm holder
         character(len=*), intent(in) :: File !< File that holds Original Id and NRM
         logical, intent(in) :: Ija           !< Read from a sparse ija format?
 
@@ -769,17 +779,260 @@ module AlphaRelateModule
           close(Unit2)
           ! Triplets
           do Line = 1, (nLine - 1)
-            read(Unit, *) Ind2, Ind1, This%Value(Ind2, Ind1)
-            This%Value(Ind1,Ind2) = This%Value(Ind2, Ind1)
+            read(Unit, *) Ind2, Ind1, This%Nrm(Ind2, Ind1)
+            This%Nrm(Ind1,Ind2) = This%Nrm(Ind2, Ind1)
           end do
         else
           n = nLine
           call This%Init(nInd=n)
           do Ind1 = 1, n
-            read(Unit, *) This%OriginalId(Ind1), This%Value(1:n, Ind1)
+            read(Unit, *) This%OriginalId(Ind1), This%Nrm(1:n, Ind1)
           end do
         end if
         close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! GenotypeArray type methods
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  GenotypeArray constructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InitGenotypeArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, IntegerInput, GenotypeInput)
+        implicit none
+
+        ! Arguments
+        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
+        integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
+        integer(int32), intent(in) :: nLoc                                     !< Number of loci in the set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
+        character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
+        integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
+        integer(int8), intent(in), optional :: IntegerInput(nLoc, nInd)        !< Genotypes as an array of integers
+        type(Genotype), intent(in), optional :: GenotypeInput(nInd)            !< Genotypes as genotype type
+
+        ! Other
+        integer(int32) :: Ind, Start
+        integer(int8) :: TempInt(nLoc)
+        type(Genotype) :: TempGeno
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        This%nInd = nInd
+        This%nLoc = nLoc
+
+        if (allocated(This%OriginalId)) then
+          deallocate(This%OriginalId)
+        end if
+        allocate(This%OriginalId(0:nInd))
+        if (present(OriginalId)) then
+          This%OriginalId(0) = EMPTYID
+          This%OriginalId(1:nInd) = OriginalId
+        else
+          This%OriginalId = EMPTYID
+        end if
+
+        if (allocated(This%Id)) then
+          deallocate(This%Id)
+        end if
+        allocate(This%Id(0:nInd))
+        if (present(OriginalIdSuperset)) then
+          This%Id(0) = 0
+          This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                    IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        else
+          This%Id = [(Ind, Ind=0, nInd)]
+        end if
+
+        if (allocated(This%Genotype)) then
+          deallocate(This%Genotype)
+        end if
+        allocate(This%Genotype(0:nInd))
+        TempInt = MISSINGGENOTYPECODE
+        TempGeno = Genotype(Geno=TempInt)
+        if (present(IntegerInput) .or. present(GenotypeInput)) then
+          This%Genotype(0) = TempGeno
+          if (present(IntegerInput)) then
+            do Ind = 1, nInd
+              This%Genotype(Ind) = Genotype(Geno=IntegerInput(:, Ind))
+            end do
+          end if
+          if (present(GenotypeInput)) then
+            do Ind = 1, nInd
+              This%Genotype(Ind) = GenotypeInput(Ind)
+            end do
+          end if
+        else
+          do Ind = 0, nInd
+            This%Genotype(Ind) = TempGeno
+          end do
+        end if
+
+        if (allocated(This%AlleleFreq)) then
+          deallocate(This%AlleleFreq)
+        end if
+        allocate(This%AlleleFreq(nLoc))
+        This%AlleleFreq = 0.0d0
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  GenotypeArray destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyGenotypeArray(This)
+        implicit none
+        class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
+        This%nInd = 0
+        This%nLoc = 0
+        if (allocated(This%OriginalId)) then
+         deallocate(This%OriginalId)
+        end if
+        if (allocated(This%Id)) then
+         deallocate(This%Id)
+        end if
+        if (allocated(This%Genotype)) then
+         deallocate(This%Genotype)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Find location of a set of original Id in the superset of original Id
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine MatchIdGenotypeArray(This, OriginalIdSuperset, Skip)
+        implicit none
+
+        ! Arguments
+        class(GenotypeArray), intent(inout) :: This                  !< @return GenotypeArray holder
+        character(len=IDLENGTH), intent(in) :: OriginalIdSuperset(:) !< The superset of individual ids
+        integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
+
+        ! Other
+        integer(int32) :: n, Start
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        n = This%nInd
+        This%Id(0) = 0
+        This%Id(1:n) = MatchId(IdSet=This%OriginalId(1:n),& ! to handle "0th margin"
+                               IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write GenotypeArray to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      subroutine WriteGenotypeArray(This, File)
+        implicit none
+        class(GenotypeArray), intent(in) :: This       !< GenotypeArray Holder
+        character(len=*), intent(in), optional :: File !< File that will hold Genotypes
+
+        integer(int32) :: Unit, Ind
+        character(len=:), allocatable :: Fmt
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), status="unknown")
+        else
+          Unit = STDOUT
+        end if
+
+        Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(This%nLoc)//"i2)"
+        do Ind = 1, This%nInd
+          write(Unit, Fmt) This%OriginalId(Ind), This%Genotype(Ind)%ToIntegerArray()
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read GenotypeArray from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      subroutine ReadGenotypeArray(This, File, nLoc)
+        implicit none
+        class(GenotypeArray), intent(out) :: This !< @return GenotypeArray holder
+        character(len=*), intent(in) :: File      !< File that holds genotypes
+        integer(int32), intent(in) :: nLoc        !< Number of loci to read in
+
+        integer(int32) :: nInd, Ind, Unit
+        integer(int8) :: Temp(nLoc)
+
+        nInd = CountLines(File)
+        call This%Init(nInd=nInd, nLoc=nLoc)
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do Ind = 1, This%nInd
+          read(Unit, *) This%OriginalId(Ind), Temp
+          This%Genotype(Ind) = Genotype(Geno=Temp)
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate allele frequencies on GenotypeArray
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      subroutine CalcAlleleFreqGenotypeArray(This)
+        implicit none
+        class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
+
+        integer(int32) :: Ind, Loc
+        integer(int32), allocatable, dimension(:) :: nObs
+        real(real64), allocatable, dimension(:) :: Geno
+
+        This%AlleleFreq = 0.0d0
+
+        allocate(nObs(This%nLoc))
+        allocate(Geno(This%nLoc))
+        nObs = 0
+        do Ind = 1, This%nInd
+          Geno = dble(This%Genotype(Ind)%ToIntegerArray())
+          do Loc = 1, This%nLoc
+            if ((Geno(Loc) .ge. 0.0d0) .and. (Geno(Loc) .le. 2.0d0)) then
+              This%AlleleFreq(Loc) = This%AlleleFreq(Loc) + Geno(Loc)
+              nObs(Loc) = nObs(Loc) + 1
+            end if
+          end do
+        end do
+        do Loc = 1, This%nLoc
+          if (nObs(Loc) .gt. 0) then
+            This%AlleleFreq(Loc) = This%AlleleFreq(Loc) / (2.0d0 * dble(nObs(Loc)))
+          else
+            This%AlleleFreq(Loc) = 0.0d0
+          end if
+        end do
+        deallocate(Geno)
+        deallocate(nObs)
       end subroutine
 
       !#########################################################################
@@ -825,7 +1078,7 @@ module AlphaRelateModule
         This%PedigreePresent     = .false.
         This%PedNrmSubsetPresent = .false.
         This%PedNrmOldPresent    = .false.
-        ! This%GenotypePresent     = .false.
+        This%GenotypePresent     = .false.
         ! This%HaplotypePresent    = .false.
         ! This%LocusWeightPresent  = .false.
         ! This%AlleleFreqPresent   = .false.
@@ -833,35 +1086,29 @@ module AlphaRelateModule
 
         This%PedInbreeding       = .false.
         This%PedNrm              = .false.
-        This%PedNrmMat           = .false.
         This%PedNrmIja           = .false.
         This%PedNrmInv           = .false.
-        This%PedNrmInvMat        = .false.
         This%PedNrmInvIja        = .false.
 
         ! This%GenInbreeding       = .false.
         ! This%GenNrm              = .false.
-        ! This%GenNrmMat           = .false.
         ! This%GenNrmIja           = .false.
         ! This%GenNrmInv           = .false.
-        ! This%GenNrmInvMat        = .false.
         ! This%GenNrmInvIja        = .false.
         ! This%FudgeGenNrmDiag     = .false.
         ! This%BlendGenNrm         = .false.
 
         ! This%HapInbreeding       = .false.
         ! This%HapNrm              = .false.
-        ! This%HapNrmMat           = .false.
         ! This%HapNrmIja           = .false.
         ! This%HapNrmInv           = .false.
-        ! This%HapNrmInvMat        = .false.
         ! This%HapNrmInvIja        = .false.
         ! This%FudgeHapNrmDiag     = .false.
         ! This%BlendHapNrm         = .false.
 
+        This%nLoc             = 0
         ! This%nTrait           = 1
         ! This%nGenMat          = 0
-        ! This%nLocus           = 0
 
         ! This%AlleleFreqAll         = 0.5d0
         ! This%FudgeHapNrmDiagFactor = 0.0d0
@@ -904,20 +1151,20 @@ module AlphaRelateModule
                     stop 1
                   end if
 
-                ! case ("genotypefile")
-                !   if (allocated(Second)) then
-                !     if (ToLower(trim(Second(1))) == "none") then
-                !       write(STDOUT, "(a)") " Not using genotype file"
-                !     else
-                !       This%GenotypePresent = .true.
-                !       write(This%GenotypeFile, *) trim(Second(1))
-                !       write(STDOUT, "(2a)") " Using genotype file: ", trim(This%GenotypeFile)
-                !     end if
-                !   else
-                !     write(STDERR, "(a)") " ERROR: Must specify a file for GenotypeFile, i.e., GenotypeFile, Genotype.txt"
-                !     write(STDERR, "(a)") ""
-                !     stop 1
-                !   end if
+                case ("genotypefile")
+                  if (allocated(Second)) then
+                    if (ToLower(trim(Second(1))) == "none") then
+                      write(STDOUT, "(a)") " Not using genotype file"
+                    else
+                      This%GenotypePresent = .true.
+                      write(This%GenotypeFile, *) trim(Second(1))
+                      write(STDOUT, "(2a)") " Using genotype file: ", trim(This%GenotypeFile)
+                    end if
+                  else
+                    write(STDERR, "(a)") " ERROR: Must specify a file for GenotypeFile, i.e., GenotypeFile, Genotype.txt"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  end if
 
                 ! case ("haplotypefile")
                 !   if (allocated(Second)) then
@@ -974,22 +1221,22 @@ module AlphaRelateModule
                 !     stop 1
                 !   end if
 
+                case ("numberofloci")
+                  if (allocated(Second)) then
+                    This%nLoc = Char2Int(trim(Second(1)))
+                    write(STDOUT, "(a, i)") " Number of loci: ", This%nLoc
+                  else
+                    write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfLoci, i.e., NumberOfLoci, 10"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  end if
+
                 ! case ("numberoftraits")
                 !   if (allocated(Second)) then
                 !     This%nTrait = Char2Int(trim(Second(1)))
                 !     write(STDOUT, "(2a)") " Number of traits: ", trim(This%nTrait)
                 !   else
                 !     write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfTraits, i.e., NumberOfTraits, 1"
-                !     write(STDERR, "(a)") ""
-                !     stop 1
-                !   end if
-
-                ! case ("numberofloci")
-                !   if (allocated(Second)) then
-                !     This%nLocus = Char2Int(trim(Second(1)))
-                !     write(STDOUT, "(2a)") " Number of loci: ", trim(This%nTrait)
-                !   else
-                !     write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfLoci, i.e., NumberOfLoci, 10"
                 !     write(STDERR, "(a)") ""
                 !     stop 1
                 !   end if
@@ -1090,26 +1337,18 @@ module AlphaRelateModule
                       This%PedNrm = .true.
                       write(STDOUT, "(a)") " Calculate pedigree NRM: Yes"
                       if (size(Second) > 1) then
-                        if (ToLower(trim(Second(2))) == "matrix") then
-                          This%PedNrmMat = .true.
-                          write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
-                        else if (ToLower(trim(Second(2))) == "ija") then
+                        if (ToLower(trim(Second(2))) == "ija") then
                           This%PedNrmIja = .true.
                           write(STDOUT, "(a)") " Write pedigree NRM format: ija"
-                        else
-                          write(STDERR, "(a)") " ERROR: Format must be either Matrix of Ija"
-                          write(STDERR, "(a)") " "
-                          stop 1
                         end if
                       else
-                        This%PedNrmMat = .true.
                         write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
                       end if
                     else
                       write(STDOUT, "(a)") " Calculate pedigree NRM: No"
                     end if
                   else
-                    write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for PedNrm, i.e., PedNrm, Yes or PedNrm, Yes, Ija"
+                    write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Ija] for PedNrm, i.e., PedNrm, Yes or PedNrm, Yes, Ija"
                     write(STDERR, "(a)") ""
                     stop 1
                   end if
@@ -1146,19 +1385,11 @@ module AlphaRelateModule
                       This%PedNrmInv = .true.
                       write(STDOUT, "(a)") " Calculate pedigree NRM inverse: Yes"
                       if (size(Second) > 1) then
-                        if (ToLower(trim(Second(2))) == "matrix") then
-                          This%PedNrmInvMat = .true.
-                          write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
-                        else if (ToLower(trim(Second(2))) == "ija") then
+                        if (ToLower(trim(Second(2))) == "ija") then
                           This%PedNrmInvIja = .true.
                           write(STDOUT, "(a)") " Write pedigree NRM inverse format: ija"
-                        else
-                          write(STDERR, "(a)") " ERROR: Format must be either Matrix of Ija"
-                          write(STDERR, "(a)") " "
-                          stop 1
                         end if
                       else
-                        This%PedNrmInvMat = .true.
                         write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
                       end if
                     else
@@ -1304,7 +1535,8 @@ module AlphaRelateModule
 
         ! Other
         type(PedigreeHolder) :: PedObj
-        ! integer(int32) :: Stat, nCols, GenoInPed, nMissing
+        ! @todo cleanup this code
+        ! integer(int32) :: Stat, nCols, GenoInPed
         ! integer(int32) :: PedNrmOldUnit, GenotypeUnit, AlleleFreqUnit, LocusWeightUnit
         ! character(len=IDLENGTH) :: DumC
 
@@ -1314,6 +1546,8 @@ module AlphaRelateModule
 
           ! Sort and recode pedigree
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
+          write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in the pedigree"
+          call This%RecPed%Write(File=trim(Spec%PedigreeFile)//"_Recoded.txt")
 
           ! Free some memory
           call PedObj%DestroyPedigree
@@ -1321,6 +1555,7 @@ module AlphaRelateModule
           ! Handle subset
           if (Spec%PedNrmSubsetPresent) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
+            write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset"
             call This%PedNrmSubset%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
             block
               integer(int32) :: Ind
@@ -1328,7 +1563,7 @@ module AlphaRelateModule
               IdMatchNotFound = .false.
               do Ind = 1, This%PedNrmSubset%nInd
                 if (This%PedNrmSubset%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for a pedigree NRM select identification: ", trim(This%PedNrmSubset%OriginalId(Ind))
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for a pedigree NRM subset identification: ", trim(This%PedNrmSubset%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
@@ -1340,44 +1575,19 @@ module AlphaRelateModule
           end if
         end if
 
-        ! if (Spec%GenotypePresent) then
-        !   This%nLocus = Spec%nLocus
+        if (Spec%GenotypePresent) then
+
+          call This%Gen%Read(File=Spec%GenotypeFile, nLoc=Spec%nLoc)
+          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals with genotypes"
+
         !   This%nTrait = Spec%nTrait
-        !   This%nAnisG = CountLines(trim(Spec%GenotypeFile))
-        !   write(STDOUT, "(a2, i6, a33)") "  ", This%nAnisG," individuals in the genotype file"
-        !   allocate(This%Genos(This%nAnisG,This%nLocus))
-        !   allocate(This%ZMat(This%nAnisG,This%nLocus))
-        !   allocate(This%IdGeno(This%nAnisG))
-        !   !allocate(RecodeIdGeno(This%nAnisG))
-        !   open(newunit=GenotypeUnit, file=trim(Spec%GenotypeFile), action="read", status="old")
-        !   do i = 1, This%nAnisG
-        !     read(GenotypeUnit,*) This%IdGeno(i),This%Genos(i,:)
-        !   end do
-        !   close(GenotypeUnit)
+        !   allocate(This%ZMat(This%nAnisG,This%nLoc))
         !
         !   ! Allele frequencies
-        !   allocate(This%AlleleFreq(This%nLocus))
+        !   allocate(This%AlleleFreq(This%nLoc))
         !   if (.not. Spec%AlleleFreqPresent) then
-        !     !Calculate Allele Freq
-        !     This%AlleleFreq(:)=0.0d0
-        !     do j = 1, This%nLocus
-        !       nMissing=0
-        !       do i = 1, This%nAnisG
-        !         if ((This%Genos(i,j) < 0.0) .or. (This%Genos(i,j) > 2.0)) then
-        !           nMissing = nMissing + 1
-        !         else
-        !           This%AlleleFreq(j) = This%AlleleFreq(j) + This%Genos(i,j)
-        !         end if
-        !       end do
-        !       ! Write the frequency of SNP j in array. If all SNPs are missing, then freq_j=0
-        !       if (nAnisG > nMissing) then
-        !         This%AlleleFreq(j) = This%AlleleFreq(j) / (2.0d0 * dble((This%nAnisG - nMissing)))
-        !       else
-        !         This%AlleleFreq(j) = 0.0d0
-        !       end if
-        !     end do
         !     open(newunit=AlleleFreqUnit, file="AlleleFreq.txt", action=???, status="unknown")
-        !     do j = 1, This%nLocus
+        !     do j = 1, This%nLoc
         !       write(AlleleFreqUnit,*) j, This%AlleleFreq(j)
         !     end do
         !     close(AlleleFreqUnit)
@@ -1385,14 +1595,14 @@ module AlphaRelateModule
         !     if (trim(Spec%AlleleFreqFile) == "Fixed") then
         !       This%AlleleFreq(:) = Spec%AlleleFreqAll
         !       open(newunit=AlleleFreqUnit, file="AlleleFreq.txt", action=???, status="unknown")
-        !       do j = 1, nLocus
+        !       do j = 1, nLoc
         !         write(AlleleFreqUnit,*) j, This%AlleleFreq(j)
         !       end do
         !       close(AlleleFreqUnit)
         !     else
         !       ! Read allele frequencies from file.
         !       open(newunit=AlleleFreqUnit, file=trim(Spec%AlleleFreqFile), action="read", status="old")
-        !       do i = 1, This%nLocus
+        !       do i = 1, This%nLoc
         !         ! AlleleFrequencies are kept in second column to keep consistency with AlphaSim.
         !         read(AlleleFreqUnit, *, iostat=Stat) DumC, This%AlleleFreq(i)
         !         if (Stat /= 0) then
@@ -1406,17 +1616,17 @@ module AlphaRelateModule
         !   end if
         !
         !   ! LocusWeight
-        !   allocate(This%LocusWeight(This%nLocus,This%nTrait))
+        !   allocate(This%LocusWeight(This%nLoc,This%nTrait))
         !   if (Spec%LocusWeightPresent) then
         !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), action="read", status="old")
-        !     do i = 1, This%nLocus
+        !     do i = 1, This%nLoc
         !       read(LocusWeightUnit,*) DumC, This%LocusWeight(i,:)
         !     end do
         !     close(LocusWeightUnit)
         !   else
         !     This%LocusWeight(:,:) = 1.0d0
         !   end if
-        ! end if
+        end if
 
         ! if (.not. Spec%PedigreePresent .and. Spec%GenotypePresent) then
         !   allocate(This%RecPed(0:This%nAnisG,4))
@@ -1568,7 +1778,7 @@ module AlphaRelateModule
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
-        This%PedInbreeding%Value = PedInbreeding(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
+        This%PedInbreeding%Inb = PedInbreeding(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
       end subroutine
 
       !#########################################################################
@@ -1683,8 +1893,8 @@ module AlphaRelateModule
               xPos = This%PedNrmSubset%Id(Ind)
               x(xPos) = 1.0d0
               NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
-                                         Inbreeding=This%PedInbreeding%Value, Vector=x)
-              This%PedNrm%Value(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
+                                         Inbreeding=This%PedInbreeding%Inb, Vector=x)
+              This%PedNrm%Nrm(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
               x(xPos) = 0.0d0
             end do
             deallocate(NrmCol)
@@ -1698,7 +1908,7 @@ module AlphaRelateModule
           ! logical :: OldIdUnknown
           ! @todo: read this already in the Data function!!!
           ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
-          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Value, n=OldNrm%nInd)
+          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Nrm, n=OldNrm%nInd)
           ! MinOldId = 1
           ! MaxOldId = 1
           ! OldIdUnknown = .true.
@@ -1726,22 +1936,22 @@ module AlphaRelateModule
           !   deallocate(This%PedNrm%OriginalId)
           ! end if
           ! allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
-          ! This%PedNrm%OriginalId(0) = "0"
+          ! This%PedNrm%OriginalId(0) = EMPTYID
           ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
           !
-          ! if (allocated(This%PedNrm%Value)) then
-          !   deallocate(This%PedNrm%Value)
+          ! if (allocated(This%PedNrm%Nrm)) then
+          !   deallocate(This%PedNrm%Nrm)
           ! end if
-          ! allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+          ! allocate(This%PedNrm%Nrm(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
           !
-          ! This%PedNrm%Value = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
           !                                      nNew=This%PedNrm%nInd,&
-          !                                      OldNrm=OldNrm%Value, nOld=OldNrm%nInd,&
+          !                                      OldNrm=OldNrm%Nrm, nOld=OldNrm%nInd,&
           !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
         else
           ! Standard method for all individuals
           call This%PedNrm%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
-          This%PedNrm%Value = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
+          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
         end if
       end subroutine
 
@@ -1910,12 +2120,12 @@ module AlphaRelateModule
       pure subroutine CalcPedNrmInv(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-        if (.not. allocated(This%PedInbreeding%Value)) then
+        if (.not. allocated(This%PedInbreeding%Inb)) then
           call This%CalcPedInbreeding
         end if
         call This%PedNrmInv%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
-        This%PedNrmInv%Value = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
-                                         Inbreeding=This%PedInbreeding%Value)
+        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
+                                       Inbreeding=This%PedInbreeding%Inb)
       end subroutine
 
       !#########################################################################
@@ -2041,29 +2251,29 @@ module AlphaRelateModule
 
       !   integer(int32) :: i,j,k,l,m,n,WhichMat
 
-      !   real(real64) :: nLocusD, DMatSum, Tmp, Tmp2, Tmp3
+      !   real(real64) :: nLocD, DMatSum, Tmp, Tmp2, Tmp3
       !   real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
 
       !   character(len=1000) :: filout,nChar,fmt
 
       !   allocate(GMat(nAnisG,nAnisG,nGMat))
-      !   allocate(tZMat(nLocus,nAnisG))
-      !   allocate(TmpZMat(nAnisG,nLocus))
+      !   allocate(tZMat(nLoc,nAnisG))
+      !   allocate(TmpZMat(nAnisG,nLoc))
       !   if (LocusWeightPresent) then
-      !     allocate(DMat(nLocus,nLocus))
+      !     allocate(DMat(nLoc,nLoc))
       !     DMat(:,:)=0.0d0
       !   end if
 
       !   print*, "Start making G - ", trim(GType)
 
-      !   nLocusD = dble(nLocus)
+      !   nLocD = dble(nLoc)
 
       !   ! Center allele dosages (Z)
       !   if (trim(GType) == "VanRaden"  .or.&
       !       trim(GType) == "VanRaden1" .or.&
       !       trim(GType) == "VanRaden2" .or.&
       !       trim(GType) == "Yang") then
-      !     do j=1,nLocus
+      !     do j=1,nLoc
       !       do i=1,nAnisG
       !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
       !           ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
@@ -2075,7 +2285,7 @@ module AlphaRelateModule
       !   end if
       !   if (trim(GType) == "Nejati-Javaremi" .or.&
       !       trim(GType) == "Day-Williams") then
-      !     do j=1,nLocus
+      !     do j=1,nLoc
       !       do i=1,nAnisG
       !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
       !           ZMat(i,j)=Genos(i,j)-1.0d0
@@ -2087,7 +2297,7 @@ module AlphaRelateModule
       !   end if
       !   ! Scale centered allele dosages
       !   if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
-      !     do j=1,nLocus
+      !     do j=1,nLoc
       !       Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
       !       if (Tmp > tiny(Tmp)) then
       !         ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
@@ -2106,7 +2316,7 @@ module AlphaRelateModule
       !       ! ZHZ'
       !       if (LocusWeightPresent) then
       !         DMatSum=0.0d0
-      !         do k=1,nLocus
+      !         do k=1,nLoc
       !           DMat(k,k)=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
       !           DMatSum=DMatSum+DMat(k,k)
       !         end do
@@ -2126,13 +2336,13 @@ module AlphaRelateModule
       !       if (trim(GType) == "VanRaden2" .or.&
       !           trim(GType) == "Yang"      .or.&
       !           trim(GType) == "Nejati-Javaremi") then
-      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocusD
+      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocD
       !       end if
 
       !       ! Put back scale from [-1,1] to [0,2]
       !       if (trim(GType) == "Nejati-Javaremi") then
       !         if (LocusWeightPresent) then
-      !           Tmp=DMatSum/nLocusD
+      !           Tmp=DMatSum/nLocD
       !         else
       !           Tmp=1.0d0
       !         end if
@@ -2142,16 +2352,16 @@ module AlphaRelateModule
       !       ! @todo: needs testing (was getting some weird values)
       !       ! if (trim(GType) == "Day-Williams") then
       !       !   Tmp=0.0d0
-      !       !   do k=1,nLocus
+      !       !   do k=1,nLoc
       !       !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
       !       !   end do
       !       !   do k=1,nAnisG
       !       !     do l=1,nAnisG
       !       !       ! @todo: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
       !       !       !       which is faster?
-      !       !       ! GMat(l,k,WhichMat)+nLocus is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
+      !       !       ! GMat(l,k,WhichMat)+nLoc is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
       !       !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
-      !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocusD)/2.0d0-Tmp)/(nLocusD-Tmp)
+      !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocD)/2.0d0-Tmp)/(nLocD-Tmp)
       !       !     end do
       !       !   end do
       !       ! end if
@@ -2161,7 +2371,7 @@ module AlphaRelateModule
       !         do l=1,nAnisG
       !           GMat(l,l,WhichMat)=0.0d0
       !         end do
-      !         do k=1,nLocus
+      !         do k=1,nLoc
       !           Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
       !           if (Tmp > tiny(Tmp)) then
       !             if (LocusWeightPresent) then
@@ -2170,7 +2380,7 @@ module AlphaRelateModule
       !               Tmp2=1.0d0
       !             end if
       !             do l=1,nAnisG
-      !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocusD
+      !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocD
       !               GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
       !             end do
       !           end if
