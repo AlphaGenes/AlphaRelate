@@ -481,7 +481,7 @@ module TestAlphaRelateModule
         AlleleFreqExp(3) = 1.0d0
         AlleleFreqExp(4) = 0.0d0
 
-        write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
+        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
         do Loc = 1, Data%Gen%nLoc
           ! write(STDOUT, "(i8, 2f)") Loc, AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc)
           @AssertEqual(AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc), "Allele frequencies not calculated correctly - missing")
@@ -490,7 +490,6 @@ module TestAlphaRelateModule
         deallocate(AlleleFreqExp)
         call Data%Destroy
         call DeleteGenotypeFile
-
       end subroutine
 
       !#########################################################################

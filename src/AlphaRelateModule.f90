@@ -1580,6 +1580,25 @@ module AlphaRelateModule
           call This%Gen%Read(File=Spec%GenotypeFile, nLoc=Spec%nLoc)
           write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals with genotypes"
 
+          if (Spec%PedigreePresent) then
+            call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
+            block
+              integer(int32) :: Ind
+              logical :: IdMatchNotFound
+              IdMatchNotFound = .false.
+              do Ind = 1, This%Gen%nInd
+                if (This%Gen%Id(Ind) == 0) then
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for a genotype identification: ", trim(This%Gen%OriginalId(Ind))
+                  IdMatchNotFound = .true.
+                end if
+              end do
+              if (IdMatchNotFound) then
+                write(STDERR, "(a)")  ""
+                stop 1
+              end if
+            end block
+          end if
+
         !   This%nTrait = Spec%nTrait
         !   allocate(This%ZMat(This%nAnisG,This%nLoc))
         !
