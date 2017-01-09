@@ -47,11 +47,11 @@ program AlphaRelate
     SpecFile = "AlphaRelateSpec.txt"
   end if
   write(STDOUT, "(2a)") " Using specification file: ", trim(SpecFile)
-  call Spec%Init(SpecFile=trim(SpecFile))
+  call Spec%Read(SpecFile=trim(SpecFile))
 
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " Processing data ..."
-  call Data%Init(Spec=Spec)
+  call Data%Read(Spec=Spec)
 
   if (Spec%PedInbreeding) then
     write(STDOUT, "(a)") ""

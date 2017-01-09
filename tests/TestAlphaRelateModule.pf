@@ -19,6 +19,8 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTGENINBFILE = "TestGenInb.txt"
   CHARACTER(len=100), PARAMETER :: TESTGENNRMFILE = "TestGenNrm.txt"
 
+  CHARACTER(len=100), PARAMETER :: TESTAFFILE = "TestAlleleFreq.txt"
+
   contains
 
     !###########################################################################
@@ -127,6 +129,8 @@ module TestAlphaRelateModule
         close(Unit)
       end subroutine
 
+      !#########################################################################
+
       subroutine CreateTinyGenotypeFileWithMissing
         implicit none
         integer(int32) :: Unit
@@ -143,6 +147,28 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTGENFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateAlleleFreqFileForTinyGenotypeFileWithMissing
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTAFFILE, action="write", status="unknown")
+        write(Unit, "(a)") "1 0.500000000"
+        write(Unit, "(a)") "2 0.666666666"
+        write(Unit, "(a)") "3 1.000000000"
+        write(Unit, "(a)") "4 0.000000000"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteAlleleFreqFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTAFFILE, status="old")
         close(Unit, status="delete")
       end subroutine
 
@@ -327,7 +353,7 @@ module TestAlphaRelateModule
         Spec%GenotypePresent = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 2
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
         Data2 = Data
 
         call Data%Gen%Write(File=TESTGENNRMFILE)
@@ -455,7 +481,7 @@ module TestAlphaRelateModule
         Spec%GenotypePresent = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 2
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
         call Data%Gen%CalcAlleleFreq
         allocate(AlleleFreqExp(Spec%nLoc))
         AlleleFreqExp(1) = 1/2.0d0
@@ -473,7 +499,7 @@ module TestAlphaRelateModule
         Spec%GenotypePresent = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 4
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
         call Data%Gen%CalcAlleleFreq
         allocate(AlleleFreqExp(Spec%nLoc))
         AlleleFreqExp(1) = 1/2.0d0
@@ -490,6 +516,41 @@ module TestAlphaRelateModule
         deallocate(AlleleFreqExp)
         call Data%Destroy
         call DeleteGenotypeFile
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestReadAlleleFreq
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data, Data2
+        integer(int32) :: Loc
+
+        call CreateTinyGenotypeFileWithMissing
+        call CreateAlleleFreqFileForTinyGenotypeFileWithMissing
+        call Spec%Init
+        Spec%GenotypePresent = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        Spec%nLoc = 4
+        call Data%Read(Spec=Spec)
+        call Data%Gen%CalcAlleleFreq
+
+        Data2 = Data
+        Spec%AlleleFreqPresent = .true.
+        Spec%AlleleFreqFile = TESTAFFILE
+        call Data2%Read(Spec=Spec)
+
+        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
+        do Loc = 1, Data%Gen%nLoc
+          ! write(STDOUT, "(i8, 2f)") Loc, Data%Gen%AlleleFreq(Loc), Data2%Gen%AlleleFreq(Loc)
+          @AssertEqual(Data%Gen%AlleleFreq(Loc), Data2%Gen%AlleleFreq(Loc), 0.00001d0, "Allele frequencies were not read in properly")
+        end do
+
+        call Data%Destroy
+        call Data2%Destroy
+        call DeleteGenotypeFile
+        call DeleteAlleleFreqFile
       end subroutine
 
       !#########################################################################
@@ -512,7 +573,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         allocate(CalPedInbreeding(0:Data%RecPed%nInd))
         allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
@@ -557,7 +618,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedInbreeding
 
@@ -588,7 +649,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedInbreeding
 
@@ -643,7 +704,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
         Data2 = Data
         call Data%CalcPedInbreeding
 
@@ -768,7 +829,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         allocate(CalPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
         allocate(ExpPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
@@ -826,7 +887,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrm(Spec=Spec)
 
@@ -871,7 +932,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrm(Spec=Spec)
 
@@ -952,7 +1013,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         allocate(x(0:Data%RecPed%nInd))
         allocate(CalPedNrmColumn(0:Data%RecPed%nInd))
@@ -1007,7 +1068,7 @@ module TestAlphaRelateModule
         call Data%CalcPedNrm(Spec=Spec)
         Spec%PedNrmSubsetPresent = .true.
         Spec%PedNrmSubsetFile = TESTPEDNRMSUBSETFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrm(Spec=Spec)
         ! call Data%PedNrm%Write(File="TestNrm2.txt", OutputFormat=Spec%OutputFormat)
@@ -1061,7 +1122,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         allocate(CalPedNrmInv(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
         allocate(ExpPedNrmInv(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
@@ -1120,7 +1181,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrmInv
 
@@ -1164,7 +1225,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrmInv
 
@@ -1245,7 +1306,7 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreePresent = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%Init(Spec=Spec)
+        call Data%Read(Spec=Spec)
         Data2 = Data
         call Data%CalcPedNrm(Spec=Spec)
 
