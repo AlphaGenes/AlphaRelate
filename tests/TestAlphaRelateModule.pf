@@ -94,6 +94,8 @@ module TestAlphaRelateModule
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTPEDFILE, status="old")
         close(Unit, status="delete")
+        open(newunit=Unit, file=trim(TESTPEDFILE)//"_Recoded.txt", status="old")
+        close(Unit, status="delete")
       end subroutine
 
       !#########################################################################
@@ -148,6 +150,8 @@ module TestAlphaRelateModule
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTGENFILE, status="old")
         close(Unit, status="delete")
+        open(newunit=Unit, file=trim(TESTGENFILE)//"_AlleleFreq.txt", status="old")
+        close(Unit, status="delete")
       end subroutine
 
       !#########################################################################
@@ -176,7 +180,7 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    ! IndSet tests
+    ! IndSet type tests
 
       !#########################################################################
 
@@ -336,7 +340,7 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    ! Genotype array tests
+    ! Genotype array type tests
 
       !#########################################################################
 
@@ -354,10 +358,10 @@ module TestAlphaRelateModule
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 2
         call Data%Read(Spec=Spec)
-        Data2 = Data
+        call Data%Gen%Write(File=TESTGENFILE)
 
-        call Data%Gen%Write(File=TESTGENNRMFILE)
-        call Data2%Gen%Read(File=TESTGENNRMFILE, nLoc=Spec%nLoc)
+        Data2 = Data
+        call Data2%Gen%Read(File=TESTGENFILE, nLoc=Spec%nLoc)
 
         allocate(GenotypeExp(Spec%nLoc))
         allocate(GenotypeObs(Spec%nLoc))
@@ -520,49 +524,271 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+    !###########################################################################
+
+    ! Inbreeding type tests
+
+      !#########################################################################
+
       @test
-      subroutine TestReadAlleleFreq
+      subroutine TestReadWriteInbreeding
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data, Data2
-        integer(int32) :: Loc
+        integer(int32) :: Ind, Unit
 
-        call CreateTinyGenotypeFileWithMissing
-        call CreateAlleleFreqFileForTinyGenotypeFileWithMissing
+        call CreateTinyPedigreeFile
         call Spec%Init
-        Spec%GenotypePresent = .true.
-        Spec%GenotypeFile = TESTGENFILE
-        Spec%nLoc = 4
+        Spec%PedigreePresent = .true.
+        Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
-        call Data%Gen%CalcAlleleFreq
-
         Data2 = Data
-        Spec%AlleleFreqPresent = .true.
-        Spec%AlleleFreqFile = TESTAFFILE
-        call Data2%Read(Spec=Spec)
+        call Data%CalcPedInbreeding
 
-        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
-        do Loc = 1, Data%Gen%nLoc
-          ! write(STDOUT, "(i8, 2f)") Loc, Data%Gen%AlleleFreq(Loc), Data2%Gen%AlleleFreq(Loc)
-          @AssertEqual(Data%Gen%AlleleFreq(Loc), Data2%Gen%AlleleFreq(Loc), 0.00001d0, "Allele frequencies were not read in properly")
+        call Data%PedInbreeding%Write(File=TESTPEDINBFILE, OutputFormat=Spec%OutputFormat)
+        call Data2%PedInbreeding%Read(File=TESTPEDINBFILE)
+
+        @AssertEqual(Data%PedInbreeding%nInd, Data2%PedInbreeding%nInd, "Pedigree inbreeding nInd were not assigned correctly")
+        ! write(STDOUT, "(i8, 2a16)") "Ind", "Expected", "Observed"
+        do Ind = 0, Data%PedInbreeding%nInd
+          ! write(STDOUT, "(i8, 2a16)") Ind, Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind)
+          @AssertEqual(Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind), "Pedigree inbreeding original id was not written/read correctly")
+        end do
+        ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
+        do Ind = 0, Data%PedInbreeding%nInd
+          ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind)
+          @AssertEqual(Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind), "Pedigree inbreeding value was not written/read correctly")
         end do
 
         call Data%Destroy
         call Data2%Destroy
-        call DeleteGenotypeFile
-        call DeleteAlleleFreqFile
+        call DeletePedigreeFile
+        open(newunit=Unit, file=TESTPEDINBFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMatchInbreeding
+        implicit none
+        type(Inbreeding) :: x
+        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+        integer(int32) :: i
+        integer(int32), allocatable, dimension(:) :: IdExp
+
+        allocate(Id1(4))
+        allocate(Id2(6))
+        allocate(IdExp(4))
+        Id1 = ["D", "C", "A", "X"]
+        Id2 = ["A", "B", "C", "D", "E", "F"]
+        call x%Init(nInd=4, OriginalId=Id1)
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [3, 2, 0, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2b")
+        end do
+
+        deallocate(Id2)
+        allocate(Id2(0:6))
+        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [5, 4, 2, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4b")
+        end do
+        deallocate(Id1)
+        deallocate(Id2)
+        deallocate(IdExp)
       end subroutine
 
       !#########################################################################
 
     !###########################################################################
 
-    ! Inbreeding tests
+    ! Nrm type tests
 
       !#########################################################################
 
       @test
-      subroutine TestPedInbreeding
+      subroutine TestWriteReadNrm
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data, Data2
+        integer(int32) :: Ind1, Ind2, i, Unit
+        logical :: Ija(2)
+
+        call CreateTinyPedigreeFile
+        call Spec%Init
+        Spec%PedigreePresent = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+        Data2 = Data
+        call Data%CalcPedNrm(Spec=Spec)
+
+        Ija(1:2) = [.false., .true.]
+        do i = 1, 2
+          Spec%PedNrmIja = Ija(i)
+          call Data%PedNrm%Write(File=TESTPEDNRMFILE, OutputFormat=Spec%OutputFormat, Ija=Ija(i))
+          call Data2%PedNrm%Read(File=TESTPEDNRMFILE, Ija=Ija(i))
+
+          @AssertEqual(Data%PedNrm%nInd, Data2%PedNrm%nInd, "Pedigree NRM nInd were not assigned correctly with Ija="//Log2Char(Ija(i)))
+          ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1=0, Data%RecPed%nInd)
+          do Ind1 = 0, Data%RecPed%nInd
+            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed",  Data2%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
+            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",   Data%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
+            ! write(STDOUT, "(a)") ""
+            @AssertEqual(Data%RecPed%OriginalId(Ind1), Data2%RecPed%OriginalId(Ind1), "Pedigree NRM original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
+            ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
+            do Ind2 = 0, Data%RecPed%nInd
+              ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Nrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1)
+              @AssertEqual(Data%PedNrm%Nrm(Ind2, Ind1), Data2%PedNrm%Nrm(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
+            end do
+          end do
+        end do
+
+        call Data%Destroy
+        call Data2%Destroy
+        call DeletePedigreeFile
+        open(newunit=Unit, file=TESTPEDNRMFILE, status="old")
+        close(Unit, status="delete")
+        open(newunit=Unit, file=trim(TESTPEDNRMFILE)//"_IdMap", status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMatchIdNrm
+        implicit none
+        type(Nrm) :: x
+        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+        integer(int32) :: i
+        integer(int32), allocatable, dimension(:) :: IdExp
+
+        allocate(Id1(4))
+        allocate(Id2(6))
+        allocate(IdExp(4))
+        Id1 = ["D", "C", "A", "X"]
+        Id2 = ["A", "B", "C", "D", "E", "F"]
+        call x%Init(nInd=4, OriginalId=Id1)
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [3, 2, 0, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2b")
+        end do
+
+        deallocate(Id2)
+        allocate(Id2(0:6))
+        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [5, 4, 2, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4b")
+        end do
+        deallocate(Id1)
+        deallocate(Id2)
+        deallocate(IdExp)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! AlphaRelateData type tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestPedInbreedingFunc
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -694,131 +920,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestReadWriteInbreeding
-        implicit none
-        type(AlphaRelateSpec) :: Spec
-        type(AlphaRelateData) :: Data, Data2
-        integer(int32) :: Ind, Unit
-
-        call CreateTinyPedigreeFile
-        call Spec%Init
-        Spec%PedigreePresent = .true.
-        Spec%PedigreeFile = TESTPEDFILE
-        call Data%Read(Spec=Spec)
-        Data2 = Data
-        call Data%CalcPedInbreeding
-
-        call Data%PedInbreeding%Write(File=TESTPEDINBFILE, OutputFormat=Spec%OutputFormat)
-        call Data2%PedInbreeding%Read(File=TESTPEDINBFILE)
-
-        @AssertEqual(Data%PedInbreeding%nInd, Data2%PedInbreeding%nInd, "Pedigree inbreeding nInd were not assigned correctly")
-        ! write(STDOUT, "(i8, 2a16)") "Ind", "Expected", "Observed"
-        do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, 2a16)") Ind, Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind)
-          @AssertEqual(Data%PedInbreeding%OriginalId(Ind), Data2%PedInbreeding%OriginalId(Ind), "Pedigree inbreeding original id was not written/read correctly")
-        end do
-        ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
-        do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind)
-          @AssertEqual(Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind), "Pedigree inbreeding value was not written/read correctly")
-        end do
-
-        call Data%Destroy
-        call Data2%Destroy
-        call DeletePedigreeFile
-        open(newunit=Unit, file=TESTPEDINBFILE, status="old")
-        close(Unit, status="delete")
-      end subroutine
-
-      !#########################################################################
-
-      @test
-      subroutine TestMatchInbreeding
-        implicit none
-        type(Inbreeding) :: x
-        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
-        integer(int32) :: i
-        integer(int32), allocatable, dimension(:) :: IdExp
-
-        allocate(Id1(4))
-        allocate(Id2(6))
-        allocate(IdExp(4))
-        Id1 = ["D", "C", "A", "X"]
-        Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
-        call x%MatchId(OriginalIdSuperset=Id2)
-        IdExp = [4, 3, 1, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1b")
-        end do
-
-        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
-        IdExp = [3, 2, 0, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2b")
-        end do
-
-        deallocate(Id2)
-        allocate(Id2(0:6))
-        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
-        call x%MatchId(OriginalIdSuperset=Id2)
-        IdExp = [5, 4, 2, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3b")
-        end do
-
-        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
-        IdExp = [4, 3, 1, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4b")
-        end do
-        deallocate(Id1)
-        deallocate(Id2)
-        deallocate(IdExp)
-      end subroutine
-
-      !#########################################################################
-
-    !###########################################################################
-
-    ! Nrm tests
-
-      !#########################################################################
-
-      @test
-      subroutine TestPedNrm
+      subroutine TestPedNrmFunc
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -1002,7 +1104,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestPedNrmTimesVector
+      subroutine TestPedNrmTimesVectorFunc
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -1111,7 +1213,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestPedNrmInv
+      subroutine TestPedNrmInvFunc
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -1294,485 +1396,356 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
-      @test
-      subroutine TestWriteReadNrm
-        implicit none
-        type(AlphaRelateSpec) :: Spec
-        type(AlphaRelateData) :: Data, Data2
-        integer(int32) :: Ind1, Ind2, i, Unit
-        logical :: Ija(2)
-
-        call CreateTinyPedigreeFile
-        call Spec%Init
-        Spec%PedigreePresent = .true.
-        Spec%PedigreeFile = TESTPEDFILE
-        call Data%Read(Spec=Spec)
-        Data2 = Data
-        call Data%CalcPedNrm(Spec=Spec)
-
-        Ija(1:2) = [.false., .true.]
-        do i = 1, 2
-          Spec%PedNrmIja = Ija(i)
-          call Data%PedNrm%Write(File=TESTPEDNRMFILE, OutputFormat=Spec%OutputFormat, Ija=Ija(i))
-          call Data2%PedNrm%Read(File=TESTPEDNRMFILE, Ija=Ija(i))
-
-          @AssertEqual(Data%PedNrm%nInd, Data2%PedNrm%nInd, "Pedigree NRM nInd were not assigned correctly with Ija="//Log2Char(Ija(i)))
-          ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1=0, Data%RecPed%nInd)
-          do Ind1 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed",  Data2%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
-            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",   Data%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
-            ! write(STDOUT, "(a)") ""
-            @AssertEqual(Data%RecPed%OriginalId(Ind1), Data2%RecPed%OriginalId(Ind1), "Pedigree NRM original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
-            ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
-            do Ind2 = 0, Data%RecPed%nInd
-              ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Nrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1)
-              @AssertEqual(Data%PedNrm%Nrm(Ind2, Ind1), Data2%PedNrm%Nrm(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
-            end do
-          end do
-        end do
-
-        call Data%Destroy
-        call Data2%Destroy
-        call DeletePedigreeFile
-        open(newunit=Unit, file=TESTPEDNRMFILE, status="old")
-        close(Unit, status="delete")
-        open(newunit=Unit, file=trim(TESTPEDNRMFILE)//"_IdMap", status="old")
-        close(Unit, status="delete")
-      end subroutine
-
-      !#########################################################################
-
-      @test
-      subroutine TestMatchIdNrm
-        implicit none
-        type(Nrm) :: x
-        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
-        integer(int32) :: i
-        integer(int32), allocatable, dimension(:) :: IdExp
-
-        allocate(Id1(4))
-        allocate(Id2(6))
-        allocate(IdExp(4))
-        Id1 = ["D", "C", "A", "X"]
-        Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
-        call x%MatchId(OriginalIdSuperset=Id2)
-        IdExp = [4, 3, 1, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1b")
-        end do
-
-        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
-        IdExp = [3, 2, 0, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2b")
-        end do
-
-        deallocate(Id2)
-        allocate(Id2(0:6))
-        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
-        call x%MatchId(OriginalIdSuperset=Id2)
-        IdExp = [5, 4, 2, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3b")
-        end do
-
-        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
-        IdExp = [4, 3, 1, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4")
-        end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4b")
-        end do
-        deallocate(Id1)
-        deallocate(Id2)
-        deallocate(IdExp)
-      end subroutine
-
-      !#########################################################################
-
     !###########################################################################
 
-    ! @test
-    ! subroutine TestMakeGMatrixNejatiJavaremi
-    !   implicit none
+!     ! @test
+!     ! subroutine TestMakeGMatrixNejatiJavaremi
+!     !   implicit none
 
-    !   real(real64), allocatable :: GMatTarget(:, :, :)
+!     !   real(real64), allocatable :: GMatTarget(:, :, :)
 
-    !   ! Setup
-    !   nAnisG = 3
-    !   nSnp = 1
-    !   allocate(Genos(nAnisG, nSnp))
-    !   allocate(GMat(nAnisG, nAnisG, 1))
-    !   allocate(GMatTarget(nAnisG, nAnisG, 1))
+!     !   ! Setup
+!     !   nAnisG = 3
+!     !   nSnp = 1
+!     !   allocate(Genos(nAnisG, nSnp))
+!     !   allocate(GMat(nAnisG, nAnisG, 1))
+!     !   allocate(GMatTarget(nAnisG, nAnisG, 1))
 
-    !   !GType = "Nejati-Javaremi"
+!     !   !GType = "Nejati-Javaremi"
 
-    !   ! Simple example
-    !   Genos(1, :) = 0
-    !   Genos(2, :) = 1
-    !   Genos(3, :) = 2
+!     !   ! Simple example
+!     !   Genos(1, :) = 0
+!     !   Genos(2, :) = 1
+!     !   Genos(3, :) = 2
 
-    !   !GMatTarget(1, :, 1) = [2.0d0, 1.0d0, 0.0d0]
-    !   !GMatTarget(2, :, 1) = [1.0d0, 1.0d0, 1.0d0]
-    !   !GMatTarget(3, :, 1) = [0.0d0, 1.0d0, 2.0d0]
+!     !   !GMatTarget(1, :, 1) = [2.0d0, 1.0d0, 0.0d0]
+!     !   !GMatTarget(2, :, 1) = [1.0d0, 1.0d0, 1.0d0]
+!     !   !GMatTarget(3, :, 1) = [0.0d0, 1.0d0, 2.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the first marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the first marker is not correct")
 
-    !   ! Another simple example
-    !   Genos(1, :) = 1
-    !   Genos(2, :) = 2
-    !   Genos(3, :) = 1
+!     !   ! Another simple example
+!     !   Genos(1, :) = 1
+!     !   Genos(2, :) = 2
+!     !   Genos(3, :) = 1
 
-    !   !GMatTarget(1, :, 1) = [1.0d0, 1.0d0, 1.0d0]
-    !   !GMatTarget(2, :, 1) = [1.0d0, 2.0d0, 1.0d0]
-    !   !GMatTarget(3, :, 1) = [1.0d0, 1.0d0, 1.0d0]
+!     !   !GMatTarget(1, :, 1) = [1.0d0, 1.0d0, 1.0d0]
+!     !   !GMatTarget(2, :, 1) = [1.0d0, 2.0d0, 1.0d0]
+!     !   !GMatTarget(3, :, 1) = [1.0d0, 1.0d0, 1.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the second marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the second marker is not correct")
 
-    !   ! Combine the above two simple examples
-    !   deallocate(Genos)
-    !   nSnp = 2
-    !   allocate(Genos(nAnisG, nSnp))
+!     !   ! Combine the above two simple examples
+!     !   deallocate(Genos)
+!     !   nSnp = 2
+!     !   allocate(Genos(nAnisG, nSnp))
 
-    !   Genos(1, :) = [0, 1]
-    !   Genos(2, :) = [1, 2]
-    !   Genos(3, :) = [2, 1]
+!     !   Genos(1, :) = [0, 1]
+!     !   Genos(2, :) = [1, 2]
+!     !   Genos(3, :) = [2, 1]
 
-    !   !GMatTarget(1, :, 1) = [1.5d0, 1.0d0, 0.5d0]
-    !   !GMatTarget(2, :, 1) = [1.0d0, 1.5d0, 1.0d0]
-    !   !GMatTarget(3, :, 1) = [0.5d0, 1.0d0, 1.5d0]
+!     !   !GMatTarget(1, :, 1) = [1.5d0, 1.0d0, 0.5d0]
+!     !   !GMatTarget(2, :, 1) = [1.0d0, 1.5d0, 1.0d0]
+!     !   !GMatTarget(3, :, 1) = [0.5d0, 1.0d0, 1.5d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the two markers is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi for the two markers is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 1.00d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with equal weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with equal weights is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 0.50d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
 
-    !   !GMatTarget(1, :, 1) = [1.25d0, 0.75d0, 0.25d0]
-    !   !GMatTarget(2, :, 1) = [0.75d0, 1.00d0, 0.75d0]
-    !   !GMatTarget(3, :, 1) = [0.25d0, 0.75d0, 1.25d0]
+!     !   !GMatTarget(1, :, 1) = [1.25d0, 0.75d0, 0.25d0]
+!     !   !GMatTarget(2, :, 1) = [0.75d0, 1.00d0, 0.75d0]
+!     !   !GMatTarget(3, :, 1) = [0.25d0, 0.75d0, 1.25d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with variable weights is not correct")
-    ! end subroutine
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with variable weights is not correct")
+!     ! end subroutine
 
-    !###########################################################################
+!     !###########################################################################
 
-    ! @test
-    ! subroutine TestMakeGMatrixVanRaden1
-    !   implicit none
+!     ! @test
+!     ! subroutine TestMakeGMatrixVanRaden1
+!     !   implicit none
 
-    !   real(real64), allocatable :: GMatTarget(:, :, :)
+!     !   real(real64), allocatable :: GMatTarget(:, :, :)
 
-    !   ! Setup
-    !   nAnisG = 3
-    !   nSnp = 1
-    !   allocate(Genos(nAnisG, nSnp))
-    !   allocate(GMat(nAnisG, nAnisG, 1))
-    !   allocate(GMatTarget(nAnisG, nAnisG, 1))
+!     !   ! Setup
+!     !   nAnisG = 3
+!     !   nSnp = 1
+!     !   allocate(Genos(nAnisG, nSnp))
+!     !   allocate(GMat(nAnisG, nAnisG, 1))
+!     !   allocate(GMatTarget(nAnisG, nAnisG, 1))
 
-    !   !GType = "VanRaden"
+!     !   !GType = "VanRaden"
 
-    !   ! Simple example
-    !   Genos(1, :) = 0
-    !   Genos(2, :) = 1
-    !   Genos(3, :) = 2
+!     !   ! Simple example
+!     !   Genos(1, :) = 0
+!     !   Genos(2, :) = 1
+!     !   Genos(3, :) = 2
 
-    !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the first marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the first marker is not correct")
 
-    !   ! Another simple example
-    !   Genos(1, :) = 1
-    !   Genos(2, :) = 2
-    !   Genos(3, :) = 1
+!     !   ! Another simple example
+!     !   Genos(1, :) = 1
+!     !   Genos(2, :) = 2
+!     !   Genos(3, :) = 1
 
-    !   !GMatTarget(1, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
-    !   !GMatTarget(2, :, 1) = [-0.50d0,  1.0d0, -0.50d0]
-    !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
+!     !   !GMatTarget(1, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
+!     !   !GMatTarget(2, :, 1) = [-0.50d0,  1.0d0, -0.50d0]
+!     !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the second marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the second marker is not correct")
 
-    !   ! Combine the above two simple examples
-    !   deallocate(Genos)
-    !   nSnp = 2
-    !   allocate(Genos(nAnisG, nSnp))
+!     !   ! Combine the above two simple examples
+!     !   deallocate(Genos)
+!     !   nSnp = 2
+!     !   allocate(Genos(nAnisG, nSnp))
 
-    !   Genos(1, :) = [0, 1]
-    !   Genos(2, :) = [1, 2]
-    !   Genos(3, :) = [2, 1]
+!     !   Genos(1, :) = [0, 1]
+!     !   Genos(2, :) = [1, 2]
+!     !   Genos(3, :) = [2, 1]
 
-    !   !GMatTarget(1, :, 1) = [ 20.0d0, -4.0d0, -16.0d0]
-    !   !GMatTarget(2, :, 1) = [ -4.0d0,  8.0d0,  -4.0d0]
-    !   !GMatTarget(3, :, 1) = [-16.0d0, -4.0d0,  20.0d0]
-    !   !GMatTarget(:, :, 1) = GMatTarget(:, :, 1) / 17.0d0
+!     !   !GMatTarget(1, :, 1) = [ 20.0d0, -4.0d0, -16.0d0]
+!     !   !GMatTarget(2, :, 1) = [ -4.0d0,  8.0d0,  -4.0d0]
+!     !   !GMatTarget(3, :, 1) = [-16.0d0, -4.0d0,  20.0d0]
+!     !   !GMatTarget(:, :, 1) = GMatTarget(:, :, 1) / 17.0d0
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the two markers is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 for the two markers is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 1.00d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with equal weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with equal weights is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 0.50d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
 
-    !   !GMatTarget(1, :, 1) = [ 19.0d0, -2.0d0, -17.0d0]
-    !   !GMatTarget(2, :, 1) = [ -2.0d0,  4.0d0,  -2.0d0]
-    !   !GMatTarget(3, :, 1) = [-17.0d0, -2.0d0,  19.0d0]
-    !   !GMatTarget(:, :, 1) = GMatTarget(:, :, 1) / 17.0d0
+!     !   !GMatTarget(1, :, 1) = [ 19.0d0, -2.0d0, -17.0d0]
+!     !   !GMatTarget(2, :, 1) = [ -2.0d0,  4.0d0,  -2.0d0]
+!     !   !GMatTarget(3, :, 1) = [-17.0d0, -2.0d0,  19.0d0]
+!     !   !GMatTarget(:, :, 1) = GMatTarget(:, :, 1) / 17.0d0
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with variable weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with variable weights is not correct")
 
-    !   !WeightsPresent = .false.
-    !   AlleleFreq(:) = [0.5d0, 0.5d0]
+!     !   !WeightsPresent = .false.
+!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
 
-    !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with given/fixed allele frequencies is not correct")
-    ! end subroutine
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with given/fixed allele frequencies is not correct")
+!     ! end subroutine
 
-    !###########################################################################
+!     !###########################################################################
 
-    ! @test
-    ! subroutine TestMakeGMatrixVanRaden2
-    !   implicit none
+!     ! @test
+!     ! subroutine TestMakeGMatrixVanRaden2
+!     !   implicit none
 
-    !   real(real64), allocatable :: GMatTarget(:, :, :)
+!     !   real(real64), allocatable :: GMatTarget(:, :, :)
 
-    !   ! Setup
-    !   nAnisG = 3
-    !   nSnp = 1
-    !   allocate(Genos(nAnisG, nSnp))
-    !   allocate(GMat(nAnisG, nAnisG, 1))
-    !   allocate(GMatTarget(nAnisG, nAnisG, 1))
+!     !   ! Setup
+!     !   nAnisG = 3
+!     !   nSnp = 1
+!     !   allocate(Genos(nAnisG, nSnp))
+!     !   allocate(GMat(nAnisG, nAnisG, 1))
+!     !   allocate(GMatTarget(nAnisG, nAnisG, 1))
 
-    !   !GType = "VanRaden2"
+!     !   !GType = "VanRaden2"
 
-    !   ! Simple example
-    !   Genos(1, :) = 0
-    !   Genos(2, :) = 1
-    !   Genos(3, :) = 2
+!     !   ! Simple example
+!     !   Genos(1, :) = 0
+!     !   Genos(2, :) = 1
+!     !   Genos(3, :) = 2
 
-    !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the first marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the first marker is not correct")
 
-    !   ! Another simple example
-    !   Genos(1, :) = 1
-    !   Genos(2, :) = 2
-    !   Genos(3, :) = 1
+!     !   ! Another simple example
+!     !   Genos(1, :) = 1
+!     !   Genos(2, :) = 2
+!     !   Genos(3, :) = 1
 
-    !   !GMatTarget(1, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
-    !   !GMatTarget(2, :, 1) = [-0.50d0,  1.0d0, -0.50d0]
-    !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
+!     !   !GMatTarget(1, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
+!     !   !GMatTarget(2, :, 1) = [-0.50d0,  1.0d0, -0.50d0]
+!     !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.25d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the second marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the second marker is not correct")
 
-    !   ! Combine the above two simple examples
-    !   deallocate(Genos)
-    !   nSnp = 2
-    !   allocate(Genos(nAnisG, nSnp))
+!     !   ! Combine the above two simple examples
+!     !   deallocate(Genos)
+!     !   nSnp = 2
+!     !   allocate(Genos(nAnisG, nSnp))
 
-    !   Genos(1, :) = [0, 1]
-    !   Genos(2, :) = [1, 2]
-    !   Genos(3, :) = [2, 1]
+!     !   Genos(1, :) = [0, 1]
+!     !   Genos(2, :) = [1, 2]
+!     !   Genos(3, :) = [2, 1]
 
-    !   !GMatTarget(1, :, 1) = [ 1.125d0, -0.25d0, -0.875d0]
-    !   !GMatTarget(2, :, 1) = [-0.250d0,  0.50d0, -0.250d0]
-    !   !GMatTarget(3, :, 1) = [-0.875d0, -0.25d0,  1.125d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.125d0, -0.25d0, -0.875d0]
+!     !   !GMatTarget(2, :, 1) = [-0.250d0,  0.50d0, -0.250d0]
+!     !   !GMatTarget(3, :, 1) = [-0.875d0, -0.25d0,  1.125d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the two markers is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 for the two markers is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 1.00d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with equal weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with equal weights is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 0.50d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
 
-    !   !GMatTarget(1, :, 1) = [ 1.0625d0, -0.125d0, -0.9375d0]
-    !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.250d0, -0.1250d0]
-    !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0625d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.0625d0, -0.125d0, -0.9375d0]
+!     !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.250d0, -0.1250d0]
+!     !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0625d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
 
-    !   !WeightsPresent = .false.
-    !   AlleleFreq(:) = [0.5d0, 0.5d0]
+!     !   !WeightsPresent = .false.
+!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
 
-    !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with given/fixed allele frequencies is not correct")
-    ! end subroutine
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with given/fixed allele frequencies is not correct")
+!     ! end subroutine
 
-    !###########################################################################
+!     !###########################################################################
 
-    ! @test
-    ! subroutine TestMakeGMatrixYang
-    !   implicit none
+!     ! @test
+!     ! subroutine TestMakeGMatrixYang
+!     !   implicit none
 
-    !   real(real64), allocatable :: GMatTarget(:, :, :)
+!     !   real(real64), allocatable :: GMatTarget(:, :, :)
 
-    !   ! Setup
-    !   nAnisG = 3
-    !   nSnp = 1
-    !   allocate(Genos(nAnisG, nSnp))
-    !   allocate(GMat(nAnisG, nAnisG, 1))
-    !   allocate(GMatTarget(nAnisG, nAnisG, 1))
+!     !   ! Setup
+!     !   nAnisG = 3
+!     !   nSnp = 1
+!     !   allocate(Genos(nAnisG, nSnp))
+!     !   allocate(GMat(nAnisG, nAnisG, 1))
+!     !   allocate(GMatTarget(nAnisG, nAnisG, 1))
 
-    !   !GType = "Yang"
+!     !   !GType = "Yang"
 
-    !   ! Simple example
-    !   Genos(1, :) = 0
-    !   Genos(2, :) = 1
-    !   Genos(3, :) = 2
+!     !   ! Simple example
+!     !   Genos(1, :) = 0
+!     !   Genos(2, :) = 1
+!     !   Genos(3, :) = 2
 
-    !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 2.0d0, 0.0d0, -2.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 0.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-2.0d0, 0.0d0,  2.0d0]
 
-    !   !call MakeGAndInvGMatrix
+!     !   !call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the first marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the first marker is not correct")
 
-    !   ! Another simple example
-    !   Genos(1, :) = 1
-    !   Genos(2, :) = 2
-    !   Genos(3, :) = 1
+!     !   ! Another simple example
+!     !   Genos(1, :) = 1
+!     !   Genos(2, :) = 2
+!     !   Genos(3, :) = 1
 
-    !   !GMatTarget(1, :, 1) = [ 0.00d0, -0.5d0,  0.25d0]
-    !   !GMatTarget(2, :, 1) = [-0.50d0,  1.5d0, -0.50d0]
-    !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.00d0]
+!     !   !GMatTarget(1, :, 1) = [ 0.00d0, -0.5d0,  0.25d0]
+!     !   !GMatTarget(2, :, 1) = [-0.50d0,  1.5d0, -0.50d0]
+!     !   !GMatTarget(3, :, 1) = [ 0.25d0, -0.5d0,  0.00d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the second marker is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the second marker is not correct")
 
-    !   ! Combine the above two simple examples
-    !   deallocate(Genos)
-    !   nSnp = 2
-    !   allocate(Genos(nAnisG, nSnp))
+!     !   ! Combine the above two simple examples
+!     !   deallocate(Genos)
+!     !   nSnp = 2
+!     !   allocate(Genos(nAnisG, nSnp))
 
-    !   Genos(1, :) = [0, 1]
-    !   Genos(2, :) = [1, 2]
-    !   Genos(3, :) = [2, 1]
+!     !   Genos(1, :) = [0, 1]
+!     !   Genos(2, :) = [1, 2]
+!     !   Genos(3, :) = [2, 1]
 
-    !   !GMatTarget(1, :, 1) = [ 1.000d0, -0.25d0, -0.875d0]
-    !   !GMatTarget(2, :, 1) = [-0.250d0,  0.75d0, -0.250d0]
-    !   !GMatTarget(3, :, 1) = [-0.875d0, -0.25d0,  1.000d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.000d0, -0.25d0, -0.875d0]
+!     !   !GMatTarget(2, :, 1) = [-0.250d0,  0.75d0, -0.250d0]
+!     !   !GMatTarget(3, :, 1) = [-0.875d0, -0.25d0,  1.000d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the two markers is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang for the two markers is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 1.00d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with equal weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with equal weights is not correct")
 
-    !   !WeightsPresent = .true.
-    !   !Weights(:, 1) = [1.0d0, 0.50d0]
+!     !   !WeightsPresent = .true.
+!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
 
-    !   !GMatTarget(1, :, 1) = [ 1.0000d0, -0.125d0, -0.9375d0]
-    !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.375d0, -0.1250d0]
-    !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0000d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.0000d0, -0.125d0, -0.9375d0]
+!     !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.375d0, -0.1250d0]
+!     !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0000d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
 
-    !   !WeightsPresent = .false.
-    !   AlleleFreq(:) = [0.5d0, 0.5d0]
+!     !   !WeightsPresent = .false.
+!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
 
-    !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-    !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-    !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
+!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
+!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
+!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
 
-    !   call MakeGAndInvGMatrix
+!     !   call MakeGAndInvGMatrix
 
-    !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with given/fixed allele frequencies is not correct")
-    ! end subroutine
-
-    !###########################################################################
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with given/fixed allele frequencies is not correct")
+!     ! end subroutine
 
 end module
 
