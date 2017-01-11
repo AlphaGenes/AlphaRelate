@@ -1204,7 +1204,7 @@ module AlphaRelateModule
         class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
 
         integer(int32) :: Ind, Loc
-        real(real64), allocatable, dimension(:) :: AlleleFreq2
+        real(real64), allocatable, dimension(:) :: Mean
 
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
@@ -1213,8 +1213,8 @@ module AlphaRelateModule
           call This%CalcAlleleFreq
         end if
 
-        allocate(AlleleFreq2(This%nLoc))
-        AlleleFreq2 = 2.0d0 * This%AlleleFreq
+        allocate(Mean(This%nLoc))
+        Mean = 2.0d0 * This%AlleleFreq
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
@@ -1225,13 +1225,13 @@ module AlphaRelateModule
         do Ind = 1, This%nInd
           do Loc = 1, This%nLoc
             if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
-              This%GenotypeReal(Loc, Ind) = This%GenotypeReal(Loc, Ind) - AlleleFreq2(Loc)
+              This%GenotypeReal(Loc, Ind) = This%GenotypeReal(Loc, Ind) - Mean(Loc)
             else
               This%GenotypeReal(Loc, Ind) = 0.0d0
             end if
           end do
         end do
-        deallocate(AlleleFreq2)
+        deallocate(Mean)
       end subroutine
 
       !#########################################################################
@@ -1246,7 +1246,7 @@ module AlphaRelateModule
         class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
 
         integer(int32) :: Ind, Loc
-        real(real64), allocatable, dimension(:) :: AlleleFreq2, Scale
+        real(real64), allocatable, dimension(:) :: Mean, StDev
 
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
@@ -1255,10 +1255,10 @@ module AlphaRelateModule
           call This%CalcAlleleFreq
         end if
 
-        allocate(AlleleFreq2(This%nLoc))
-        allocate(Scale(This%nLoc))
-        AlleleFreq2 = 2.0d0 * This%AlleleFreq
-        Scale = sqrt(2.0d0 * This%AlleleFreq * (1.0d0 - This%AlleleFreq))
+        allocate(Mean(This%nLoc))
+        allocate(StDev(This%nLoc))
+        Mean = 2.0d0 * This%AlleleFreq
+        StDev = sqrt(2.0d0 * (This%AlleleFreq * (1.0d0 - This%AlleleFreq)))
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
@@ -1269,14 +1269,14 @@ module AlphaRelateModule
         do Ind = 1, This%nInd
           do Loc = 1, This%nLoc
             if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
-              This%GenotypeReal(Loc, Ind) = (This%GenotypeReal(Loc, Ind) - AlleleFreq2(Loc)) / Scale(Loc)
+              This%GenotypeReal(Loc, Ind) = (This%GenotypeReal(Loc, Ind) - Mean(Loc)) / StDev(Loc)
             else
               This%GenotypeReal(Loc, Ind) = 0.0d0
             end if
           end do
         end do
-        deallocate(AlleleFreq2)
-        deallocate(Scale)
+        deallocate(Mean)
+        deallocate(StDev)
       end subroutine
 
       !#########################################################################
