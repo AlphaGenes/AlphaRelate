@@ -34,8 +34,8 @@ module AlphaRelateModule
                             ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
   use GenotypeModule, only : Genotype
-  ! use Blas95!, only : gemm, dot
-  ! use F95_precision
+  use Blas95
+  use F95_precision
 
   implicit none
 
@@ -103,13 +103,17 @@ module AlphaRelateModule
     real(real64), allocatable, dimension(:, :)         :: GenotypeReal
     real(real64), allocatable, dimension(:)            :: AlleleFreq
     contains
-      procedure :: Init           => InitGenotypeArray
-      procedure :: Destroy        => DestroyGenotypeArray
-      procedure :: MatchId        => MatchIdGenotypeArray
-      procedure :: Write          => WriteGenotypeArray
-      procedure :: Read           => ReadGenotypeArray
+      procedure :: Init                       => InitGenotypeArray
+      procedure :: Destroy                    => DestroyGenotypeArray
+      procedure :: MatchId                    => MatchIdGenotypeArray
+      procedure :: Write                      => WriteGenotypeArray
+      procedure :: Read                       => ReadGenotypeArray
+      procedure :: WriteReal                  => WriteGenotypeArrayReal
+      procedure :: ReadReal                   => ReadGenotypeArrayReal
       procedure :: MakeGenotypeReal
-      procedure :: CalcAlleleFreq => CalcAlleleFreqGenotypeArray
+      procedure :: CalcAlleleFreq             => CalcAlleleFreqGenotypeArray
+      procedure :: WriteAlleleFreq            => WriteAlleleFreqGenotypeArray
+      procedure :: ReadAlleleFreq             => ReadAlleleFreqGenotypeArray
       procedure :: CenterGenotypeReal
       procedure :: CenterAndScaleGenotypeReal
   end type
@@ -120,8 +124,8 @@ module AlphaRelateModule
     character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile!, PedNrmOldFile, LocusWeightFile
     character(len=SPECOPTIONLENGTH) :: OutputFormat, GenNrmType
 
-    logical :: PedigreePresent, GenotypePresent!, HaplotypePresent
-    logical :: PedNrmSubsetPresent, PedNrmOldPresent, AlleleFreqPresent, AlleleFreqFixed!, LocusWeightPresent
+    logical :: PedigreeGiven, GenotypeGiven!, HaplotypeGiven
+    logical :: PedNrmSubsetGiven, PedNrmOldGiven, AlleleFreqGiven, AlleleFreqFixed!, LocusWeightGiven
 
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
     logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
@@ -162,13 +166,16 @@ module AlphaRelateModule
       procedure :: CalcPedInbreeding
       procedure :: CalcPedNrm
       procedure :: CalcPedNrmInv
+      ! procedure :: CalcGenInbreeding
+      procedure :: CalcGenNrm
+      ! procedure :: CalcGenNrmInv
   end type
 
   contains
 
     !###########################################################################
 
-    subroutine AlphaRelateTitle
+    subroutine AlphaRelateTitle ! not pure due to IO
       implicit none
       write(STDOUT, "(a)") ""
       write(STDOUT, "(a)") "                            ***********************                           "
@@ -201,7 +208,7 @@ module AlphaRelateModule
         implicit none
 
         ! Arguments
-        class(IndSet), intent(inout) :: This                                   !< @return IndSet holder
+        class(IndSet), intent(out) :: This                                     !< @return IndSet holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(:)         !< Original Id of individuals in the      set
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
@@ -322,7 +329,7 @@ module AlphaRelateModule
       !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date    January 4, 2017
       !-------------------------------------------------------------------------
-      subroutine WriteIndSet(This, File)
+      subroutine WriteIndSet(This, File) ! not pure due to IO
         implicit none
         class(IndSet), intent(in) :: This              !< IndSet holder
         character(len=*), intent(in), optional :: File !< File that will hold a set of Original Id and internal integer sequence
@@ -348,7 +355,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      subroutine ReadIndSet(This, File)
+      subroutine ReadIndSet(This, File) ! not pure due to IO
         implicit none
         class(IndSet), intent(out) :: This   !< @return IndSet holder
         character(len=*), intent(in) :: File !< File that holds a set of Original Id (internal integer sequence is not read)
@@ -381,7 +388,7 @@ module AlphaRelateModule
         implicit none
 
         ! Arguments
-        class(Inbreeding), intent(inout) :: This                               !< @return Inbreeding holder
+        class(Inbreeding), intent(out) :: This                                 !< @return Inbreeding holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
@@ -493,7 +500,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteInbreeding(This, File, OutputFormat)
+      subroutine WriteInbreeding(This, File, OutputFormat) ! not pure due to IO
         implicit none
         class(Inbreeding), intent(in) :: This                  !< Inbreeding holder
         character(len=*), intent(in), optional :: File         !< File that will hold Original Id and inbreeding coefficients
@@ -529,7 +536,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadInbreeding(This, File)
+      subroutine ReadInbreeding(This, File) ! not pure due to IO
         implicit none
         class(Inbreeding), intent(out) :: This !< @return Inbreeding holder
         character(len=*), intent(in) :: File   !< File that holds Original Id and pedigree inbreeding
@@ -562,7 +569,7 @@ module AlphaRelateModule
         implicit none
 
         ! Arguments
-        class(Nrm), intent(inout) :: This                                      !< @return Nrm holder
+        class(Nrm), intent(out) :: This                                        !< @return Nrm holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
@@ -675,7 +682,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteNrm(This, File, Ija, OutputFormat)
+      subroutine WriteNrm(This, File, Ija, OutputFormat) ! not pure due to IO
         implicit none
         class(Nrm), intent(in) :: This                         !< Nrm Holder
         character(len=*), intent(in), optional :: File         !< File that will hold Original Id and NRM
@@ -746,7 +753,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadNrm(This, File, Ija)
+      subroutine ReadNrm(This, File, Ija) ! not pure due to IO
         implicit none
         class(Nrm), intent(out) :: This      !< @return Nrm holder
         character(len=*), intent(in) :: File !< File that holds Original Id and NRM
@@ -800,7 +807,7 @@ module AlphaRelateModule
         implicit none
 
         ! Arguments
-        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
+        class(GenotypeArray), intent(out) :: This                              !< @return GenotypeArray holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         integer(int32), intent(in) :: nLoc                                     !< Number of loci in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
@@ -820,9 +827,11 @@ module AlphaRelateModule
           Start = 1
         end if
 
+        ! Init numbers
         This%nInd = nInd
         This%nLoc = nLoc
 
+        ! Init OriginalId
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
@@ -834,6 +843,7 @@ module AlphaRelateModule
           This%OriginalId = EMPTYID
         end if
 
+        ! Init Id
         if (allocated(This%Id)) then
           deallocate(This%Id)
         end if
@@ -846,6 +856,8 @@ module AlphaRelateModule
           This%Id = [(Ind, Ind=0, nInd)]
         end if
 
+        ! Init Genotype
+        ! NOTE: this one is allocated here as it is the way we primarily store genotypes
         if (allocated(This%Genotype)) then
           deallocate(This%Genotype)
         end if
@@ -870,11 +882,19 @@ module AlphaRelateModule
           end do
         end if
 
+        ! Init GenotypeReal
+        ! NOTE: this one is not allocated here as it is not the way we primarily store genotypes and can be potentially quite memory consuming
+        ! Use call This%MakeGenotypeReal() if needed
+        if (allocated(This%GenotypeReal)) then
+          deallocate(This%GenotypeReal)
+        end if
+
+        ! Init AlleleFreq
+        ! NOTE: this one is not allocated here as we need GenotypeReal to compute it (for now)
+        ! Use call This%CalcAlleleFreq() if needed
         if (allocated(This%AlleleFreq)) then
           deallocate(This%AlleleFreq)
         end if
-        allocate(This%AlleleFreq(nLoc))
-        This%AlleleFreq = 0.0d0
       end subroutine
 
       !#########################################################################
@@ -939,11 +959,11 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Write GenotypeArray to a file or stdout
+      !> @brief  Write GenotypeArray genotypes to a file or stdout
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   December 22, 2016
+      !> @date   January 9, 2017
       !-------------------------------------------------------------------------
-      subroutine WriteGenotypeArray(This, File)
+      subroutine WriteGenotypeArray(This, File) ! not pure due to IO
         implicit none
         class(GenotypeArray), intent(in) :: This       !< GenotypeArray Holder
         character(len=*), intent(in), optional :: File !< File that will hold Genotypes
@@ -969,11 +989,41 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
+      !> @brief  Write GenotypeArray genotypes (the GenotypeReal component) to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2017
+      !-------------------------------------------------------------------------
+      subroutine WriteGenotypeArrayReal(This, File) ! not pure due to IO
+        implicit none
+        class(GenotypeArray), intent(in) :: This       !< GenotypeArray Holder
+        character(len=*), intent(in), optional :: File !< File that will hold Genotypes
+
+        integer(int32) :: Unit, Ind
+        character(len=:), allocatable :: Fmt
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+
+        Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(This%nLoc)//"f)"
+        do Ind = 1, This%nInd
+          write(Unit, Fmt) This%OriginalId(Ind), This%GenotypeReal(:, Ind)
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
       !> @brief  Read GenotypeArray from a file
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   December 22, 2016
+      !> @date   January 9, 2017
       !-------------------------------------------------------------------------
-      subroutine ReadGenotypeArray(This, File, nLoc)
+      subroutine ReadGenotypeArray(This, File, nLoc) ! not pure due to IO
         implicit none
         class(GenotypeArray), intent(out) :: This !< @return GenotypeArray holder
         character(len=*), intent(in) :: File      !< File that holds genotypes
@@ -994,6 +1044,31 @@ module AlphaRelateModule
 
       !#########################################################################
 
+      !-------------------------------------------------------------------------
+      !> @brief  Read GenotypeArray (the GenotypeReal component) from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2017
+      !-------------------------------------------------------------------------
+      subroutine ReadGenotypeArrayReal(This, File, nLoc) ! not pure due to IO
+        implicit none
+        class(GenotypeArray), intent(out) :: This !< @return GenotypeArray holder
+        character(len=*), intent(in) :: File      !< File that holds genotypes
+        integer(int32), intent(in) :: nLoc        !< Number of loci to read in
+
+        integer(int32) :: nInd, Ind, Unit
+
+        nInd = CountLines(File)
+        call This%Init(nInd=nInd, nLoc=nLoc)
+        allocate(This%GenotypeReal(nLoc, 0:nInd))
+        This%GenotypeReal(:, 0) = 0.0d0
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do Ind = 1, This%nInd
+          read(Unit, *) This%OriginalId(Ind), This%GenotypeReal(:, Ind)
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
       !-------------------------------------------------------------------------
       !> @brief  Make genotypes real (build real64 array of genotypes)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -1031,12 +1106,17 @@ module AlphaRelateModule
         integer(int32) :: Ind, Loc
         integer(int32), allocatable, dimension(:) :: nObs
 
+        if (allocated(This%AlleleFreq)) then
+          deallocate(This%AlleleFreq)
+        end if
+        allocate(This%AlleleFreq(This%nLoc))
         This%AlleleFreq = 0.0d0
 
+        ! @todo can we build a method that works on type(Genotype) so we would not need GenotypeReal for allele freq calculation?
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
-          ! @todo can we build a method that works on type(Genotype)?
         end if
+
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
         !       we can avoid the ifs and simplify computatation a lot
@@ -1062,6 +1142,54 @@ module AlphaRelateModule
           end if
         end do
         deallocate(nObs)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write allele freqs to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine WriteAlleleFreqGenotypeArray(This, File) ! not pure due to IO
+        implicit none
+        class(GenotypeArray), intent(in) :: This       !< GenotypeArray Holder
+        character(len=*), intent(in), optional :: File !< File that will hold allele freqs
+
+        integer(int32) :: Unit, Loc
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+        do Loc = 1, This%nLoc
+          write(Unit, "(i, f)") Loc, This%AlleleFreq(Loc)
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read allele freqs from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine ReadAlleleFreqGenotypeArray(This, File) ! not pure due to IO
+        implicit none
+        class(GenotypeArray), intent(inout) :: This !< GenotypeArray Holder (inout here as This contains other stuff beside AlleleFreq)
+        character(len=*), intent(in) :: File        !< File that holds allele freqs
+
+        integer(int32) :: Unit, LocLoop, Loc
+
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do LocLoop = 1, This%nLoc
+          read(Unit, *) Loc, This%AlleleFreq(Loc)
+        end do
+        close(Unit)
       end subroutine
 
       !#########################################################################
@@ -1162,11 +1290,11 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine InitAlphaRelateSpec(This)
+      pure subroutine InitAlphaRelateSpec(This)
         implicit none
 
         ! Arguments
-        class(AlphaRelateSpec), intent(inout) :: This !< @return AlphaRelateSpec holder
+        class(AlphaRelateSpec), intent(out) :: This !< @return AlphaRelateSpec holder
 
         ! Defaults
         This%SpecFile         = "None"
@@ -1181,14 +1309,14 @@ module AlphaRelateModule
         This%GenNrmType       = "None"
         This%OutputFormat     = "f"
 
-        This%PedigreePresent     = .false.
-        This%PedNrmSubsetPresent = .false.
-        This%PedNrmOldPresent    = .false.
-        This%GenotypePresent     = .false.
-        ! This%HaplotypePresent    = .false.
-        This%AlleleFreqPresent   = .false.
+        This%PedigreeGiven     = .false.
+        This%PedNrmSubsetGiven = .false.
+        This%PedNrmOldGiven    = .false.
+        This%GenotypeGiven     = .false.
+        ! This%HaplotypeGiven    = .false.
+        This%AlleleFreqGiven   = .false.
         This%AlleleFreqFixed     = .false.
-        ! This%LocusWeightPresent  = .false.
+        ! This%LocusWeightGiven  = .false.
 
         This%PedInbreeding       = .false.
         This%PedNrm              = .false.
@@ -1230,12 +1358,12 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadAlphaRelateSpec(This, SpecFile)
+      subroutine ReadAlphaRelateSpec(This, SpecFile) ! not pure due to IO
         implicit none
 
         ! Arguments
-        class(AlphaRelateSpec), intent(inout) :: This !< @return AlphaRelateSpec holder
-        character(len=*), intent(in) :: SpecFile      !< Spec file; when missing, a stub with defaults is created
+        class(AlphaRelateSpec), intent(out) :: This !< @return AlphaRelateSpec holder
+        character(len=*), intent(in) :: SpecFile    !< Spec file; when missing, a stub with defaults is created
 
         ! Other
         character(len=:), allocatable :: DumString
@@ -1270,7 +1398,7 @@ module AlphaRelateModule
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
                     write(STDOUT, "(a)") " Not using pedigree file"
                   else
-                    This%PedigreePresent = .true.
+                    This%PedigreeGiven = .true.
                     write(This%PedigreeFile, *) trim(adjustl(Second(1)))
                     This%PedigreeFile = adjustl(This%PedigreeFile)
                     write(STDOUT, "(2a)") " Using pedigree file: ", trim(This%PedigreeFile)
@@ -1286,7 +1414,7 @@ module AlphaRelateModule
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
                     write(STDOUT, "(a)") " Not using genotype file"
                   else
-                    This%GenotypePresent = .true.
+                    This%GenotypeGiven = .true.
                     write(This%GenotypeFile, *) trim(adjustl(Second(1)))
                     This%GenotypeFile = adjustl(This%GenotypeFile)
                     write(STDOUT, "(2a)") " Using genotype file: ", trim(This%GenotypeFile)
@@ -1302,7 +1430,7 @@ module AlphaRelateModule
               !     if (ToLower(trim(adjustl(Second(1)))) == "none") then
               !       write(STDOUT, "(a)") " Not using haplotype file"
               !     else
-              !       This%HaplotypePresent = .true.
+              !       This%HaplotypeGiven = .true.
               !       write(This%HaplotypeFile, *) trim(adjustl(Second(1)))
               !       This%HaplotypeFile = adjustl(This%HaplotypeFile)
               !       write(STDOUT, "(2a)") " Using haplotype file: ", trim(This%HaplotypeFile)
@@ -1318,7 +1446,7 @@ module AlphaRelateModule
               !     if (ToLower(trim(adjustl(Second(1)))) == "none") then
               !       write(STDOUT, "(a)") " Not using locus weights file"
               !     else
-              !       This%LocusWeightPresent = .true.
+              !       This%LocusWeightGiven = .true.
               !       write(This%LocusWeightFile, *) trim(adjustl(Second(1)))
               !       This%LocusWeightFile = adjustl(This%LocusWeightFile)
               !       write(STDOUT, "(2a)") " Using locus weight file: ", trim(This%LocusWeightFile)
@@ -1334,7 +1462,7 @@ module AlphaRelateModule
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
                     write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies file"
                   else
-                    This%AlleleFreqPresent = .true.
+                    This%AlleleFreqGiven = .true.
                     if (ToLower(trim(adjustl(Second(1)))) == "fixed") then
                       This%AlleleFreqFixed = .true.
                       if (size(Second) > 1) then
@@ -1427,7 +1555,7 @@ module AlphaRelateModule
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
                     write(STDOUT, "(a)") " Not using pedigree NRM set file"
                   else
-                    This%PedNrmSubsetPresent = .true.
+                    This%PedNrmSubsetGiven = .true.
                     write(This%PedNrmSubsetFile, *) trim(adjustl(Second(1)))
                     This%PedNrmSubsetFile = adjustl(This%OutputFormat)
                     write(STDOUT, "(2a)") " Using pedigree NRM set file: ", trim(This%PedNrmSubsetFile)
@@ -1597,34 +1725,34 @@ module AlphaRelateModule
         end do ReadSpec
         close(SpecUnit)
 
-        if ((This%PedInbreeding .or. This%PedNrm .or. This%PedNrmInv .or. This%PedNrmSubsetPresent)&
-            .and. .not. This%PedigreePresent) then
+        if ((This%PedInbreeding .or. This%PedNrm .or. This%PedNrmInv .or. This%PedNrmSubsetGiven)&
+            .and. .not. This%PedigreeGiven) then
           write(STDERR, "(a)") " ERROR: Must provide pedigree file to calculate pedigree inbreeding, NRM, or NRM inverse"
           write(STDERR, "(a)") ""
           stop 1
         end if
 
         if ((This%GenInbreeding .or. This%GenNrm .or. This%GenNrmInv)&
-            .and. .not. This%GenotypePresent) then
+            .and. .not. This%GenotypeGiven) then
           write(STDERR, "(a)") " ERROR: Must provide genotype file to calculate genotype inbreeding, NRM, or NRM inverse"
           write(STDERR, "(a)") ""
           stop 1
         end if
 
         ! if ((This%HapInbreeding .or. This%HapNrm .or. This%HapNrmInv)&
-        !     .and. .not. This%HaplotypePresent) then
+        !     .and. .not. This%HaplotypeGiven) then
         !   write(STDERR, "(a)") " ERROR: Must provide haplotype file to calculate haplotype inbreeding, NRM, or NRM inverse"
         !   write(STDERR, "(a)") ""
         !   stop 1
         ! end if
 
-        ! if (This%BlendGenNrm .and. .not. This%PedigreePresent) then
+        ! if (This%BlendGenNrm .and. .not. This%PedigreeGiven) then
         !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
         !   write(STDERR, "(a)") ""
         !   stop 1
         ! end if
 
-        ! if (This%BlendHapNrm .and. .not. This%PedigreePresent) then
+        ! if (This%BlendHapNrm .and. .not. This%PedigreeGiven) then
         !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
         !   write(STDERR, "(a)") ""
         !   stop 1
@@ -1637,7 +1765,7 @@ module AlphaRelateModule
         !   end do
         ! end do
 
-        ! if ((This%MakeG .or. This%MakeInvG .or. This%MakeH .or. This%MakeInvH) .and. .not. This%GenotypePresent) then
+        ! if ((This%MakeG .or. This%MakeInvG .or. This%MakeH .or. This%MakeInvH) .and. .not. This%GenotypeGiven) then
         !   write(STDOUT, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
         !   write(STDOUT, "(a)") " "
         !   This%MakeG    = .false.
@@ -1646,7 +1774,7 @@ module AlphaRelateModule
         !   This%MakeInvH = .false.
         ! end if
 
-        ! if ((This%MakeA .or. This%MakeInvA .or. This%MakeH .or. This%MakeInvH) .and. .not. This%PedigreePresent) then
+        ! if ((This%MakeA .or. This%MakeInvA .or. This%MakeH .or. This%MakeInvH) .and. .not. This%PedigreeGiven) then
         !   write(STDOUT, "(a)") " NOTE: To create A or H matrix, a pedigree file must be given --> ommited A or H."
         !   write(STDOUT, "(a)") " "
         !   This%MakeA    = .false.
@@ -1667,30 +1795,30 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadAlphaRelateData(This, Spec)
+      subroutine ReadAlphaRelateData(This, Spec) ! not pure due to IO
         implicit none
 
         ! Arguments
-        class(AlphaRelateData), intent(inout) :: This  !< @return AlphaRelateData holder
-        type(AlphaRelateSpec), intent(in) :: Spec      !< Specifications
+        class(AlphaRelateData), intent(out) :: This !< @return AlphaRelateData holder
+        type(AlphaRelateSpec), intent(in) :: Spec   !< Specifications
 
         ! Other
         type(PedigreeHolder) :: PedObj
 
-        if (Spec%PedigreePresent) then
+        if (Spec%PedigreeGiven) then
           ! Read in the pedigree
           PedObj = PedigreeHolder(Spec%PedigreeFile)
 
           ! Sort and recode pedigree
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
-          write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in the pedigree"
+          write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
           call This%RecPed%Write(File=trim(Spec%PedigreeFile)//"_Recoded.txt")
 
           ! Free some memory
           call PedObj%DestroyPedigree
 
           ! Handle subset
-          if (Spec%PedNrmSubsetPresent) then
+          if (Spec%PedNrmSubsetGiven) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
             write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset"
             call This%PedNrmSubset%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
@@ -1712,12 +1840,12 @@ module AlphaRelateModule
           end if
         end if
 
-        if (Spec%GenotypePresent) then
+        if (Spec%GenotypeGiven) then
 
           call This%Gen%Read(File=Spec%GenotypeFile, nLoc=Spec%nLoc)
           write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals with genotypes"
 
-          if (Spec%PedigreePresent) then
+          if (Spec%PedigreeGiven) then
             call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
             block ! @todo make this block a subroutine - it is 99% copied several times?
               integer(int32) :: Ind
@@ -1736,36 +1864,20 @@ module AlphaRelateModule
             end block
           end if
 
-          if (Spec%AlleleFreqPresent) then
+          if (Spec%AlleleFreqGiven) then
             if (Spec%AlleleFreqFixed) then
               This%Gen%AlleleFreq = Spec%AlleleFreqFixedValue
             else
-              block
-                ! @todo: should we make a type for this and simplify reading/writing etc, but would be also to have a map etc.
-                integer(int32) :: Loc, LocMap, Unit
-                open(newunit=Unit, file=trim(Spec%AlleleFreqFile), action="read", status="old")
-                do Loc = 1, This%Gen%nLoc
-                  read(Unit, *) LocMap, This%Gen%AlleleFreq(LocMap)
-                end do
-                close(Unit)
-              end block
+              call This%Gen%ReadAlleleFreq(File=trim(Spec%AlleleFreqFile))
             end if
           end if
-          block
-            integer(int32) :: Loc, Unit
-            open(newunit=Unit, file=trim(Spec%GenotypeFile)//"_AlleleFreq.txt", action="write", status="unknown")
-            do Loc = 1, This%Gen%nLoc
-              write(Unit, "(i, f)") Loc, This%Gen%AlleleFreq(Loc)
-            end do
-            close(Unit)
-          end block
 
         !   This%nTrait = Spec%nTrait
         !   allocate(This%ZMat(This%nAnisG,This%nLoc))
 
         !   ! LocusWeight
         !   allocate(This%LocusWeight(This%nLoc,This%nTrait))
-        !   if (Spec%LocusWeightPresent) then
+        !   if (Spec%LocusWeightGiven) then
         !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), action="read", status="old")
         !     do i = 1, This%nLoc
         !       read(LocusWeightUnit,*) DumC, This%LocusWeight(i,:)
@@ -1774,13 +1886,10 @@ module AlphaRelateModule
         !   else
         !     This%LocusWeight(:,:) = 1.0d0
         !   end if
+
         end if
 
-        if (.not. Spec%PedigreePresent .and. Spec%GenotypePresent) then
-          call This%RecPed%Init(n=This%Gen%nInd)
-        end if
-
-        ! if (Spec%PedigreePresent .and. Spec%GenotypePresent) then
+        ! if (Spec%PedigreeGiven .and. Spec%GenotypeGiven) then
         !   ! These three vectors use the Pedigree animals as base,
         !   ! i.e. after reordering, the index for the nth pedigree animal is n.
         !   allocate(This%MapAnimal(1:(This%nAnisP + This%nAnisG)))
@@ -1858,7 +1967,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteAlphaRelateData(This, Basename)
+      subroutine WriteAlphaRelateData(This, Basename) ! not pure due to IO
         implicit none
         class(AlphaRelateData), intent(in) :: This         !< AlphaRelateData holder
         character(len=*), intent(in), optional :: Basename !< Basename for produced files
@@ -1881,7 +1990,33 @@ module AlphaRelateModule
           end if
         end if
 
+        if (allocated(This%Gen%GenotypeReal)) then
+          if (present(Basename)) then
+            call This%Gen%WriteReal(File=trim(Basename)//"GenotypeReal.txt")
+          else
+            write(STDOUT, "(a)") "Genotype (as real)"
+            call This%Gen%WriteReal
+          end if
+        end if
+
+        if (allocated(This%Gen%AlleleFreq)) then
+          if (present(Basename)) then
+            call This%Gen%WriteAlleleFreq(File=trim(Basename)//"AlleleFreq.txt")
+          else
+            write(STDOUT, "(a)") "Allele frequencies"
+            call This%Gen%WriteAlleleFreq
+          end if
+        end if
+
         ! @todo Write Haplotypes
+        ! if (allocated(This%Hap%OriginalId)) then
+        !   if (present(Basename)) then
+        !     call This%Hap%Write(File=trim(Basename)//"Haplotype.txt")
+        !   else
+        !     write(STDOUT, "(a)") "Haplotype"
+        !     call This%Hap%Write
+        !   end if
+        ! end if
 
         if (allocated(This%PedInbreeding%OriginalId)) then
           if (present(Basename)) then
@@ -1918,7 +2053,33 @@ module AlphaRelateModule
             call This%PedNrmInv%Write
           end if
         end if
-        ! @todo Write Genotypes results
+
+        if (allocated(This%GenInbreeding%OriginalId)) then
+          if (present(Basename)) then
+            call This%GenInbreeding%Write(File=trim(Basename)//"GenInbreeding.txt")
+          else
+            write(STDOUT, "(a)") "Genotype inbreeding"
+            call This%GenInbreeding%Write
+          end if
+        end if
+
+        if (allocated(This%GenNrm%OriginalId)) then
+          if (present(Basename)) then
+            call This%PedNrm%Write(File=trim(Basename)//"GenNrm.txt")
+          else
+            write(STDOUT, "(a)") "Genotype NRM"
+            call This%GenNrm%Write
+          end if
+        end if
+
+        if (allocated(This%GenNrmInv%OriginalId)) then
+          if (present(Basename)) then
+            call This%GenNrmInv%Write(File=trim(Basename)//"GenNrmInv.txt")
+          else
+            write(STDOUT, "(a)") "Genotype NRM inverse"
+            call This%GenNrmInv%Write
+          end if
+        end if
         ! @todo Write Haplotypes results
       end subroutine
 
@@ -1939,12 +2100,855 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
+      !> @brief  Calculate pedigree NRM on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcPedNrm(This, Spec)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+
+        if (Spec%PedNrmSubsetGiven) then
+          ! Using the Colleau/Tier method to get Nrm for a subset of individuals
+          call This%PedNrm%Init(nInd=This%PedNrmSubset%nInd,&
+                                OriginalId=This%PedNrmSubset%OriginalId)
+          This%PedNrm%Id = This%PedNrmSubset%Id
+          block
+            integer(int32) :: Ind, xPos
+            real(real64), allocatable, dimension(:) :: x, NrmCol
+            allocate(     x(0:This%RecPed%nInd))
+            allocate(NrmCol(0:This%RecPed%nInd))
+            call This%CalcPedInbreeding
+            x = 0.0d0
+            ! @todo: this could be run in parallel (is it worth it?; x must be made private!!!)
+            do Ind = 1, This%PedNrm%nInd
+              xPos = This%PedNrmSubset%Id(Ind)
+              x(xPos) = 1.0d0
+              NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+                                         Inbreeding=This%PedInbreeding%Inb, Vector=x)
+              This%PedNrm%Nrm(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
+              x(xPos) = 0.0d0
+            end do
+            deallocate(NrmCol)
+            deallocate(x)
+          end block
+        else if (Spec%PedNrmOldGiven) then
+          ! @todo: this needs work
+          ! @todo: Put this into a block
+          ! type(Nrm) :: OldNrm
+          ! integer(int32) :: Ind, MinOldId, MaxOldId
+          ! logical :: OldIdUnknown
+          ! @todo: read this already in the Data function!!!
+          ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
+          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Nrm, n=OldNrm%nInd)
+          ! MinOldId = 1
+          ! MaxOldId = 1
+          ! OldIdUnknown = .true.
+          ! Ind = 0
+          ! do while (OldIdUnknown)
+          !   Ind = Ind + 1
+          !   if (OldNrm%OriginalId(1)           == This%RecPed%OriginalId(Ind)) then
+          !     MinOldId = Ind
+          !     OldIdUnknown = .false.
+          !   end if
+          ! end do
+          ! OldIdUnknown = .true.
+          ! Ind = 0
+          ! do while (OldIdUnknown)
+          !   Ind = Ind + 1
+          !   if (OldNrm%OriginalId(OldNrm%nInd) == This%RecPed%OriginalId(Ind)) then
+          !     MaxOldId = Ind
+          !     OldIdUnknown = .false.
+          !   end if
+          ! end do
+          !
+          ! This%PedNrm%nInd = This%RecPed%nInd - MaxOldId
+          !
+          ! if (allocated(This%PedNrm%OriginalId)) then
+          !   deallocate(This%PedNrm%OriginalId)
+          ! end if
+          ! allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
+          ! This%PedNrm%OriginalId(0) = EMPTYID
+          ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
+          !
+          ! if (allocated(This%PedNrm%Nrm)) then
+          !   deallocate(This%PedNrm%Nrm)
+          ! end if
+          ! allocate(This%PedNrm%Nrm(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+          !
+          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+          !                                      nNew=This%PedNrm%nInd,&
+          !                                      OldNrm=OldNrm%Nrm, nOld=OldNrm%nInd,&
+          !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
+        else
+          ! Standard method for all individuals
+          call This%PedNrm%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
+          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate pedigree NRM inverse on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcPedNrmInv(This)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        if (.not. allocated(This%PedInbreeding%Inb)) then
+          call This%CalcPedInbreeding
+        end if
+        call This%PedNrmInv%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
+        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
+                                       Inbreeding=This%PedInbreeding%Inb)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate genotype NRM on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcGenNrm(This, Spec)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+
+        call This%GenNrm%Init(nInd=This%Gen%nInd, OriginalId=This%Gen%OriginalId)
+        This%GenNrm%Id = This%Gen%Id
+
+        ! GEMM docs https://software.intel.com/en-us/node/468480
+        ! NOTE: Cov(a|Z) = Cov(Zalpha|Z) = ZVar(alpha)Z', where Z(nInd, nLoc)
+        ! NOTE: Z here is (nLoc, 0:nInd), hence need to compute Z'Z
+
+        select case (trim(Spec%GenNrmType))
+          case ("vanraden1")
+            call This%Gen%CenterGenotypeReal
+            ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
+            !                                                 nInd=This%Gen%nInd,&
+            !                                                 nLoc=This%Gen%nLoc,&
+            !                                                 AlleleFreq=nLoc=This%Gen%AlleleFreq)
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%Gen%AlleleFreq * (1.0d0 - This%Gen%AlleleFreq)))
+
+          case ("vanraden2")
+            call This%Gen%CenterAndScaleGenotypeReal
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
+
+          case ("yang")
+            call This%Gen%CenterAndScaleGenotypeReal
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            ! @todo diagonal fix
+            This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
+
+          ! case ("nejati-javaremi")
+            ! @todo
+
+        end select
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate genotype NRM - VanRaden1 loop on genotype type
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+      pure function GenNrmVanRaden1LoopOnGenotype(GenotypeInput, nInd, nLoc, AlleleFreq) result(Nrm)
+        implicit none
+
+        ! Arguments
+        type(Genotype), intent(in) :: GenotypeInput(0:nInd) !< Genotypes
+        integer(int32), intent(in) :: nInd                  !< Number of individuals
+        integer(int32), intent(in) :: nLoc                  !< Number of loci
+        integer(int32), intent(in) :: AlleleFreq(nLoc)      !< Allele frequencies
+        real(real64) :: Nrm(0:nInd, 0:nInd)                 !< @return Genotype NRM
+
+        integer(int32) :: Ind1, Ind2
+        real(real64) :: Scale, Genotype2(nLoc)
+
+        Scale = 2.0d0 * sum(AlleleFreq * (1.0d0 - AlleleFreq))
+        Nrm(0:nInd, 0) = 0.0d0
+        Nrm(0, 0:nInd) = 0.0d0
+        do Ind2 = 1, nInd
+          Genotype2 = dble(GenotypeInput(Ind2)%ToIntegerArray()) - AlleleFreq
+          Nrm(Ind2, Ind2) = dot(Genotype2, Genotype2) / Scale
+          do Ind1 = Ind2 + 1, nInd
+            Nrm(Ind1, Ind2) = dot(dble(GenotypeInput(Ind1)%ToIntegerArray()) - AlleleFreq, Genotype2) / Scale
+            Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
+          end do
+        end do
+      end function
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! @todo Old code
+
+      ! subroutine MakeGAndInvGMatrix
+      !   implicit none
+
+      !   integer(int32) :: i,j,k,l,m,n,WhichMat
+
+      !   real(real64) :: nLocD, DMatSum, Tmp, Tmp2, Tmp3
+      !   real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
+
+      !   character(len=1000) :: filout,nChar,fmt
+
+      !   allocate(GMat(nAnisG,nAnisG,nGMat))
+      !   allocate(tZMat(nLoc,nAnisG))
+      !   allocate(TmpZMat(nAnisG,nLoc))
+      !   if (LocusWeightGiven) then
+      !     allocate(DMat(nLoc,nLoc))
+      !     DMat(:,:)=0.0d0
+      !   end if
+
+      !   print*, "Start making G - ", trim(GType)
+
+      !   nLocD = dble(nLoc)
+
+      !   ! Center allele dosages (Z)
+      !   if (trim(GType) == "VanRaden"  .or.&
+      !       trim(GType) == "VanRaden1" .or.&
+      !       trim(GType) == "VanRaden2" .or.&
+      !       trim(GType) == "Yang") then
+      !     do j=1,nLoc
+      !       do i=1,nAnisG
+      !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
+      !           ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
+      !         else
+      !           ZMat(i,j)=0.0d0
+      !         end if
+      !       end do
+      !     end do
+      !   end if
+      !   if (trim(GType) == "Nejati-Javaremi" .or.&
+      !       trim(GType) == "Day-Williams") then
+      !     do j=1,nLoc
+      !       do i=1,nAnisG
+      !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
+      !           ZMat(i,j)=Genos(i,j)-1.0d0
+      !         else
+      !           ZMat(i,j)=0.d00 ! @todo: is this OK?
+      !         end if
+      !       end do
+      !     end do
+      !   end if
+      !   ! Scale centered allele dosages
+      !   if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
+      !     do j=1,nLoc
+      !       Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
+      !       if (Tmp > tiny(Tmp)) then
+      !         ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
+      !       end if
+      !     end do
+      !   end if
+
+      !   ! Z'
+      !   tZMat=transpose(ZMat)
+
+      !   WhichMat=0
+      !   do j=1,nTrait
+      !     do i=j,nTrait
+      !       WhichMat=WhichMat+1
+
+      !       ! ZHZ'
+      !       if (LocusWeightGiven) then
+      !         DMatSum=0.0d0
+      !         do k=1,nLoc
+      !           DMat(k,k)=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
+      !           DMatSum=DMatSum+DMat(k,k)
+      !         end do
+      !         ! @todo: use DGEMM equivalent for X * Diagonal
+      !         TmpZMat=matmul(ZMat,DMat)
+      !         ! @todo: use DGEMM
+      !         GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
+      !       else
+      !         ! @todo: use DGEMM
+      !         GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
+      !       end if
+
+      !       ! ZHZ'/Denom
+      !       if (trim(GType) == "VanRaden" .or. trim(GType) == "VanRaden1") then
+      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/(2.0d0*sum(AlleleFreq(:)*(1.0d0-AlleleFreq(:))))
+      !       end if
+      !       if (trim(GType) == "VanRaden2" .or.&
+      !           trim(GType) == "Yang"      .or.&
+      !           trim(GType) == "Nejati-Javaremi") then
+      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocD
+      !       end if
+
+      !       ! Put back scale from [-1,1] to [0,2]
+      !       if (trim(GType) == "Nejati-Javaremi") then
+      !         if (LocusWeightGiven) then
+      !           Tmp=DMatSum/nLocD
+      !         else
+      !           Tmp=1.0d0
+      !         end if
+      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
+      !       end if
+
+      !       ! @todo: needs testing (was getting some weird values)
+      !       ! if (trim(GType) == "Day-Williams") then
+      !       !   Tmp=0.0d0
+      !       !   do k=1,nLoc
+      !       !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
+      !       !   end do
+      !       !   do k=1,nAnisG
+      !       !     do l=1,nAnisG
+      !       !       ! @todo: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
+      !       !       !       which is faster?
+      !       !       ! GMat(l,k,WhichMat)+nLoc is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
+      !       !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
+      !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocD)/2.0d0-Tmp)/(nLocD-Tmp)
+      !       !     end do
+      !       !   end do
+      !       ! end if
+
+      !       ! Different diagonal for Yang altogether
+      !       if (trim(GType) == "Yang") then
+      !         do l=1,nAnisG
+      !           GMat(l,l,WhichMat)=0.0d0
+      !         end do
+      !         do k=1,nLoc
+      !           Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
+      !           if (Tmp > tiny(Tmp)) then
+      !             if (LocusWeightGiven) then
+      !               Tmp2=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
+      !             else
+      !               Tmp2=1.0d0
+      !             end if
+      !             do l=1,nAnisG
+      !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocD
+      !               GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
+      !             end do
+      !           end if
+      !         end do
+      !       end if
+
+      !       ! Fudge diagonal
+      !       do l=1,nAnisG
+      !         GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
+      !       end do
+
+      !       ! Export etc.
+      !       if (GFullMat) then
+      !         write(filout,'("GFullMatrix"i0,"-"i0".txt")')i,j
+      !         write(nChar,*) nAnisG
+      !         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+      !         open(unit=202,file=trim(filout),status="unknown")
+      !         do m=1,nAnisG
+      !           write(202,fmt) IdGeno(m),GMat(:,m,WhichMat)
+      !         end do
+      !         close(202)
+      !       end if
+
+      !       if (GIJA) then
+      !         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
+      !         write(filout,'("Gija"i0,"-"i0".txt")')i,j
+      !         open(unit=202,file=trim(filout),status="unknown")
+      !         do m=1,nAnisG
+      !           do n=m,nAnisG
+      !             ! No test for non-zero here as all elements are non-zero
+      !             write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,WhichMat)
+      !           end do
+      !         end do
+      !         close(202)
+      !       end if
+
+      !       if (MakeInvG) then
+      !         allocate(InvGMat(nAnisG,nAnisG,nGMat))
+
+      !         print*, "Start inverting G - ", trim(GType)
+      !         InvGMat(:,:,WhichMat)=GMat(:,:,WhichMat)
+      !         call invert(InvGMat(:,:,WhichMat),nAnisG,.true., 1)
+
+      !         print*, "Finished inverting G - ", trim(GType)
+
+      !         if (InvGFullMat) then
+      !           write(nChar,*) nAnisG
+      !           fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+      !           write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
+      !           open(unit=202,file=trim(filout),status="unknown")
+      !           do m=1,nAnisG
+      !             write(202,fmt) IdGeno(m),InvGMat(:,m,WhichMat)
+      !           end do
+      !           close(202)
+      !         end if
+
+      !         if (InvGIJA) then
+      !           write(filout,'("InvGija"i0,"-"i0".txt")')i,j
+      !           fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
+      !           open(unit=202,file=trim(filout),status="unknown")
+      !           do m=1,nAnisG
+      !             do n=m,nAnisG
+      !               write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,WhichMat)
+      !             end do
+      !           end do
+      !           close(202)
+      !         end if
+      !       end if
+
+      !     end do
+      !   end do
+      !   deallocate(tZMat)
+      !   deallocate(TmpZMat)
+      !   print*, "Finished making G - ", trim(GType)
+      ! end subroutine
+
+      !###########################################################################
+
+      ! subroutine MakeHAndInvHMatrix
+      !   ! Feature added by Stefan Hoj-Edwards, February 2016
+      !   ! Making the Inverse H matrix ala Aguilar et al 201? and Christensen 2012
+
+      !   ! Prerequisite and assumptions for this subroutine:
+      !   ! There is given both a pedigree and genotype file, and there is an overlap
+      !   ! of animals between two data sets.
+      !   ! Diagonals of from both A have been collected during MakeA and MakeG,
+      !   ! as well as average of A22.
+      !   ! GMat is already calculated and loaded in memory.
+      !   ! InvA is calculated an loaded into memory.
+      !   !
+      !   ! Further assumes that animals are ordered the same in both A and G.
+
+      !   implicit none
+
+      !   integer(int32) :: i,j,k,m,p,q,div,t1,t2,whichMat,nBoth
+      !   integer(int32),allocatable :: MapToA11(:), MapToA22(:) !Gmap(:),
+
+      !   real(real64) :: GMatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
+      !   real(real64),allocatable :: Gdiag(:), Hrow(:), A22(:,:), InvA22(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
+
+      !   character(len=1000) :: nChar,fmt1, fmt2,filout
+      !   character(len=IDLENGTH),allocatable :: Ids(:)
+
+      !   logical,allocatable :: AnimToWrite(:)
+
+      !   nboth = count(AnimalsInBoth)
+      !   ! Make H and/or InvH
+      !   allocate(Ids(1:nAnisH))
+      !   allocate(AnimToWrite(1:nAnisH))
+
+      !   do i=1,nAnisH
+      !     if (MapToG(i)) then
+      !       Ids(i) = IdGeno(MapAnimal(i))
+      !       AnimToWrite(i) = .true.
+      !     else
+      !       Ids(i) = Id(MapAnimal(i))
+      !       AnimToWrite(i) = RecPed(MapAnimal(i),4)
+      !     end if
+      !   end do
+
+      !   allocate(InvA22(nBoth,nBoth))
+      !   allocate(MapToA22(nAnisH))
+      !   if (MakeH) then
+      !     allocate(A22(nBoth,nBoth))
+      !   end if
+
+      !   k = 0
+      !   do i=1,nAnisP
+      !     if (.not. AnimalsInBoth(i)) then
+      !       cycle
+      !     end if
+      !     k = k + 1
+      !     MapToA22(i) = k
+      !     m = 0
+      !     do j=1,nAnisP
+      !       if (.not. AnimalsInBoth(j)) then
+      !         cycle
+      !       end if
+      !       m = m + 1
+      !       InvA22(m,k) = AMat(j,i)
+      !     end do
+      !   end do
+      !   if (MakeH) then
+      !     A22 = InvA22
+      !   end if
+
+      !   call invert(InvA22,size(InvA22,1),.true.,1)
+
+      !   ! This is the G matrix in Legarra,
+      !   ! Sadly, no genotypes where provided, instead the resulting G matrix was.
+      !   if (.false.) then
+      !     print *, "Overwriting G matrix with example in Legarra 2008!"
+      !     do i=1,nAnisG
+      !       do j=1,nAnisG
+      !         if (i==j) then
+      !           GMat(i,j,1) = 1
+      !         else
+      !           GMat(i,j,1) = 0.7
+      !         end if
+      !       end do
+      !     end do
+      !   end if
+
+      !   whichMat = 0
+      !   do t1=1,nTrait
+      !     do t2=t1,nTrait
+      !       whichMat = whichMat + 1
+
+      !       write(*, '(" Starting on H matrix "i0" - "i0)') t1, t2
+
+      !       ! Collect G22
+      !       allocate(G22(nAnisG,nAnisG))
+
+      !       G22 = 0.0d0
+      !       do j=1,nAnisG
+      !         do i=1,nAnisG
+      !           nom = GMat(i,j,whichMat)
+      !           if (i == j) then
+      !             nom = nom - DiagFudge
+      !           end if
+      !           G22(i,j) = nom
+      !         end do
+      !       end do
+
+      !       if (ScaleGByRegression) then
+      !         allocate(Gdiag(0:nBoth))
+      !         Gdiag=0.0d0
+      !         GMatavg=0.0d0
+      !         div=dble(nBoth**2)
+      !         !allocate(Gmap(nBoth))
+
+      !         k = 0
+      !         do i=1,nAnisH
+      !           if (.not. AnimalsInBoth(i)) then
+      !             cycle
+      !           end if
+      !           k = k+1
+      !           Gdiag(k) = G22(MapAnimal(i),MapAnimal(i))
+      !           do j=1,nAnisH
+      !             if (.not. AnimalsInBoth(j)) then
+      !               cycle
+      !             end if
+      !             GMatavg=GMatavg + G22(MapAnimal(j),MapAnimal(i))/div
+      !           end do
+      !         end do
+      !         Gdiag(0) = GMatavg
+
+      !         ! Now do simple linear regression
+      !         nom = 0.0d0
+      !         denom = 0.0d0
+      !         Gmean = sum(Gdiag) / dble(size(Gdiag, 1))
+      !         Amean = sum(Adiag) / dble(size(Adiag, 1))
+      !         do i=0,ubound(Adiag, 1)
+      !           nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
+      !           denom = denom + (Adiag(i) - Amean)**2
+      !         end do
+      !         slope = nom / denom
+      !         intercept = Amean - slope * Gmean
+
+      !         ! Scale G
+      !         G22 = slope * G22 + intercept
+      !         !do i=1,nAnisG
+      !         ! G22(i,i) = G22(i,i) + DiagFudge
+      !         !end do
+      !         print *, "Scaling of G:"
+      !         write(*, "(a,f7.4,a,f7.4)"), " G* = G x ", slope, " + ", intercept
+      !         deallocate(Gdiag)
+      !       else
+      !         do i=1,nAnisH
+      !           if (.not. MapToG(i)) then
+      !             cycle
+      !           end if
+      !           do j=1,nAnisH
+      !             if (.not. MapToG(j)) then
+      !               cycle
+      !             end if
+      !             if (AnimalsInBoth(i) .and. AnimalsInBoth(j)) then
+      !               G22(MapAnimal(j),MapAnimal(i)) = ScaleGToA * G22(MapAnimal(j),MapAnimal(i)) + (1.0d0 - ScaleGToA) * AMat(j,i)
+      !             end if
+      !           end do
+      !         end do
+      !       end if
+
+      !       do i=1,nAnisG
+      !         G22(i,i) = G22(i,i) + DiagFudge
+      !       end do
+
+      !       allocate(Hrow(1:count(AnimToWrite)))
+
+      !       if (MakeH) then
+
+      !         allocate(A11(nAnisP-nBoth, nAnisP-nBoth))
+      !         allocate(A12(nAnisP-nBoth, nBoth))
+      !         allocate(MapToA11(nAnisP))
+      !         allocate(tmp(nAnisP-nBoth, nBoth))
+      !         allocate(Gboth(nBoth,nBoth))
+
+      !         MapToA11 = 0
+      !         k = 0
+      !         p = 0
+      !         do i=1,nAnisP
+      !           if (AnimalsInBoth(i)) then
+      !             p = p + 1
+      !             q = 0
+      !             do j=1,nAnisP
+      !               if (.not. AnimalsInBoth(j)) then
+      !                 cycle
+      !               end if
+      !               q = q + 1
+      !               Gboth(q,p) = G22(MapAnimal(j),MapAnimal(i))
+      !             end do
+      !           else
+      !             k = k+1
+      !             m = 0
+      !             MapToA11(i) = k
+      !             do j=1,nAnisP
+      !               if (AnimalsInBoth(j)) then
+      !                 A12(k,MapAnimal(j)) = AMat(j,i)  !A12 is not symmetrical
+      !               else
+      !                 m = m+1
+      !                 A11(m,k) = AMat(j,i)
+      !               end if
+      !             end do
+      !           end if
+      !         end do
+
+      !         ! @todo: use DGEMM
+      !         tmp = matmul(A12, InvA22)
+      !         !tmp = matmul(matmul(tmp, (Gboth - A22)), transpose(tmp))
+      !         tmp = matmul(tmp, (Gboth-A22))
+      !         tmp = matmul(tmp, InvA22)
+      !         !tmp = matmul(tmp, transpose(A12))
+
+      !         A11 = A11 + matmul(tmp, transpose(A12))
+      !         A12 = matmul(matmul(A12, InvA22), Gboth)
+
+      !         deallocate(tmp)
+      !         deallocate(Gboth)
+
+      !         print *, "Start writing H matrices (full and/or ija)"
+
+      !         if (HFullMat) then
+      !           write(filout,'("HFullMatrix"i0,"-"i0".txt")') t1,t2
+      !           write(nChar,*) nAnisH
+      !           fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+      !           open(unit=202,file=trim(filout),status="unknown")
+      !         end if
+
+      !         if (HIJA) then
+      !           write(filout,'("Hija"i0,"-"i0".txt")') t1,t2
+      !           fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
+      !           open(unit=204,file=trim(filout),status="unknown")
+      !         end if
+
+      !         do i=1,nAnisH
+      !           if (AnimToWrite(i) .eq. .false.) then
+      !             cycle
+      !           end if
+      !           Hrow = 0
+      !           k = 0
+      !           do j=1,nAnisH
+      !             if (AnimToWrite(j) .eq. .false.) then
+      !               cycle
+      !             end if
+      !             k = k + 1
+      !             if (MapToG(i)) then
+      !               if (MapToG(j)) then
+      !                 Hii = G22(MapAnimal(i),MapAnimal(j))
+      !               else
+      !                 Hii = A12(MapToA11(j),MapAnimal(i)) ! Remember to transpose
+      !               end if
+      !             else
+      !               if (MapToG(j)) then
+      !                 Hii = A12(MapToA11(i),MapAnimal(j))
+      !               else
+      !                 Hii = A11(MapToA11(i),MapToA11(j))
+      !               end if
+      !             end if
+      !             if (InvHIJA .and. i .le. j .and. Hii /= 0.0d0) then
+      !               write(204,fmt2) Ids(i), Ids(j), Hii
+      !             end if
+      !             Hrow(k) = Hii
+      !           end do
+      !           if (HFullMat) then
+      !             write(202,fmt1) Ids(i),Hrow(:)
+      !           end if
+      !         end do
+
+      !         if (HFullMat) then
+      !           close(202)
+      !         end if
+      !         if (HIJA) then
+      !           close(204)
+      !         end if
+
+      !         print *, "End writing H matrices"
+
+      !       end if
+
+      !       if (MakeInvH) then
+      !         print *, "Start inverting scaled G matrix"
+      !         call invert(G22, size(G22, 1), .true., 1)
+
+      !         !print *, "Gw inverted"
+      !         !write(fmt2, "(i0)") size(G22,1)
+      !         !fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
+      !         !do i=1,size(G22,1)
+      !         ! write(*,fmt1) IdGeno(i), G22(i,:)
+      !         !end do
+
+      !         !print *, "A22 inverted"
+      !         !do i=1,size(G22,1)
+      !         ! write(*,fmt1) IdGeno(i), InvA22(i,:)
+      !         !end do
+
+      !         !print *, "InvA(22)"
+      !         !do i=1,size(G22,1)
+      !         ! j = i+10
+      !         ! write(*,fmt1) Ids(j), InvAMat(j,11:25)
+      !         !end do
+
+      !         print *, "End inverting scaled G matrix"
+
+      !         print *, "Start writing inverted H matrices (full and/or ija)"
+
+      !         if (InvHFullMat) then
+      !           write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
+      !           write(nChar,*) nAnisH
+      !           fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
+      !           open(unit=202,file=trim(filout),status="unknown")
+      !         end if
+
+      !         if (InvHIJA) then
+      !           write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
+      !           fmt2="(a,' ',a,' ',"//trim(adjustl(OutputFormat))//")"
+      !           open(unit=204,file=trim(filout),status="unknown")
+      !         end if
+
+      !         do i=1,nAnisH
+      !           if (AnimToWrite(i) .eq. .false.) then
+      !             cycle
+      !           end if
+      !           Hrow = 0
+      !           k = 0
+      !           do j=1,nAnisH
+      !             if (AnimToWrite(j) .eq. .false.) then
+      !               cycle
+      !             end if
+      !             k = k + 1
+      !             if (MapToG(i) .and. MapToG(j)) then
+      !               Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
+      !               if (i <= nAnisP .and. j <= nAnisP) then
+      !                 Hrow(k) = Hrow(k) + InvAMat(i,j) - InvA22(MapToA22(i),MapToA22(j))
+      !               end if
+      !             else if (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.  ) then
+      !               Hrow(k) = InvAMat(i,j)
+      !             end if
+      !             if (InvHIJA .and. i .le. j .and. Hrow(k) /= 0.0d0) then
+      !               write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k)
+      !             end if
+      !           end do
+      !           if (InvHFullMat) then
+      !             write(202,fmt1) Ids(i),Hrow(:)
+      !           end if
+      !         end do
+
+      !         if (InvHFullMat) then
+      !           close(202)
+      !         end if
+      !         if (InvHIJA) then
+      !           close(204)
+      !         end if
+      !         print *, "End writing inverted H matrices (full and ija)"
+
+      !       end if
+
+      !       deallocate(Hrow)
+      !       deallocate(G22)
+      !     end do
+      !   end do
+      !   deallocate(Ids)
+      ! end subroutine
+
+      !###########################################################################
+
+      ! subroutine invert(x,n,sym, method)
+
+      !   ! Interface to call inverse subroutines from BLAS/LAPACK libraries
+
+      !   ! x symmetric positive-definite matrix to be inverted
+      !   ! n matrix dimension
+      !   ! sym return lower-triangular (sym=.false) or full matrix (sym=.true.)
+      !   ! method for inversion
+      !   ! 0 -- Generalised solving using LU decomposition (dgetrs)
+      !   ! 1 -- Cholesky decomposition
+
+      !   implicit none
+      !   integer(int32), intent(in) :: n,method
+      !   integer(int32) :: i,j,info
+
+      !   real(real64),intent(inout) :: x(n,n)
+      !   real(real64),allocatable :: Iden(:,:)
+
+      !   logical, intent(in) :: sym
+
+      !   if (method == 0) then
+      !     !Solves a general system of linear equations AX=B, A**T X=B or A**H X=B, using the LU factorization computed by SGETRF/CGETRF
+      !     !http://physics.oregonstate.edu/~rubin/nacphy/lapack/routines/dgetrs.html
+
+      !     allocate(Iden(n,n))
+      !     ForAll(i = 1:n, j = 1:n) Iden(i,j) = (i/j)*(j/i)  !https://rosettacode.org/wiki/Identity_matrix#Notorious_trick
+
+      !     !https://software.intel.com/en-us/node/468712
+      !     !Solves a system of linear equations with an LU-factored square coefficient matrix, with multiple right-hand sides.
+      !     ! dgetrs(trans,n,nrhs,A,b,lda,ldb,info)
+      !     !Output: Solution overwrites `b`.
+      !     call dgetrs("N",n,n,x,Iden,n,n,info)
+      !     if (info /= 0) then
+      !       print *, "Matrix not positive-definite - info",info
+      !       stop 1
+      !     end if
+
+      !     x(:,:) = Iden(:,:)
+
+      !   else if (method == 1) then
+
+      !     ! Computes the Cholesky factorization of a symmetric positive definite matrix
+      !     ! https://software.intel.com/en-us/node/468690
+      !     call dpotrf("L",n,x,n,info)
+      !     if (info /= 0) then
+      !       print*,"Matrix not positive-definite - info",info
+      !       stop 1
+      !     end if
+
+      !     ! Computes the inverse of a symmetric positive definite matrix,
+      !     !   using the Cholesky factorization computed by dpotrf()
+      !     ! https://software.intel.com/en-us/node/468824
+      !     call dpotri("L",n,x,n,info)
+      !     if (info /= 0) then
+      !      print*,"Matrix not positive-definite - info",info
+      !      stop 1
+      !     end if
+
+      !     ! Fills the upper triangle
+      !     if (sym) then
+      !       forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
+      !     end if
+
+      !   end if
+      ! end subroutine
+
+    !###########################################################################
+
+    ! Functions
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
       !> @brief  Calculate pedigree inbreeding using the Meuwissen and
       !!         Luo (1992, GSE 24: 305-313) method
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-! @todo move to Functions section
       pure function PedInbreeding(RecPed, n) result(f)
         implicit none
 
@@ -2023,102 +3027,10 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Calculate pedigree NRM on AlphaRelateData
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   December 22, 2016
-      !-------------------------------------------------------------------------
-      pure subroutine CalcPedNrm(This, Spec)
-        implicit none
-        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
-
-        if (Spec%PedNrmSubsetPresent) then
-          ! Using the Colleau/Tier method to get Nrm for a subset of individuals
-          call This%PedNrm%Init(nInd=This%PedNrmSubset%nInd,&
-                                OriginalId=This%PedNrmSubset%OriginalId)
-          This%PedNrm%Id = This%PedNrmSubset%Id
-          block
-            integer(int32) :: Ind, xPos
-            real(real64), allocatable, dimension(:) :: x, NrmCol
-            allocate(     x(0:This%RecPed%nInd))
-            allocate(NrmCol(0:This%RecPed%nInd))
-            call This%CalcPedInbreeding
-            x = 0.0d0
-            ! @todo: this could be run in parallel (is it worth it?; x must be made private!!!)
-            do Ind = 1, This%PedNrm%nInd
-              xPos = This%PedNrmSubset%Id(Ind)
-              x(xPos) = 1.0d0
-              NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
-                                         Inbreeding=This%PedInbreeding%Inb, Vector=x)
-              This%PedNrm%Nrm(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
-              x(xPos) = 0.0d0
-            end do
-            deallocate(NrmCol)
-            deallocate(x)
-          end block
-        else if (Spec%PedNrmOldPresent) then
-          ! @todo: this needs work
-          ! @todo: Put this into a block
-          ! type(Nrm) :: OldNrm
-          ! integer(int32) :: Ind, MinOldId, MaxOldId
-          ! logical :: OldIdUnknown
-          ! @todo: read this already in the Data function!!!
-          ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
-          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Nrm, n=OldNrm%nInd)
-          ! MinOldId = 1
-          ! MaxOldId = 1
-          ! OldIdUnknown = .true.
-          ! Ind = 0
-          ! do while (OldIdUnknown)
-          !   Ind = Ind + 1
-          !   if (OldNrm%OriginalId(1)           == This%RecPed%OriginalId(Ind)) then
-          !     MinOldId = Ind
-          !     OldIdUnknown = .false.
-          !   end if
-          ! end do
-          ! OldIdUnknown = .true.
-          ! Ind = 0
-          ! do while (OldIdUnknown)
-          !   Ind = Ind + 1
-          !   if (OldNrm%OriginalId(OldNrm%nInd) == This%RecPed%OriginalId(Ind)) then
-          !     MaxOldId = Ind
-          !     OldIdUnknown = .false.
-          !   end if
-          ! end do
-          !
-          ! This%PedNrm%nInd = This%RecPed%nInd - MaxOldId
-          !
-          ! if (allocated(This%PedNrm%OriginalId)) then
-          !   deallocate(This%PedNrm%OriginalId)
-          ! end if
-          ! allocate(This%PedNrm%OriginalId(0:This%PedNrm%nInd))
-          ! This%PedNrm%OriginalId(0) = EMPTYID
-          ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
-          !
-          ! if (allocated(This%PedNrm%Nrm)) then
-          !   deallocate(This%PedNrm%Nrm)
-          ! end if
-          ! allocate(This%PedNrm%Nrm(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
-          !
-          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
-          !                                      nNew=This%PedNrm%nInd,&
-          !                                      OldNrm=OldNrm%Nrm, nOld=OldNrm%nInd,&
-          !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
-        else
-          ! Standard method for all individuals
-          call This%PedNrm%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
-          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
-        end if
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
       !> @brief  Calculate pedigree NRM
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-! @todo move to Functions section
       pure function PedNrm(RecPed, n) result(Nrm)
         implicit none
 
@@ -2151,7 +3063,6 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 31, 2016
       !-------------------------------------------------------------------------
-! @todo move to Functions section
       pure function PedNrmTimesVector(RecPed, n, Inbreeding, Vector) result(Result)
         implicit none
 
@@ -2271,29 +3182,10 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Calculate pedigree NRM inverse on AlphaRelateData
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   December 22, 2016
-      !-------------------------------------------------------------------------
-      pure subroutine CalcPedNrmInv(This)
-        implicit none
-        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-        if (.not. allocated(This%PedInbreeding%Inb)) then
-          call This%CalcPedInbreeding
-        end if
-        call This%PedNrmInv%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
-        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
-                                       Inbreeding=This%PedInbreeding%Inb)
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
       !> @brief  Calculate pedigree NRM inverse
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-! @todo move to Functions section
       pure function PedNrmInv(RecPed, n, Inbreeding) result(NrmInv)
         implicit none
 
@@ -2338,828 +3230,7 @@ module AlphaRelateModule
 
       !#########################################################################
 
-      ! @todo: is this usefull when dealing with the single-step H matrix?
-      !   if (InvAFullMat) then
-      !     AnimToWrite = RecPed(1:nAnisP,4) == 1
-      !     s = count(AnimToWrite)
-      !     write(*,"(a40,i6,a11)") " Start writing A inverse full matrix for", s," individuals"
-      !     write(nChar,*) s
-      !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-      !     open(unit=202,file="InvAFullMatrix.txt",status="unknown")
-      !     do m=1,nAnisP
-      !       if (AnimToWrite(m)) then
-      !         write(202,fmt) Id(m), pack(InvAMat(1:nAnisP,m), AnimToWrite)
-      !       end if
-      !     end do
-      !     close(202)
-      !     print*, "End writing A inverse full matrix"
-      !   end if
-
-      !   if (AFullMat) then
-      !     AnimToWrite = RecPed(1:nAnisP,4) == 1
-      !     s = count(AnimToWrite)
-      !     write(*,"(a32,i6,a11)") " Start writing A full matrix for", s," individuals"
-      !     write(nChar,*) s
-      !     fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-      !     open(unit=202,file="AFullMatrix.txt",status="unknown")
-      !     if (.not.OldAMatPresent) then
-      !       do m=1,nAnisP
-      !         if (AnimToWrite(m)) then
-      !           write(202,fmt) Id(m), pack(AMat(1:nAnisP,m), AnimToWrite)
-      !         end if
-      !       end do
-      !     else
-      !       Start = OldAMatNInd+1
-      !       Endin = size(AMat,1)
-      !       do m=Start,Endin
-      !         !write(*,fmt)   Id(m+MinId-1), AMat(Start:Endin,m)
-      !         write(202,fmt) Id(m+MinId-1), AMat(Start:Endin,m)
-      !       end do
-      !     end if
-      !     close(202)
-      !     print*, "End writing A full matrix"
-      !   end if
-
-      !   ! Record diagonals of animals in both A and G:
-      !   if ((MakeH .or. MakeInvH) .and. ScaleGByRegression) then
-      !     n = Count(AnimalsInBoth)
-      !     allocate(Adiag(0:n))
-      !     div = dble(n**2)
-      !     AMatAvg = 0.0d0
-      !     k = 0
-      !     do i = 1,nAnisP
-      !       if (.not. AnimalsInBoth(i)) then
-      !         cycle
-      !       end if
-      !       k = k + 1
-      !       Adiag(k) = AMat(i,i)
-      !       do j=1,nAnisP
-      !         if (AnimalsInBoth(j)) then
-      !           AMatAvg=AMatAvg + AMat(j,i) * 2.0d0 / div
-      !         end if
-      !       end do
-      !     end do
-      !     Adiag(0) = AMatAvg
-      !   end if
-      ! end subroutine
-
-      !#########################################################################
-
-    !   !-------------------------------------------------------------------------
-    !   !> @brief  Calculate genotype NRM on AlphaRelateData
-    !   !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !   !> @date   January 9, 2016
-    !   !-------------------------------------------------------------------------
-    !   ! pure subroutine CalcGenNrm(This, Spec)
-    !   ! ! subroutine CalcGenNrm(This, Spec) ! not pure because of dgemm()
-    !   !   implicit none
-    !   !   class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-    !   !   type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
-
-    !   !   integer(int32) :: Ind
-
-    !   !   call This%GenNrm%Init(nInd=This%Gen%nInd, OriginalId=This%Gen%OriginalId)
-    !   !   This%GenNrm%Id = This%Gen%Id
-
-    !   !   ! GEMM docs https://software.intel.com/en-us/node/468480
-    !   !   ! NOTE: Cov(a|Z) = Cov(Zalpha|Z) = ZVar(alpha)Z', where Z(nInd, nLoc)
-    !   !   ! NOTE: Z here is (nLoc, 0:nInd), hence need to compute Z'Z
-
-    !   !   select case (trim(Spec%GenNrmType))
-    !   !     case ("vanraden1")
-    !   !       if (.not. allocated(This%Gen%GenotypeReal)) then
-    !   !         call This%Gen%MakeGenotypeReal
-    !   !       end if
-    !   !       if (.not. allocated(This%Gen%AlleleFreq)) then
-    !   !         call This%Gen%CalcAlleleFreq
-    !   !       end if
-    !   !       call This%Gen%CenterGenotypeReal
-    !   !       ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
-    !   !       !                                                 nInd=This%Gen%nInd,&
-    !   !       !                                                 nLoc=This%Gen%nLoc,&
-    !   !       !                                                 AlleleFreq=nLoc=This%Gen%AlleleFreq)
-    !   !       ! call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-    !   !       ! do Ind = 0, This%GenNrm%nInd
-    !   !       !   print*,This%GenNrm%Nrm(0:This%GenNrm%nInd, Ind)
-    !   !       ! end do
-    !   !       This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%Gen%AlleleFreq * (1.0d0 - This%Gen%AlleleFreq)))
-
-    !   !     case ("vanraden2")
-    !   !       if (.not. allocated(This%Gen%GenotypeReal)) then
-    !   !         call This%Gen%MakeGenotypeReal
-    !   !       end if
-    !   !       if (.not. allocated(This%Gen%AlleleFreq)) then
-    !   !         call This%Gen%CalcAlleleFreq
-    !   !       end if
-    !   !       call This%Gen%CenterAndScaleGenotypeReal
-    !   !       ! call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-    !   !       ! do Ind = 0, This%GenNrm%nInd
-    !   !       !   print*,This%GenNrm%Nrm(0:This%GenNrm%nInd, Ind)
-    !   !       ! end do
-    !   !       This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
-
-    !   !     case ("yang")
-    !   !       if (.not. allocated(This%Gen%GenotypeReal)) then
-    !   !         call This%Gen%MakeGenotypeReal
-    !   !       end if
-    !   !       if (.not. allocated(This%Gen%AlleleFreq)) then
-    !   !         call This%Gen%CalcAlleleFreq
-    !   !       end if
-    !   !       call This%Gen%CenterAndScaleGenotypeReal
-    !   !       ! call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-    !   !       ! do Ind = 0, This%GenNrm%nInd
-    !   !       !   print*,This%GenNrm%Nrm(0:This%GenNrm%nInd, Ind)
-    !   !       ! end do
-    !   !       This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
-
-    !   !     ! case ("nejati-javaremi")
-    !   !       ! @todo
-
-    !   !   end select
-    !   ! end subroutine
-
-    !   !#########################################################################
-
-    !   !-------------------------------------------------------------------------
-    !   !> @brief  Calculate genotype NRM - VanRaden1 loop on genotype type
-    !   !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !   !> @date   January 9, 2016
-    !   !-------------------------------------------------------------------------
-    !   pure function GenNrmVanRaden1LoopOnGenotype(GenotypeInput, nInd, nLoc, AlleleFreq) result(Nrm)
-    !   ! function GenNrmVanRaden1LoopOnGenotype(GenotypeInput, nInd, nLoc, AlleleFreq) result(Nrm) ! not pure because of ddot()
-    !     implicit none
-
-    !     ! Arguments
-    !     type(Genotype), intent(in) :: GenotypeInput(0:nInd) !< Genotypes
-    !     integer(int32), intent(in) :: nInd                  !< Number of individuals
-    !     integer(int32), intent(in) :: nLoc                  !< Number of loci
-    !     integer(int32), intent(in) :: AlleleFreq(nLoc)      !< Allele frequencies
-    !     real(real64) :: Nrm(0:nInd, 0:nInd)                 !< @return Genotype NRM
-
-    !     integer(int32) :: Ind1, Ind2
-    !     real(real64) :: Scale, Genotype2(nLoc)
-
-    !     Scale = 2.0d0 * sum(AlleleFreq * (1.0d0 - AlleleFreq))
-    !     Nrm(0:nInd, 0) = 0.0d0
-    !     Nrm(0, 0:nInd) = 0.0d0
-    !     do Ind2 = 1, nInd
-    !       Genotype2 = dble(GenotypeInput(Ind2)%ToIntegerArray) - AlleleFreq
-    !       ! Nrm(Ind2, Ind2) = dot(Genotype2, Genotype2) / Scale
-    !       do Ind1 = Ind2 + 1, nInd
-    !         ! Nrm(Ind1, Ind2) = dot(dble(GenotypeInput(Ind1)%ToIntegerArray) - AlleleFreq, Genotype2) / Scale
-    !         Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
-    !       end do
-    !     end do
-    !   end function
-
-    !   !###########################################################################
-    !   ! subroutine MakeGAndInvGMatrix
-    !   !   implicit none
-
-    !   !   integer(int32) :: i,j,k,l,m,n,WhichMat
-
-    !   !   real(real64) :: nLocD, DMatSum, Tmp, Tmp2, Tmp3
-    !   !   real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
-
-    !   !   character(len=1000) :: filout,nChar,fmt
-
-    !   !   allocate(GMat(nAnisG,nAnisG,nGMat))
-    !   !   allocate(tZMat(nLoc,nAnisG))
-    !   !   allocate(TmpZMat(nAnisG,nLoc))
-    !   !   if (LocusWeightPresent) then
-    !   !     allocate(DMat(nLoc,nLoc))
-    !   !     DMat(:,:)=0.0d0
-    !   !   end if
-
-    !   !   print*, "Start making G - ", trim(GType)
-
-    !   !   nLocD = dble(nLoc)
-
-    !   !   ! Center allele dosages (Z)
-    !   !   if (trim(GType) == "VanRaden"  .or.&
-    !   !       trim(GType) == "VanRaden1" .or.&
-    !   !       trim(GType) == "VanRaden2" .or.&
-    !   !       trim(GType) == "Yang") then
-    !   !     do j=1,nLoc
-    !   !       do i=1,nAnisG
-    !   !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-    !   !           ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
-    !   !         else
-    !   !           ZMat(i,j)=0.0d0
-    !   !         end if
-    !   !       end do
-    !   !     end do
-    !   !   end if
-    !   !   if (trim(GType) == "Nejati-Javaremi" .or.&
-    !   !       trim(GType) == "Day-Williams") then
-    !   !     do j=1,nLoc
-    !   !       do i=1,nAnisG
-    !   !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-    !   !           ZMat(i,j)=Genos(i,j)-1.0d0
-    !   !         else
-    !   !           ZMat(i,j)=0.d00 ! @todo: is this OK?
-    !   !         end if
-    !   !       end do
-    !   !     end do
-    !   !   end if
-    !   !   ! Scale centered allele dosages
-    !   !   if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
-    !   !     do j=1,nLoc
-    !   !       Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
-    !   !       if (Tmp > tiny(Tmp)) then
-    !   !         ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
-    !   !       end if
-    !   !     end do
-    !   !   end if
-
-    !   !   ! Z'
-    !   !   tZMat=transpose(ZMat)
-
-    !   !   WhichMat=0
-    !   !   do j=1,nTrait
-    !   !     do i=j,nTrait
-    !   !       WhichMat=WhichMat+1
-
-    !   !       ! ZHZ'
-    !   !       if (LocusWeightPresent) then
-    !   !         DMatSum=0.0d0
-    !   !         do k=1,nLoc
-    !   !           DMat(k,k)=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
-    !   !           DMatSum=DMatSum+DMat(k,k)
-    !   !         end do
-    !   !         ! @todo: use DGEMM equivalent for X * Diagonal
-    !   !         TmpZMat=matmul(ZMat,DMat)
-    !   !         ! @todo: use DGEMM
-    !   !         GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
-    !   !       else
-    !   !         ! @todo: use DGEMM
-    !   !         GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
-    !   !       end if
-
-    !   !       ! ZHZ'/Denom
-    !   !       if (trim(GType) == "VanRaden" .or. trim(GType) == "VanRaden1") then
-    !   !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/(2.0d0*sum(AlleleFreq(:)*(1.0d0-AlleleFreq(:))))
-    !   !       end if
-    !   !       if (trim(GType) == "VanRaden2" .or.&
-    !   !           trim(GType) == "Yang"      .or.&
-    !   !           trim(GType) == "Nejati-Javaremi") then
-    !   !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocD
-    !   !       end if
-
-    !   !       ! Put back scale from [-1,1] to [0,2]
-    !   !       if (trim(GType) == "Nejati-Javaremi") then
-    !   !         if (LocusWeightPresent) then
-    !   !           Tmp=DMatSum/nLocD
-    !   !         else
-    !   !           Tmp=1.0d0
-    !   !         end if
-    !   !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
-    !   !       end if
-
-    !   !       ! @todo: needs testing (was getting some weird values)
-    !   !       ! if (trim(GType) == "Day-Williams") then
-    !   !       !   Tmp=0.0d0
-    !   !       !   do k=1,nLoc
-    !   !       !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
-    !   !       !   end do
-    !   !       !   do k=1,nAnisG
-    !   !       !     do l=1,nAnisG
-    !   !       !       ! @todo: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
-    !   !       !       !       which is faster?
-    !   !       !       ! GMat(l,k,WhichMat)+nLoc is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
-    !   !       !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
-    !   !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocD)/2.0d0-Tmp)/(nLocD-Tmp)
-    !   !       !     end do
-    !   !       !   end do
-    !   !       ! end if
-
-    !   !       ! Different diagonal for Yang altogether
-    !   !       if (trim(GType) == "Yang") then
-    !   !         do l=1,nAnisG
-    !   !           GMat(l,l,WhichMat)=0.0d0
-    !   !         end do
-    !   !         do k=1,nLoc
-    !   !           Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
-    !   !           if (Tmp > tiny(Tmp)) then
-    !   !             if (LocusWeightPresent) then
-    !   !               Tmp2=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
-    !   !             else
-    !   !               Tmp2=1.0d0
-    !   !             end if
-    !   !             do l=1,nAnisG
-    !   !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocD
-    !   !               GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
-    !   !             end do
-    !   !           end if
-    !   !         end do
-    !   !       end if
-
-    !   !       ! Fudge diagonal
-    !   !       do l=1,nAnisG
-    !   !         GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
-    !   !       end do
-
-    !   !       ! Export etc.
-    !   !       if (GFullMat) then
-    !   !         write(filout,'("GFullMatrix"i0,"-"i0".txt")')i,j
-    !   !         write(nChar,*) nAnisG
-    !   !         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !   !         open(unit=202,file=trim(filout),status="unknown")
-    !   !         do m=1,nAnisG
-    !   !           write(202,fmt) IdGeno(m),GMat(:,m,WhichMat)
-    !   !         end do
-    !   !         close(202)
-    !   !       end if
-
-    !   !       if (GIJA) then
-    !   !         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-    !   !         write(filout,'("Gija"i0,"-"i0".txt")')i,j
-    !   !         open(unit=202,file=trim(filout),status="unknown")
-    !   !         do m=1,nAnisG
-    !   !           do n=m,nAnisG
-    !   !             ! No test for non-zero here as all elements are non-zero
-    !   !             write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,WhichMat)
-    !   !           end do
-    !   !         end do
-    !   !         close(202)
-    !   !       end if
-
-    !   !       if (MakeInvG) then
-    !   !         allocate(InvGMat(nAnisG,nAnisG,nGMat))
-
-    !   !         print*, "Start inverting G - ", trim(GType)
-    !   !         InvGMat(:,:,WhichMat)=GMat(:,:,WhichMat)
-    !   !         call invert(InvGMat(:,:,WhichMat),nAnisG,.true., 1)
-
-    !   !         print*, "Finished inverting G - ", trim(GType)
-
-    !   !         if (InvGFullMat) then
-    !   !           write(nChar,*) nAnisG
-    !   !           fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !   !           write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
-    !   !           open(unit=202,file=trim(filout),status="unknown")
-    !   !           do m=1,nAnisG
-    !   !             write(202,fmt) IdGeno(m),InvGMat(:,m,WhichMat)
-    !   !           end do
-    !   !           close(202)
-    !   !         end if
-
-    !   !         if (InvGIJA) then
-    !   !           write(filout,'("InvGija"i0,"-"i0".txt")')i,j
-    !   !           fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-    !   !           open(unit=202,file=trim(filout),status="unknown")
-    !   !           do m=1,nAnisG
-    !   !             do n=m,nAnisG
-    !   !               write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,WhichMat)
-    !   !             end do
-    !   !           end do
-    !   !           close(202)
-    !   !         end if
-    !   !       end if
-
-    !   !     end do
-    !   !   end do
-    !   !   deallocate(tZMat)
-    !   !   deallocate(TmpZMat)
-    !   !   print*, "Finished making G - ", trim(GType)
-    !   ! end subroutine
-
-    !   !###########################################################################
-
-    !   ! subroutine MakeHAndInvHMatrix
-    !   !   ! Feature added by Stefan Hoj-Edwards, February 2016
-    !   !   ! Making the Inverse H matrix ala Aguilar et al 201? and Christensen 2012
-
-    !   !   ! Prerequisite and assumptions for this subroutine:
-    !   !   ! There is given both a pedigree and genotype file, and there is an overlap
-    !   !   ! of animals between two data sets.
-    !   !   ! Diagonals of from both A have been collected during MakeA and MakeG,
-    !   !   ! as well as average of A22.
-    !   !   ! GMat is already calculated and loaded in memory.
-    !   !   ! InvA is calculated an loaded into memory.
-    !   !   !
-    !   !   ! Further assumes that animals are ordered the same in both A and G.
-
-    !   !   implicit none
-
-    !   !   integer(int32) :: i,j,k,m,p,q,div,t1,t2,whichMat,nBoth
-    !   !   integer(int32),allocatable :: MapToA11(:), MapToA22(:) !Gmap(:),
-
-    !   !   real(real64) :: GMatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
-    !   !   real(real64),allocatable :: Gdiag(:), Hrow(:), A22(:,:), InvA22(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
-
-    !   !   character(len=1000) :: nChar,fmt1, fmt2,filout
-    !   !   character(len=IDLENGTH),allocatable :: Ids(:)
-
-    !   !   logical,allocatable :: AnimToWrite(:)
-
-    !   !   nboth = count(AnimalsInBoth)
-    !   !   ! Make H and/or InvH
-    !   !   allocate(Ids(1:nAnisH))
-    !   !   allocate(AnimToWrite(1:nAnisH))
-
-    !   !   do i=1,nAnisH
-    !   !     if (MapToG(i)) then
-    !   !       Ids(i) = IdGeno(MapAnimal(i))
-    !   !       AnimToWrite(i) = .true.
-    !   !     else
-    !   !       Ids(i) = Id(MapAnimal(i))
-    !   !       AnimToWrite(i) = RecPed(MapAnimal(i),4)
-    !   !     end if
-    !   !   end do
-
-    !   !   allocate(InvA22(nBoth,nBoth))
-    !   !   allocate(MapToA22(nAnisH))
-    !   !   if (MakeH) then
-    !   !     allocate(A22(nBoth,nBoth))
-    !   !   end if
-
-    !   !   k = 0
-    !   !   do i=1,nAnisP
-    !   !     if (.not. AnimalsInBoth(i)) then
-    !   !       cycle
-    !   !     end if
-    !   !     k = k + 1
-    !   !     MapToA22(i) = k
-    !   !     m = 0
-    !   !     do j=1,nAnisP
-    !   !       if (.not. AnimalsInBoth(j)) then
-    !   !         cycle
-    !   !       end if
-    !   !       m = m + 1
-    !   !       InvA22(m,k) = AMat(j,i)
-    !   !     end do
-    !   !   end do
-    !   !   if (MakeH) then
-    !   !     A22 = InvA22
-    !   !   end if
-
-    !   !   call invert(InvA22,size(InvA22,1),.true.,1)
-
-    !   !   ! This is the G matrix in Legarra,
-    !   !   ! Sadly, no genotypes where provided, instead the resulting G matrix was.
-    !   !   if (.false.) then
-    !   !     print *, "Overwriting G matrix with example in Legarra 2008!"
-    !   !     do i=1,nAnisG
-    !   !       do j=1,nAnisG
-    !   !         if (i==j) then
-    !   !           GMat(i,j,1) = 1
-    !   !         else
-    !   !           GMat(i,j,1) = 0.7
-    !   !         end if
-    !   !       end do
-    !   !     end do
-    !   !   end if
-
-    !   !   whichMat = 0
-    !   !   do t1=1,nTrait
-    !   !     do t2=t1,nTrait
-    !   !       whichMat = whichMat + 1
-
-    !   !       write(*, '(" Starting on H matrix "i0" - "i0)') t1, t2
-
-    !   !       ! Collect G22
-    !   !       allocate(G22(nAnisG,nAnisG))
-
-    !   !       G22 = 0.0d0
-    !   !       do j=1,nAnisG
-    !   !         do i=1,nAnisG
-    !   !           nom = GMat(i,j,whichMat)
-    !   !           if (i == j) then
-    !   !             nom = nom - DiagFudge
-    !   !           end if
-    !   !           G22(i,j) = nom
-    !   !         end do
-    !   !       end do
-
-    !   !       if (ScaleGByRegression) then
-    !   !         allocate(Gdiag(0:nBoth))
-    !   !         Gdiag=0.0d0
-    !   !         GMatavg=0.0d0
-    !   !         div=dble(nBoth**2)
-    !   !         !allocate(Gmap(nBoth))
-
-    !   !         k = 0
-    !   !         do i=1,nAnisH
-    !   !           if (.not. AnimalsInBoth(i)) then
-    !   !             cycle
-    !   !           end if
-    !   !           k = k+1
-    !   !           Gdiag(k) = G22(MapAnimal(i),MapAnimal(i))
-    !   !           do j=1,nAnisH
-    !   !             if (.not. AnimalsInBoth(j)) then
-    !   !               cycle
-    !   !             end if
-    !   !             GMatavg=GMatavg + G22(MapAnimal(j),MapAnimal(i))/div
-    !   !           end do
-    !   !         end do
-    !   !         Gdiag(0) = GMatavg
-
-    !   !         ! Now do simple linear regression
-    !   !         nom = 0.0d0
-    !   !         denom = 0.0d0
-    !   !         Gmean = sum(Gdiag) / dble(size(Gdiag, 1))
-    !   !         Amean = sum(Adiag) / dble(size(Adiag, 1))
-    !   !         do i=0,ubound(Adiag, 1)
-    !   !           nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
-    !   !           denom = denom + (Adiag(i) - Amean)**2
-    !   !         end do
-    !   !         slope = nom / denom
-    !   !         intercept = Amean - slope * Gmean
-
-    !   !         ! Scale G
-    !   !         G22 = slope * G22 + intercept
-    !   !         !do i=1,nAnisG
-    !   !         ! G22(i,i) = G22(i,i) + DiagFudge
-    !   !         !end do
-    !   !         print *, "Scaling of G:"
-    !   !         write(*, "(a,f7.4,a,f7.4)"), " G* = G x ", slope, " + ", intercept
-    !   !         deallocate(Gdiag)
-    !   !       else
-    !   !         do i=1,nAnisH
-    !   !           if (.not. MapToG(i)) then
-    !   !             cycle
-    !   !           end if
-    !   !           do j=1,nAnisH
-    !   !             if (.not. MapToG(j)) then
-    !   !               cycle
-    !   !             end if
-    !   !             if (AnimalsInBoth(i) .and. AnimalsInBoth(j)) then
-    !   !               G22(MapAnimal(j),MapAnimal(i)) = ScaleGToA * G22(MapAnimal(j),MapAnimal(i)) + (1.0d0 - ScaleGToA) * AMat(j,i)
-    !   !             end if
-    !   !           end do
-    !   !         end do
-    !   !       end if
-
-    !   !       do i=1,nAnisG
-    !   !         G22(i,i) = G22(i,i) + DiagFudge
-    !   !       end do
-
-    !   !       allocate(Hrow(1:count(AnimToWrite)))
-
-    !   !       if (MakeH) then
-
-    !   !         allocate(A11(nAnisP-nBoth, nAnisP-nBoth))
-    !   !         allocate(A12(nAnisP-nBoth, nBoth))
-    !   !         allocate(MapToA11(nAnisP))
-    !   !         allocate(tmp(nAnisP-nBoth, nBoth))
-    !   !         allocate(Gboth(nBoth,nBoth))
-
-    !   !         MapToA11 = 0
-    !   !         k = 0
-    !   !         p = 0
-    !   !         do i=1,nAnisP
-    !   !           if (AnimalsInBoth(i)) then
-    !   !             p = p + 1
-    !   !             q = 0
-    !   !             do j=1,nAnisP
-    !   !               if (.not. AnimalsInBoth(j)) then
-    !   !                 cycle
-    !   !               end if
-    !   !               q = q + 1
-    !   !               Gboth(q,p) = G22(MapAnimal(j),MapAnimal(i))
-    !   !             end do
-    !   !           else
-    !   !             k = k+1
-    !   !             m = 0
-    !   !             MapToA11(i) = k
-    !   !             do j=1,nAnisP
-    !   !               if (AnimalsInBoth(j)) then
-    !   !                 A12(k,MapAnimal(j)) = AMat(j,i)  !A12 is not symmetrical
-    !   !               else
-    !   !                 m = m+1
-    !   !                 A11(m,k) = AMat(j,i)
-    !   !               end if
-    !   !             end do
-    !   !           end if
-    !   !         end do
-
-    !   !         ! @todo: use DGEMM
-    !   !         tmp = matmul(A12, InvA22)
-    !   !         !tmp = matmul(matmul(tmp, (Gboth - A22)), transpose(tmp))
-    !   !         tmp = matmul(tmp, (Gboth-A22))
-    !   !         tmp = matmul(tmp, InvA22)
-    !   !         !tmp = matmul(tmp, transpose(A12))
-
-    !   !         A11 = A11 + matmul(tmp, transpose(A12))
-    !   !         A12 = matmul(matmul(A12, InvA22), Gboth)
-
-    !   !         deallocate(tmp)
-    !   !         deallocate(Gboth)
-
-    !   !         print *, "Start writing H matrices (full and/or ija)"
-
-    !   !         if (HFullMat) then
-    !   !           write(filout,'("HFullMatrix"i0,"-"i0".txt")') t1,t2
-    !   !           write(nChar,*) nAnisH
-    !   !           fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !   !           open(unit=202,file=trim(filout),status="unknown")
-    !   !         end if
-
-    !   !         if (HIJA) then
-    !   !           write(filout,'("Hija"i0,"-"i0".txt")') t1,t2
-    !   !           fmt2="(a20,a20,"//trim(adjustl(OutputFormat))//")"
-    !   !           open(unit=204,file=trim(filout),status="unknown")
-    !   !         end if
-
-    !   !         do i=1,nAnisH
-    !   !           if (AnimToWrite(i) .eq. .false.) then
-    !   !             cycle
-    !   !           end if
-    !   !           Hrow = 0
-    !   !           k = 0
-    !   !           do j=1,nAnisH
-    !   !             if (AnimToWrite(j) .eq. .false.) then
-    !   !               cycle
-    !   !             end if
-    !   !             k = k + 1
-    !   !             if (MapToG(i)) then
-    !   !               if (MapToG(j)) then
-    !   !                 Hii = G22(MapAnimal(i),MapAnimal(j))
-    !   !               else
-    !   !                 Hii = A12(MapToA11(j),MapAnimal(i)) ! Remember to transpose
-    !   !               end if
-    !   !             else
-    !   !               if (MapToG(j)) then
-    !   !                 Hii = A12(MapToA11(i),MapAnimal(j))
-    !   !               else
-    !   !                 Hii = A11(MapToA11(i),MapToA11(j))
-    !   !               end if
-    !   !             end if
-    !   !             if (InvHIJA .and. i .le. j .and. Hii /= 0.0d0) then
-    !   !               write(204,fmt2) Ids(i), Ids(j), Hii
-    !   !             end if
-    !   !             Hrow(k) = Hii
-    !   !           end do
-    !   !           if (HFullMat) then
-    !   !             write(202,fmt1) Ids(i),Hrow(:)
-    !   !           end if
-    !   !         end do
-
-    !   !         if (HFullMat) then
-    !   !           close(202)
-    !   !         end if
-    !   !         if (HIJA) then
-    !   !           close(204)
-    !   !         end if
-
-    !   !         print *, "End writing H matrices"
-
-    !   !       end if
-
-    !   !       if (MakeInvH) then
-    !   !         print *, "Start inverting scaled G matrix"
-    !   !         call invert(G22, size(G22, 1), .true., 1)
-
-    !   !         !print *, "Gw inverted"
-    !   !         !write(fmt2, "(i0)") size(G22,1)
-    !   !         !fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
-    !   !         !do i=1,size(G22,1)
-    !   !         ! write(*,fmt1) IdGeno(i), G22(i,:)
-    !   !         !end do
-
-    !   !         !print *, "A22 inverted"
-    !   !         !do i=1,size(G22,1)
-    !   !         ! write(*,fmt1) IdGeno(i), InvA22(i,:)
-    !   !         !end do
-
-    !   !         !print *, "InvA(22)"
-    !   !         !do i=1,size(G22,1)
-    !   !         ! j = i+10
-    !   !         ! write(*,fmt1) Ids(j), InvAMat(j,11:25)
-    !   !         !end do
-
-    !   !         print *, "End inverting scaled G matrix"
-
-    !   !         print *, "Start writing inverted H matrices (full and/or ija)"
-
-    !   !         if (InvHFullMat) then
-    !   !           write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
-    !   !           write(nChar,*) nAnisH
-    !   !           fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-    !   !           open(unit=202,file=trim(filout),status="unknown")
-    !   !         end if
-
-    !   !         if (InvHIJA) then
-    !   !           write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
-    !   !           fmt2="(a,' ',a,' ',"//trim(adjustl(OutputFormat))//")"
-    !   !           open(unit=204,file=trim(filout),status="unknown")
-    !   !         end if
-
-    !   !         do i=1,nAnisH
-    !   !           if (AnimToWrite(i) .eq. .false.) then
-    !   !             cycle
-    !   !           end if
-    !   !           Hrow = 0
-    !   !           k = 0
-    !   !           do j=1,nAnisH
-    !   !             if (AnimToWrite(j) .eq. .false.) then
-    !   !               cycle
-    !   !             end if
-    !   !             k = k + 1
-    !   !             if (MapToG(i) .and. MapToG(j)) then
-    !   !               Hrow(k) = G22(MapAnimal(i),MapAnimal(j))
-    !   !               if (i <= nAnisP .and. j <= nAnisP) then
-    !   !                 Hrow(k) = Hrow(k) + InvAMat(i,j) - InvA22(MapToA22(i),MapToA22(j))
-    !   !               end if
-    !   !             else if (i <= nAnisP .and. j <= nAnisP) then !if (MapToG(i) .eq. .false. .and. MapToG(j) .eq. .false.  ) then
-    !   !               Hrow(k) = InvAMat(i,j)
-    !   !             end if
-    !   !             if (InvHIJA .and. i .le. j .and. Hrow(k) /= 0.0d0) then
-    !   !               write(204,fmt2) trim(Ids(i)), trim(Ids(j)), Hrow(k)
-    !   !             end if
-    !   !           end do
-    !   !           if (InvHFullMat) then
-    !   !             write(202,fmt1) Ids(i),Hrow(:)
-    !   !           end if
-    !   !         end do
-
-    !   !         if (InvHFullMat) then
-    !   !           close(202)
-    !   !         end if
-    !   !         if (InvHIJA) then
-    !   !           close(204)
-    !   !         end if
-    !   !         print *, "End writing inverted H matrices (full and ija)"
-
-    !   !       end if
-
-    !   !       deallocate(Hrow)
-    !   !       deallocate(G22)
-    !   !     end do
-    !   !   end do
-    !   !   deallocate(Ids)
-    !   ! end subroutine
-
-    !   !###########################################################################
-
-    !   ! subroutine invert(x,n,sym, method)
-
-    !   !   ! Interface to call inverse subroutines from BLAS/LAPACK libraries
-
-    !   !   ! x symmetric positive-definite matrix to be inverted
-    !   !   ! n matrix dimension
-    !   !   ! sym return lower-triangular (sym=.false) or full matrix (sym=.true.)
-    !   !   ! method for inversion
-    !   !   ! 0 -- Generalised solving using LU decomposition (dgetrs)
-    !   !   ! 1 -- Cholesky decomposition
-
-    !   !   implicit none
-    !   !   integer(int32), intent(in) :: n,method
-    !   !   integer(int32) :: i,j,info
-
-    !   !   real(real64),intent(inout) :: x(n,n)
-    !   !   real(real64),allocatable :: Iden(:,:)
-
-    !   !   logical, intent(in) :: sym
-
-    !   !   if (method == 0) then
-    !   !     !Solves a general system of linear equations AX=B, A**T X=B or A**H X=B, using the LU factorization computed by SGETRF/CGETRF
-    !   !     !http://physics.oregonstate.edu/~rubin/nacphy/lapack/routines/dgetrs.html
-
-    !   !     allocate(Iden(n,n))
-    !   !     ForAll(i = 1:n, j = 1:n) Iden(i,j) = (i/j)*(j/i)  !https://rosettacode.org/wiki/Identity_matrix#Notorious_trick
-
-    !   !     !https://software.intel.com/en-us/node/468712
-    !   !     !Solves a system of linear equations with an LU-factored square coefficient matrix, with multiple right-hand sides.
-    !   !     ! dgetrs(trans,n,nrhs,A,b,lda,ldb,info)
-    !   !     !Output: Solution overwrites `b`.
-    !   !     call dgetrs("N",n,n,x,Iden,n,n,info)
-    !   !     if (info /= 0) then
-    !   !       print *, "Matrix not positive-definite - info",info
-    !   !       stop 1
-    !   !     end if
-
-    !   !     x(:,:) = Iden(:,:)
-
-    !   !   else if (method == 1) then
-
-    !   !     ! Computes the Cholesky factorization of a symmetric positive definite matrix
-    !   !     ! https://software.intel.com/en-us/node/468690
-    !   !     call dpotrf("L",n,x,n,info)
-    !   !     if (info /= 0) then
-    !   !       print*,"Matrix not positive-definite - info",info
-    !   !       stop 1
-    !   !     end if
-
-    !   !     ! Computes the inverse of a symmetric positive definite matrix,
-    !   !     !   using the Cholesky factorization computed by dpotrf()
-    !   !     ! https://software.intel.com/en-us/node/468824
-    !   !     call dpotri("L",n,x,n,info)
-    !   !     if (info /= 0) then
-    !   !      print*,"Matrix not positive-definite - info",info
-    !   !      stop 1
-    !   !     end if
-
-    !   !     ! Fills the upper triangle
-    !   !     if (sym) then
-    !   !       forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
-    !   !     end if
-
-    !   !   end if
-    !   ! end subroutine
-
-    ! !###########################################################################
+    !###########################################################################
 
 end module
 

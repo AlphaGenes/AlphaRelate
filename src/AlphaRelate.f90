@@ -74,18 +74,24 @@ program AlphaRelate
     call Data%PedNrmInv%Write(File="PedigreeNrmInv.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmInvIja)
   end if
 
+  if (Spec%GenNrm) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating genotype NRM ..."
+    call Data%CalcGenNrm(Spec=Spec)
+    call Data%GenNrm%Write(File="GenotypeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%GenNrmIja)
+    if ((trim(Spec%GenNrmType) == "vanraden1" .or. &
+         trim(Spec%GenNrmType) == "vanraden2" .or. &
+         trim(Spec%GenNrmType) == "yang")    .and. &
+         .not. Spec%AlleleFreqGiven) then
+      call Data%Gen%WriteAlleleFreq(File=trim(Spec%GenotypeFile)//"_AlleleFreq.txt")
+    end if
+  end if
+
   ! if (Spec%GenInbreeding) then
   !   write(STDOUT, "(a)") ""
   !   write(STDOUT, "(a)") " Calculating genotype inbreeding ..."
   !   call Data%CalcGenInbreeding
   !   call Data%WriteGenInbreeding(File="GenotypeInbreeding.txt", Spec=Spec)
-  ! end if
-
-  ! if (Spec%GenNrm) then
-  !   write(STDOUT, "(a)") ""
-  !   write(STDOUT, "(a)") " Calculating genotype NRM ..."
-  !   call Data%CalcGenNrm(Spec=Spec)
-  !   call Data%WriteGenNrm(File="GenotypeNrm.txt", Spec=Spec)
   ! end if
 
   ! if (Spec%GenNrmInv) then
