@@ -83,7 +83,7 @@ program AlphaRelate
          trim(Spec%GenNrmType) == "vanraden2" .or. &
          trim(Spec%GenNrmType) == "yang")    .and. &
          .not. Spec%AlleleFreqGiven) then
-      call Data%Gen%WriteAlleleFreq(File=trim(Spec%GenotypeFile)//"_AlleleFreq.txt")
+      call Data%AlleleFreq%Write(File=trim(Spec%GenotypeFile)//"_AlleleFreq.txt")
     end if
   end if
 

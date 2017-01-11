@@ -20,6 +20,7 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTGENNRMFILE = "TestGenNrm.txt"
 
   CHARACTER(len=100), PARAMETER :: TESTAFFILE = "TestAlleleFreq.txt"
+  CHARACTER(len=100), PARAMETER :: TESTLWFILE = "TestLocusWeight.txt"
 
   contains
 
@@ -159,8 +160,8 @@ module TestAlphaRelateModule
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTAFFILE, action="write", status="unknown")
         write(Unit, "(a)") "1 0.500000000"
-        write(Unit, "(a)") "2 0.666666666"
-        write(Unit, "(a)") "3 1.000000000"
+        write(Unit, "(a)") "3 1.000000000" ! order swapped on purpose
+        write(Unit, "(a)") "2 0.666666666" ! order swapped on purpose
         write(Unit, "(a)") "4 0.000000000"
         close(Unit)
       end subroutine
@@ -171,6 +172,28 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTAFFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateLocusWeightFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTLWFILE, action="write", status="unknown")
+        write(Unit, "(a)") "1 1.0"
+        write(Unit, "(a)") "3 1.0" ! order swapped on purpose
+        write(Unit, "(a)") "2 2.0" ! order swapped on purpose
+        write(Unit, "(a)") "4 0.0"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteLocusWeightFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTLWFILE, status="old")
         close(Unit, status="delete")
       end subroutine
 
@@ -338,6 +361,72 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
+    ! AlleleFreq type tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestWriteReadAlleleFreq
+        implicit none
+        type(AlleleFreq) :: AF, AF2
+        integer(int32) :: Loc, Unit
+
+        call CreateAlleleFreqFileForTinyGenotypeFileWithMissing
+        call AF%Read(File=TESTAFFILE)
+        call AF%Write(File=trim(TESTAFFILE)//"2")
+        call AF2%Read(File=trim(TESTAFFILE)//"2")
+
+        @AssertEqual(AF%nLoc, AF2%nLoc, "AlleleFreq nLoc were not assigned correctly")
+        do Loc = 1, AF%nLoc
+          ! write(STDOUT, "(a8, 2a10)") " ", "Expected", "Observed"
+          ! write(STDOUT, "(i8, 2f10.7)") Loc, AF%Value(Loc), AF2%Value(Loc)
+          @AssertEqual(AF%Value(Loc), AF2%Value(Loc), "AlleleFreq values were not written/read correctly")
+        end do
+
+        call AF%Destroy
+        call AF2%Destroy
+        call DeleteAlleleFreqFile
+        open(newunit=Unit, file=trim(TESTAFFILE)//"2", status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! LocusWeight type tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestWriteReadLocusWeight
+        implicit none
+        type(LocusWeight) :: LW, LW2
+        integer(int32) :: Loc, Unit
+
+        call CreateLocusWeightFile
+        call LW%Read(File=TESTLWFILE)
+        call LW%Write(File=trim(TESTLWFILE)//"2")
+        call LW2%Read(File=trim(TESTLWFILE)//"2")
+
+        @AssertEqual(LW%nLoc, LW2%nLoc, "LocusWeight nLoc were not assigned correctly")
+        do Loc = 1, LW%nLoc
+          ! write(STDOUT, "(a8, 2a10)") " ", "Expected", "Observed"
+          ! write(STDOUT, "(i8, 2f10.7)") Loc, AF%Value(Loc), AF2%Value(Loc)
+          @AssertEqual(LW%Value(Loc), LW2%Value(Loc), "LocusWeight values were not written/read correctly")
+        end do
+
+        call LW%Destroy
+        call LW2%Destroy
+        call DeleteLocusWeightFile
+        open(newunit=Unit, file=trim(TESTLWFILE)//"2", status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
     ! Genotype array type tests
 
       !#########################################################################
@@ -466,58 +555,6 @@ module TestAlphaRelateModule
         deallocate(Id1)
         deallocate(Id2)
         deallocate(IdExp)
-      end subroutine
-
-      !#########################################################################
-
-      @test
-      subroutine TestCalcAlleleFreqGenotypeArray
-        implicit none
-        type(AlphaRelateSpec) :: Spec
-        type(AlphaRelateData) :: Data
-        integer(int32) :: Loc
-        real(real64), allocatable, dimension(:) :: AlleleFreqExp
-
-        call CreateTinyGenotypeFile
-        call Spec%Init
-        Spec%GenotypeGiven = .true.
-        Spec%GenotypeFile = TESTGENFILE
-        Spec%nLoc = 2
-        call Data%Read(Spec=Spec)
-        call Data%Gen%CalcAlleleFreq
-        allocate(AlleleFreqExp(Spec%nLoc))
-        AlleleFreqExp(1) = 1/2.0d0
-        AlleleFreqExp(2) = 2/3.0d0
-
-        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
-        do Loc = 1, Data%Gen%nLoc
-          ! write(STDOUT, "(i8, 2f)") Loc, AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc)
-          @AssertEqual(AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc), "Allele frequencies not calculated correctly")
-        end do
-        deallocate(AlleleFreqExp)
-
-        call CreateTinyGenotypeFileWithMissing
-        call Spec%Init
-        Spec%GenotypeGiven = .true.
-        Spec%GenotypeFile = TESTGENFILE
-        Spec%nLoc = 4
-        call Data%Read(Spec=Spec)
-        call Data%Gen%CalcAlleleFreq
-        allocate(AlleleFreqExp(Spec%nLoc))
-        AlleleFreqExp(1) = 1/2.0d0
-        AlleleFreqExp(2) = 2/3.0d0
-        AlleleFreqExp(3) = 1.0d0
-        AlleleFreqExp(4) = 0.0d0
-
-        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
-        do Loc = 1, Data%Gen%nLoc
-          ! write(STDOUT, "(i8, 2f)") Loc, AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc)
-          @AssertEqual(AlleleFreqExp(Loc), Data%Gen%AlleleFreq(Loc), "Allele frequencies not calculated correctly - missing")
-        end do
-
-        deallocate(AlleleFreqExp)
-        call Data%Destroy
-        call DeleteGenotypeFile
       end subroutine
 
       !#########################################################################
@@ -1390,6 +1427,58 @@ module TestAlphaRelateModule
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
         ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
         ! getAInv(Ped)
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCalcAlleleFreq
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Loc
+        real(real64), allocatable, dimension(:) :: AlleleFreqExp
+
+        call CreateTinyGenotypeFile
+        call Spec%Init
+        Spec%GenotypeGiven = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        Spec%nLoc = 2
+        call Data%Read(Spec=Spec)
+        call Data%CalcAlleleFreq
+        allocate(AlleleFreqExp(Spec%nLoc))
+        AlleleFreqExp(1) = 1/2.0d0
+        AlleleFreqExp(2) = 2/3.0d0
+
+        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
+        do Loc = 1, Data%Gen%nLoc
+          ! write(STDOUT, "(i8, 2f)") Loc, AlleleFreqExp(Loc), Data%AlleleFreq%Value(Loc)
+          @AssertEqual(AlleleFreqExp(Loc), Data%AlleleFreq%Value(Loc), "Allele frequencies not calculated correctly")
+        end do
+        deallocate(AlleleFreqExp)
+
+        call CreateTinyGenotypeFileWithMissing
+        call Spec%Init
+        Spec%GenotypeGiven = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        Spec%nLoc = 4
+        call Data%Read(Spec=Spec)
+        call Data%CalcAlleleFreq
+        allocate(AlleleFreqExp(Spec%nLoc))
+        AlleleFreqExp(1) = 1/2.0d0
+        AlleleFreqExp(2) = 2/3.0d0
+        AlleleFreqExp(3) = 1.0d0
+        AlleleFreqExp(4) = 0.0d0
+
+        ! write(STDOUT, "(a8, 2a16)") "Locus", "Expected", "Observed"
+        do Loc = 1, Data%Gen%nLoc
+          ! write(STDOUT, "(i8, 2f)") Loc, AlleleFreqExp(Loc), Data%AlleleFreq%Value(Loc)
+          @AssertEqual(AlleleFreqExp(Loc), Data%AlleleFreq%Value(Loc), "Allele frequencies not calculated correctly - missing")
+        end do
+
+        deallocate(AlleleFreqExp)
+        call Data%Destroy
+        call DeleteGenotypeFile
       end subroutine
 
       !#########################################################################

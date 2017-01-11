@@ -34,6 +34,7 @@ module AlphaRelateModule
                             ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
   use GenotypeModule, only : Genotype
+  use HaplotypeModule, only : Haplotype
   use Blas95
   use F95_precision
 
@@ -41,7 +42,8 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding, Nrm, GenotypeArray
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding
+  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
   ! Functions
   public :: MatchId, PedInbreeding, PedNrm, PedNrmTimesVector, PedNrmInv
 
@@ -101,7 +103,6 @@ module AlphaRelateModule
     integer(int32)                                     :: nLoc
     type(Genotype), allocatable, dimension(:)          :: Genotype
     real(real64), allocatable, dimension(:, :)         :: GenotypeReal
-    real(real64), allocatable, dimension(:)            :: AlleleFreq
     contains
       procedure :: Init                       => InitGenotypeArray
       procedure :: Destroy                    => DestroyGenotypeArray
@@ -111,21 +112,62 @@ module AlphaRelateModule
       procedure :: WriteReal                  => WriteGenotypeArrayReal
       procedure :: ReadReal                   => ReadGenotypeArrayReal
       procedure :: MakeGenotypeReal
-      procedure :: CalcAlleleFreq             => CalcAlleleFreqGenotypeArray
-      procedure :: WriteAlleleFreq            => WriteAlleleFreqGenotypeArray
-      procedure :: ReadAlleleFreq             => ReadAlleleFreqGenotypeArray
       procedure :: CenterGenotypeReal
       procedure :: CenterAndScaleGenotypeReal
   end type
 
+  !> @brief Haplotype data set holder
+  type HaplotypeArray
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32)                                     :: nLoc
+    type(Haplotype), allocatable, dimension(:)         :: Haplotype
+    real(real64), allocatable, dimension(:, :)         :: HaplotypeReal
+    contains
+      ! procedure :: Init                       => InitHaplotypeArray
+      ! procedure :: Destroy                    => DestroyHaplotypeArray
+      ! procedure :: MatchId                    => MatchIdHaplotypeArray
+      ! procedure :: Write                      => WriteHaplotypeArray
+      ! procedure :: Read                       => ReadHaplotypeArray
+      ! procedure :: WriteReal                  => WriteHaplotypeArrayReal
+      ! procedure :: ReadReal                   => ReadHaplotypeArrayReal
+      ! procedure :: MakeHaplotypeReal
+      ! procedure :: CenterHaplotypeReal
+      ! procedure :: CenterAndScaleHaplotypeReal
+  end type
+
+  ! @brief Allele frequencies
+  type AlleleFreq
+    integer(int32)                          :: nLoc
+    real(real64), allocatable, dimension(:) :: Value
+    contains
+      procedure :: Init    => InitAlleleFreq
+      procedure :: Destroy => DestroyAlleleFreq
+      procedure :: Write   => WriteAlleleFreq
+      procedure :: Read    => ReadAlleleFreq
+  end type
+
+  ! @brief Locus weights
+  type LocusWeight
+    integer(int32)                          :: nLoc
+    real(real64), allocatable, dimension(:) :: Value
+    contains
+      procedure :: Init    => InitLocusWeight
+      procedure :: Destroy => DestroyLocusWeight
+      procedure :: Write   => WriteLocusWeight
+      procedure :: Read    => ReadLocusWeight
+  end type
+
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
-    character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile!, HaplotypeFile
-    character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile!, PedNrmOldFile, LocusWeightFile
+    character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile, HaplotypeFile
+    character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile, LocusWeightFile!, PedNrmOldFile
     character(len=SPECOPTIONLENGTH) :: OutputFormat, GenNrmType
 
-    logical :: PedigreeGiven, GenotypeGiven!, HaplotypeGiven
-    logical :: PedNrmSubsetGiven, PedNrmOldGiven, AlleleFreqGiven, AlleleFreqFixed!, LocusWeightGiven
+    logical :: PedigreeGiven, GenotypeGiven, HaplotypeGiven
+    logical :: PedNrmSubsetGiven, PedNrmOldGiven, AlleleFreqGiven, AlleleFreqFixed, LocusWeightGiven
 
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
     logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
@@ -143,18 +185,22 @@ module AlphaRelateModule
 
   !> @brief AlphaRelate data
   type AlphaRelateData
-    ! Pedigree-based
+    ! Pedigree stuff
     type(RecodedPedigreeArray) :: RecPed
     type(Inbreeding)           :: PedInbreeding
     type(Nrm)                  :: PedNrm
     type(IndSet)               :: PedNrmSubset
     type(Nrm)                  :: PedNrmInv
-    ! Genotype-based
+    ! Genome stuff
+    type(AlleleFreq)           :: AlleleFreq
+    type(LocusWeight)          :: LocusWeight
+    ! Genotype stuff
     type(GenotypeArray)        :: Gen
     type(Inbreeding)           :: GenInbreeding
     type(Nrm)                  :: GenNrm
     type(Nrm)                  :: GenNrmInv
-    ! Haplotype-based
+    ! Haplotype stuff
+    type(HaplotypeArray)       :: Hap
     ! type(Inbreeding)           :: HapInbreeding
     ! type(Nrm)                  :: HapNrm
     ! type(Nrm)                  :: HapNrmInv
@@ -163,11 +209,12 @@ module AlphaRelateModule
       procedure :: Read              => ReadAlphaRelateData
       procedure :: Destroy           => DestroyAlphaRelateData
       procedure :: Write             => WriteAlphaRelateData
-      procedure :: CalcPedInbreeding
-      procedure :: CalcPedNrm
-      procedure :: CalcPedNrmInv
+      procedure :: CalcPedInbreeding => CalcPedInbreedingAlphaRelateData
+      procedure :: CalcPedNrm        => CalcPedNrmAlphaRelateData
+      procedure :: CalcPedNrmInv     => CalcPedNrmInvAlphaRelateData
+      procedure :: CalcAlleleFreq    => CalcAlleleFreqAlphaRelateData
       ! procedure :: CalcGenInbreeding
-      procedure :: CalcGenNrm
+      procedure :: CalcGenNrm        => CalcGenNrmAlphaRelateData
       ! procedure :: CalcGenNrmInv
   end type
 
@@ -362,7 +409,7 @@ module AlphaRelateModule
 
         integer(int32) :: nInd, Ind, Unit
 
-        nInd = CountLines(trim(File))
+        nInd = CountLines(File)
         call This%Init(nInd=nInd)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, nInd
@@ -543,7 +590,7 @@ module AlphaRelateModule
 
         integer(int32) :: nInd, Ind, Unit
 
-        nInd = CountLines(trim(File))
+        nInd = CountLines(File)
         call This%Init(nInd=nInd)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, nInd
@@ -794,6 +841,219 @@ module AlphaRelateModule
 
     !###########################################################################
 
+    ! AlleleFreq type methods
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  AlleleFreq constructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InitAlleleFreq(This, nLoc, AlleleFreqInput)
+        implicit none
+
+        ! Arguments
+        class(AlleleFreq), intent(out) :: This                      !< @return AlleleFreq holder
+        integer(int32), intent(in) :: nLoc                          !< Number of loci
+        real(real64), intent(in), optional :: AlleleFreqInput(nLoc) !< Allele frequencies
+
+        ! Init numbers
+        This%nLoc = nLoc
+
+        ! Init Value
+        if (allocated(This%Value)) then
+          deallocate(This%Value)
+        end if
+        allocate(This%Value(This%nLoc))
+        if (present(AlleleFreqInput)) then
+          This%Value = AlleleFreqInput
+        else
+          This%Value = 0.0d0
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  AlleleFreq destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyAlleleFreq(This)
+        implicit none
+        class(AlleleFreq), intent(inout) :: This !< @return AlleleFreq holder
+        This%nLoc = 0
+        if (allocated(This%Value)) then
+         deallocate(This%Value)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write allele freqs to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine WriteAlleleFreq(This, File) ! not pure due to IO
+        implicit none
+        class(AlleleFreq), intent(in) :: This           !< AlleleFre Holder
+        character(len=*), intent(in), optional :: File !< File that will hold allele freqs
+
+        integer(int32) :: Unit, Loc
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+        do Loc = 1, This%nLoc
+          write(Unit, "(i, f)") Loc, This%Value(Loc)
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read allele freqs from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine ReadAlleleFreq(This, File, nLoc) ! not pure due to IO
+        implicit none
+        class(AlleleFreq), intent(out) :: This       !< AlleleFreq Holder
+        character(len=*), intent(in) :: File         !< File that holds allele freqs
+        integer(int32), intent(in), optional :: nLoc !< Number of loci
+
+        integer(int32) :: Unit, LocLoop, Loc
+
+        if (present(nLoc)) then
+          call This%Init(nLoc=nLoc)
+        else
+          call This%Init(nLoc=CountLines(File))
+        end if
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do LocLoop = 1, This%nLoc
+          read(Unit, *) Loc, This%Value(Loc)
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! Locus weights type methods
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  LocusWeight constructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InitLocusWeight(This, nLoc, LocusWeightInput)
+        implicit none
+
+        ! Arguments
+        class(LocusWeight), intent(out) :: This                      !< @return LocusWeight holder
+        integer(int32), intent(in) :: nLoc                           !< Number of loci
+        real(real64), intent(in), optional :: LocusWeightInput(nLoc) !< Locus weights
+
+        ! Init numbers
+        This%nLoc = nLoc
+
+        ! Init Value
+        if (allocated(This%Value)) then
+          deallocate(This%Value)
+        end if
+        allocate(This%Value(This%nLoc))
+        if (present(LocusWeightInput)) then
+          This%Value = LocusWeightInput
+        else
+          This%Value = 0.0d0
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  LocusWeight destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 4, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyLocusWeight(This)
+        implicit none
+        class(LocusWeight), intent(inout) :: This !< @return LocusWeight holder
+        This%nLoc = 0
+        if (allocated(This%Value)) then
+         deallocate(This%Value)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write locus weights to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine WriteLocusWeight(This, File) ! not pure due to IO
+        implicit none
+        class(LocusWeight), intent(in) :: This         !< LocusWeight Holder
+        character(len=*), intent(in), optional :: File !< File that will hold loucs weights
+
+        integer(int32) :: Unit, Loc
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+        do Loc = 1, This%nLoc
+          write(Unit, "(i, f)") Loc, This%Value(Loc)
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read locus weights from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 10, 2016
+      !-------------------------------------------------------------------------
+      subroutine ReadLocusWeight(This, File, nLoc) ! not pure due to IO
+        implicit none
+        class(LocusWeight), intent(out) :: This      !< LocusWeight Holder
+        character(len=*), intent(in) :: File         !< File that holds locus weights
+        integer(int32), intent(in), optional :: nLoc !< Number of loci
+
+        integer(int32) :: Unit, LocLoop, Loc
+
+        if (present(nLoc)) then
+          call This%Init(nLoc=nLoc)
+        else
+          call This%Init(nLoc=CountLines(File))
+        end if
+
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do LocLoop = 1, This%nLoc
+          read(Unit, *) Loc, This%Value(Loc)
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
     ! GenotypeArray type methods
 
       !#########################################################################
@@ -888,13 +1148,6 @@ module AlphaRelateModule
         if (allocated(This%GenotypeReal)) then
           deallocate(This%GenotypeReal)
         end if
-
-        ! Init AlleleFreq
-        ! NOTE: this one is not allocated here as we need GenotypeReal to compute it (for now)
-        ! Use call This%CalcAlleleFreq() if needed
-        if (allocated(This%AlleleFreq)) then
-          deallocate(This%AlleleFreq)
-        end if
       end subroutine
 
       !#########################################################################
@@ -920,9 +1173,6 @@ module AlphaRelateModule
         end if
         if (allocated(This%GenotypeReal)) then
          deallocate(This%GenotypeReal)
-        end if
-        if (allocated(This%AlleleFreq)) then
-         deallocate(This%AlleleFreq)
         end if
       end subroutine
 
@@ -1095,114 +1345,14 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Calculate allele frequencies on GenotypeArray
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   January 9, 2016
-      !-------------------------------------------------------------------------
-      pure subroutine CalcAlleleFreqGenotypeArray(This)
-        implicit none
-        class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
-
-        integer(int32) :: Ind, Loc
-        integer(int32), allocatable, dimension(:) :: nObs
-
-        if (allocated(This%AlleleFreq)) then
-          deallocate(This%AlleleFreq)
-        end if
-        allocate(This%AlleleFreq(This%nLoc))
-        This%AlleleFreq = 0.0d0
-
-        ! @todo can we build a method that works on type(Genotype) so we would not need GenotypeReal for allele freq calculation?
-        if (.not. allocated(This%GenotypeReal)) then
-          call This%MakeGenotypeReal
-        end if
-
-        ! @todo could we not assume that GenotypeReal has no missing values
-        !       (it should have been cleaned prior to this program) and then
-        !       we can avoid the ifs and simplify computatation a lot
-        ! do Ind = 1, This%nInd
-        !   This%AlleleFreq = This%AlleleFreq + This%GenotypeReal(:, Ind)
-        ! end do
-        ! This%AlleleFreq = This%AlleleFreq / (2.0d0 * dble(This%nInd))
-        allocate(nObs(This%nLoc))
-        nObs = 0
-        do Ind = 1, This%nInd
-          do Loc = 1, This%nLoc
-            if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
-              This%AlleleFreq(Loc) = This%AlleleFreq(Loc) + This%GenotypeReal(Loc, Ind)
-              nObs(Loc) = nObs(Loc) + 1
-            end if
-          end do
-        end do
-        do Loc = 1, This%nLoc
-          if (nObs(Loc) .gt. 0) then
-            This%AlleleFreq(Loc) = This%AlleleFreq(Loc) / (2.0d0 * dble(nObs(Loc)))
-          else
-            This%AlleleFreq(Loc) = 0.0d0
-          end if
-        end do
-        deallocate(nObs)
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
-      !> @brief  Write allele freqs to a file or stdout
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   January 10, 2016
-      !-------------------------------------------------------------------------
-      subroutine WriteAlleleFreqGenotypeArray(This, File) ! not pure due to IO
-        implicit none
-        class(GenotypeArray), intent(in) :: This       !< GenotypeArray Holder
-        character(len=*), intent(in), optional :: File !< File that will hold allele freqs
-
-        integer(int32) :: Unit, Loc
-
-        if (present(File)) then
-          open(newunit=Unit, file=trim(File), action="write", status="unknown")
-        else
-          Unit = STDOUT
-        end if
-        do Loc = 1, This%nLoc
-          write(Unit, "(i, f)") Loc, This%AlleleFreq(Loc)
-        end do
-        if (present(File)) then
-          close(Unit)
-        end if
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
-      !> @brief  Read allele freqs from a file
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   January 10, 2016
-      !-------------------------------------------------------------------------
-      subroutine ReadAlleleFreqGenotypeArray(This, File) ! not pure due to IO
-        implicit none
-        class(GenotypeArray), intent(inout) :: This !< GenotypeArray Holder (inout here as This contains other stuff beside AlleleFreq)
-        character(len=*), intent(in) :: File        !< File that holds allele freqs
-
-        integer(int32) :: Unit, LocLoop, Loc
-
-        open(newunit=Unit, file=trim(File), action="read", status="old")
-        do LocLoop = 1, This%nLoc
-          read(Unit, *) Loc, This%AlleleFreq(Loc)
-        end do
-        close(Unit)
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
       !> @brief  Center genotypes real
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
       pure subroutine CenterGenotypeReal(This, AlleleFreq)
         implicit none
-        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
-        real(real64), intent(in), optional, dimension(This%nLoc) :: AlleleFreq !< Use these allele frequencies instead of the ones already present in This or calculated from This
+        class(GenotypeArray), intent(inout) :: This                  !< @return GenotypeArray holder
+        real(real64), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering
 
         integer(int32) :: Ind, Loc
         real(real64), allocatable, dimension(:) :: Mean
@@ -1210,16 +1360,9 @@ module AlphaRelateModule
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
         end if
-        if (.not. allocated(This%AlleleFreq) .and. .not. present(AlleleFreq)) then
-          call This%CalcAlleleFreq
-        end if
 
         allocate(Mean(This%nLoc))
-        if (present(AlleleFreq)) then
-          Mean = 2.0d0 *      AlleleFreq
-        else
-          Mean = 2.0d0 * This%AlleleFreq
-        end if
+        Mean = 2.0d0 * AlleleFreq
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
@@ -1248,8 +1391,8 @@ module AlphaRelateModule
       !-------------------------------------------------------------------------
       pure subroutine CenterAndScaleGenotypeReal(This, AlleleFreq)
         implicit none
-        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
-        real(real64), intent(in), optional, dimension(This%nLoc) :: AlleleFreq !< Use these allele frequencies instead of the ones already present in This or calculated from This
+        class(GenotypeArray), intent(inout) :: This                  !< @return GenotypeArray holder
+        real(real64), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering and scaling
 
         integer(int32) :: Ind, Loc
         real(real64), allocatable, dimension(:) :: Mean, StDev
@@ -1257,19 +1400,11 @@ module AlphaRelateModule
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
         end if
-        if (.not. allocated(This%AlleleFreq) .and. .not. present(AlleleFreq)) then
-          call This%CalcAlleleFreq
-        end if
 
         allocate(Mean(This%nLoc))
         allocate(StDev(This%nLoc))
-        if (present(AlleleFreq)) then
-          Mean = 2.0d0 *      AlleleFreq
-          StDev = sqrt(Mean * (1.0d0 -      AlleleFreq))
-        else
-          Mean = 2.0d0 * This%AlleleFreq
-          StDev = sqrt(Mean * (1.0d0 - This%AlleleFreq))
-        end if
+        Mean = 2.0d0 * AlleleFreq
+        StDev = sqrt(Mean * (1.0d0 - AlleleFreq))
 
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
@@ -1299,6 +1434,8 @@ module AlphaRelateModule
 
     ! AlphaRelateSpec type methods
 
+      !#########################################################################
+
       !-------------------------------------------------------------------------
       !> @brief  AlphaRelateSpec constructor
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -1315,10 +1452,10 @@ module AlphaRelateModule
         This%PedigreeFile     = "None"
         This%PedNrmSubsetFile = "None"
         ! This%PedNrmOldFile    = "None"
-        ! This%GenotypeFile     = "None"
-        ! This%HaplotypeFile    = "None"
+        This%GenotypeFile     = "None"
+        This%HaplotypeFile    = "None"
         This%AlleleFreqFile   = "None"
-        ! This%LocusWeightFile  = "None"
+        This%LocusWeightFile  = "None"
 
         This%GenNrmType       = "None"
         This%OutputFormat     = "f"
@@ -1327,10 +1464,10 @@ module AlphaRelateModule
         This%PedNrmSubsetGiven = .false.
         This%PedNrmOldGiven    = .false.
         This%GenotypeGiven     = .false.
-        ! This%HaplotypeGiven    = .false.
+        This%HaplotypeGiven    = .false.
         This%AlleleFreqGiven   = .false.
-        This%AlleleFreqFixed     = .false.
-        ! This%LocusWeightGiven  = .false.
+        This%AlleleFreqFixed   = .false.
+        This%LocusWeightGiven  = .false.
 
         This%PedInbreeding       = .false.
         This%PedNrm              = .false.
@@ -1355,8 +1492,6 @@ module AlphaRelateModule
         ! This%BlendHapNrm         = .false.
 
         This%nLoc             = 0
-        ! This%nTrait           = 1
-        ! This%nGenMat          = 0
 
         This%AlleleFreqFixedValue    = 0.5d0
         ! This%FudgeHapNrmDiagFactor = 0.0d0
@@ -1455,21 +1590,21 @@ module AlphaRelateModule
               !     stop 1
               !   end if
 
-              ! case ("locusweightfile")
-              !   if (allocated(Second)) then
-              !     if (ToLower(trim(adjustl(Second(1)))) == "none") then
-              !       write(STDOUT, "(a)") " Not using locus weights file"
-              !     else
-              !       This%LocusWeightGiven = .true.
-              !       write(This%LocusWeightFile, *) trim(adjustl(Second(1)))
-              !       This%LocusWeightFile = adjustl(This%LocusWeightFile)
-              !       write(STDOUT, "(2a)") " Using locus weight file: ", trim(This%LocusWeightFile)
-              !     end if
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a file for LocusWeightFile, i.e., LocusWeightFile, LocusWeight.txt"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
+              case ("locusweightfile")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "none") then
+                    write(STDOUT, "(a)") " Not using locus weights file"
+                  else
+                    This%LocusWeightGiven = .true.
+                    write(This%LocusWeightFile, *) trim(adjustl(Second(1)))
+                    This%LocusWeightFile = adjustl(This%LocusWeightFile)
+                    write(STDOUT, "(2a)") " Using locus weight file: ", trim(This%LocusWeightFile)
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a file for LocusWeightFile, i.e., LocusWeightFile, LocusWeight.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               case ("allelefreqfile")
                 if (allocated(Second)) then
@@ -1878,29 +2013,32 @@ module AlphaRelateModule
             end block
           end if
 
+        end if
+
+        if (Spec%GenotypeGiven .or. Spec%HaplotypeGiven) then
           if (Spec%AlleleFreqGiven) then
             if (Spec%AlleleFreqFixed) then
-              This%Gen%AlleleFreq = Spec%AlleleFreqFixedValue
+              call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+              This%AlleleFreq%Value = Spec%AlleleFreqFixedValue
             else
-              call This%Gen%ReadAlleleFreq(File=trim(Spec%AlleleFreqFile))
+              call This%AlleleFreq%Read(File=trim(Spec%AlleleFreqFile))
+            end if
+          else
+            if (Spec%GenotypeGiven) then
+              call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+            else
+              call This%AlleleFreq%Init(nLoc=This%Hap%nLoc)
             end if
           end if
-
-        !   This%nTrait = Spec%nTrait
-        !   allocate(This%ZMat(This%nAnisG,This%nLoc))
-
-        !   ! LocusWeight
-        !   allocate(This%LocusWeight(This%nLoc,This%nTrait))
-        !   if (Spec%LocusWeightGiven) then
-        !     open(newunit=LocusWeightUnit, file=trim(Spec%LocusWeightFile), action="read", status="old")
-        !     do i = 1, This%nLoc
-        !       read(LocusWeightUnit,*) DumC, This%LocusWeight(i,:)
-        !     end do
-        !     close(LocusWeightUnit)
-        !   else
-        !     This%LocusWeight(:,:) = 1.0d0
-        !   end if
-
+          if (Spec%LocusWeightGiven) then
+            call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile))
+          else
+            if (Spec%GenotypeGiven) then
+              call This%LocusWeight%Init(nLoc=This%Gen%nLoc)
+            else
+              call This%LocusWeight%Init(nLoc=This%Hap%nLoc)
+            end if
+          end if
         end if
 
         ! if (Spec%PedigreeGiven .and. Spec%GenotypeGiven) then
@@ -2013,15 +2151,6 @@ module AlphaRelateModule
           end if
         end if
 
-        if (allocated(This%Gen%AlleleFreq)) then
-          if (present(Basename)) then
-            call This%Gen%WriteAlleleFreq(File=trim(Basename)//"AlleleFreq.txt")
-          else
-            write(STDOUT, "(a)") "Allele frequencies"
-            call This%Gen%WriteAlleleFreq
-          end if
-        end if
-
         ! @todo Write Haplotypes
         ! if (allocated(This%Hap%OriginalId)) then
         !   if (present(Basename)) then
@@ -2031,6 +2160,24 @@ module AlphaRelateModule
         !     call This%Hap%Write
         !   end if
         ! end if
+
+        if (allocated(This%AlleleFreq%Value)) then
+          if (present(Basename)) then
+            call This%AlleleFreq%Write(File=trim(Basename)//"AlleleFreq.txt")
+          else
+            write(STDOUT, "(a)") "Allele frequencies"
+            call This%AlleleFreq%Write
+          end if
+        end if
+
+        if (allocated(This%LocusWeight%Value)) then
+          if (present(Basename)) then
+            call This%LocusWeight%Write(File=trim(Basename)//"LocusWeight.txt")
+          else
+            write(STDOUT, "(a)") "Locus weights"
+            call This%LocusWeight%Write
+          end if
+        end if
 
         if (allocated(This%PedInbreeding%OriginalId)) then
           if (present(Basename)) then
@@ -2104,7 +2251,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcPedInbreeding(This)
+      pure subroutine CalcPedInbreedingAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
@@ -2118,7 +2265,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcPedNrm(This, Spec)
+      pure subroutine CalcPedNrmAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
@@ -2209,7 +2356,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcPedNrmInv(This)
+      pure subroutine CalcPedNrmInvAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         if (.not. allocated(This%PedInbreeding%Inb)) then
@@ -2223,11 +2370,58 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
+      !> @brief  Calculate allele frequencies on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcAlleleFreqAlphaRelateData(This)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+
+        integer(int32) :: Ind, Loc
+        integer(int32), allocatable, dimension(:) :: nObs
+
+        call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+        ! @todo can we build a method that works on type(Genotype) so we would not need GenotypeReal for allele freq calculation?
+        if (.not. allocated(This%Gen%GenotypeReal)) then
+          call This%Gen%MakeGenotypeReal
+        end if
+
+        ! @todo could we not assume that GenotypeReal has no missing values
+        !       (it should have been cleaned prior to this program) and then
+        !       we can avoid the ifs and simplify computatation a lot
+        ! do Ind = 1, This%Gen%nInd
+        !   This%AlleleFreq%Value = This%AlleleFreq%Value + This%Gen%GenotypeReal(:, Ind)
+        ! end do
+        ! This%AlleleFreq%Value = This%AlleleFreq%Value / (2.0d0 * dble(This%Gen%nInd))
+        allocate(nObs(This%Gen%nLoc))
+        nObs = 0
+        do Ind = 1, This%Gen%nInd
+          do Loc = 1, This%Gen%nLoc
+            if ((This%Gen%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%Gen%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
+              This%AlleleFreq%Value(Loc) = This%AlleleFreq%Value(Loc) + This%Gen%GenotypeReal(Loc, Ind)
+              nObs(Loc) = nObs(Loc) + 1
+            end if
+          end do
+        end do
+        do Loc = 1, This%Gen%nLoc
+          if (nObs(Loc) .gt. 0) then
+            This%AlleleFreq%Value(Loc) = This%AlleleFreq%Value(Loc) / (2.0d0 * dble(nObs(Loc)))
+          else
+            This%AlleleFreq%Value(Loc) = 0.0d0
+          end if
+        end do
+        deallocate(nObs)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
       !> @brief  Calculate genotype NRM on AlphaRelateData
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcGenNrm(This, Spec)
+      pure subroutine CalcGenNrmAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
@@ -2245,27 +2439,27 @@ module AlphaRelateModule
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
             end if
-            if (.not. allocated(This%Gen%AlleleFreq)) then
-              call This%Gen%CalcAlleleFreq
+            if (.not. Spec%AlleleFreqGiven) then
+              call This%CalcAlleleFreq
             end if
-            call This%Gen%CenterGenotypeReal
+            call This%Gen%CenterGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
             ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
             !                                                 nInd=This%Gen%nInd,&
             !                                                 nLoc=This%Gen%nLoc,&
-            !                                                 AlleleFreq=nLoc=This%Gen%AlleleFreq)
+            !                                                 AlleleFreq=nLoc=This%AlleleFreq%Value)
             ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
-            This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%Gen%AlleleFreq * (1.0d0 - This%Gen%AlleleFreq)))
+            This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
 
           case ("vanraden2")
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
             end if
-            if (.not. allocated(This%Gen%AlleleFreq)) then
-              call This%Gen%CalcAlleleFreq
+            if (.not. Spec%AlleleFreqGiven) then
+              call This%CalcAlleleFreq
             end if
-            call This%Gen%CenterAndScaleGenotypeReal
+            call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
             ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
@@ -2275,16 +2469,16 @@ module AlphaRelateModule
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
             end if
-            if (.not. allocated(This%Gen%AlleleFreq)) then
-              call This%Gen%CalcAlleleFreq
+            if (.not. Spec%AlleleFreqGiven) then
+              call This%CalcAlleleFreq
             end if
             block
               ! Prepare diagonal (need to do it before GenotypeReal gets centered and scaled!!!)
               integer(int32) :: Ind, Loc
               real(real64) :: Diag(This%Gen%nInd), T2AFLoc(This%Gen%nLoc), Het(This%Gen%nLoc)
               Diag = 0.0d0
-              T2AFLoc = 2.0d0 * This%Gen%AlleleFreq
-              Het = T2AFLoc * (1.0d0 - This%Gen%AlleleFreq)
+              T2AFLoc = 2.0d0 * This%AlleleFreq%Value
+              Het = T2AFLoc * (1.0d0 - This%AlleleFreq%Value)
               do Ind = 1, This%GenNrm%nInd
                 do Loc = 1, This%Gen%nLoc
                   if (Het(Loc) > tiny(Het(Loc))) then
@@ -2297,12 +2491,12 @@ module AlphaRelateModule
                       1.0d0 + &
                       ((This%Gen%GenotypeReal(Loc, Ind) * This%Gen%GenotypeReal(Loc, Ind)) - &
                        ((1.0d0 + T2AFLoc(Loc)) * This%Gen%GenotypeReal(Loc, Ind)) + &
-                       (T2AFLoc(Loc) * This%Gen%AlleleFreq(Loc))) / Het(Loc)
+                       (T2AFLoc(Loc) * This%AlleleFreq%Value(Loc))) / Het(Loc)
                   end if
                 end do
               end do
               ! Compute ~Z'Z
-              call This%Gen%CenterAndScaleGenotypeReal
+              call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
               ! Modify diagonal
               do Ind = 1, This%GenNrm%nInd
@@ -2417,25 +2611,6 @@ module AlphaRelateModule
       !         end if
       !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
       !       end if
-
-      !       ! @todo: needs testing (was getting some weird values)
-      !       ! if (trim(GType) == "Day-Williams") then
-      !       !   Tmp=0.0d0
-      !       !   do k=1,nLoc
-      !       !     Tmp=Tmp + AlleleFreq(k)*AlleleFreq(k) + (1.0d0-AlleleFreq(k))*(1.0d0-AlleleFreq(k))
-      !       !   end do
-      !       !   do k=1,nAnisG
-      !       !     do l=1,nAnisG
-      !       !       ! @todo: could do just lower triangle, but would have to jump around in memory, i.e., G(j,i)=G(i,j)
-      !       !       !       which is faster?
-      !       !       ! GMat(l,k,WhichMat)+nLoc is the total number of (observed) IBS matches, i.e., 2*e(i,j) in Day-Williams
-      !       !       ! Multiply and divide by 2, because we are building covariance matrix instead of probability matrix
-      !       !       GMat(l,k,WhichMat)=2.0d0*((GMat(l,k,WhichMat)+nLocD)/2.0d0-Tmp)/(nLocD-Tmp)
-      !       !     end do
-      !       !   end do
-      !       ! end if
-
-
 
       !       ! Fudge diagonal
       !       do l=1,nAnisG
