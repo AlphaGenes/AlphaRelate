@@ -1199,9 +1199,10 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CenterGenotypeReal(This)
+      pure subroutine CenterGenotypeReal(This, AlleleFreq)
         implicit none
-        class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
+        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
+        real(real64), intent(in), optional, dimension(This%nLoc) :: AlleleFreq !< Use these allele frequencies instead of the ones already present in This or calculated from This
 
         integer(int32) :: Ind, Loc
         real(real64), allocatable, dimension(:) :: Mean
@@ -1209,12 +1210,16 @@ module AlphaRelateModule
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
         end if
-        if (.not. allocated(This%AlleleFreq)) then
+        if (.not. allocated(This%AlleleFreq) .and. .not. present(AlleleFreq)) then
           call This%CalcAlleleFreq
         end if
 
         allocate(Mean(This%nLoc))
-        Mean = 2.0d0 * This%AlleleFreq
+        if (present(AlleleFreq)) then
+          Mean = 2.0d0 *      AlleleFreq
+        else
+          Mean = 2.0d0 * This%AlleleFreq
+        end if
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
@@ -1241,9 +1246,10 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CenterAndScaleGenotypeReal(This)
+      pure subroutine CenterAndScaleGenotypeReal(This, AlleleFreq)
         implicit none
-        class(GenotypeArray), intent(inout) :: This !< @return GenotypeArray holder
+        class(GenotypeArray), intent(inout) :: This                            !< @return GenotypeArray holder
+        real(real64), intent(in), optional, dimension(This%nLoc) :: AlleleFreq !< Use these allele frequencies instead of the ones already present in This or calculated from This
 
         integer(int32) :: Ind, Loc
         real(real64), allocatable, dimension(:) :: Mean, StDev
@@ -1251,14 +1257,20 @@ module AlphaRelateModule
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
         end if
-        if (.not. allocated(This%AlleleFreq)) then
+        if (.not. allocated(This%AlleleFreq) .and. .not. present(AlleleFreq)) then
           call This%CalcAlleleFreq
         end if
 
         allocate(Mean(This%nLoc))
         allocate(StDev(This%nLoc))
-        Mean = 2.0d0 * This%AlleleFreq
-        StDev = sqrt(2.0d0 * (This%AlleleFreq * (1.0d0 - This%AlleleFreq)))
+        if (present(AlleleFreq)) then
+          Mean = 2.0d0 *      AlleleFreq
+          StDev = sqrt(Mean * (1.0d0 -      AlleleFreq))
+        else
+          Mean = 2.0d0 * This%AlleleFreq
+          StDev = sqrt(Mean * (1.0d0 - This%AlleleFreq))
+        end if
+
         This%GenotypeReal(:, 0) = 0.0d0
         ! @todo could we not assume that GenotypeReal has no missing values
         !       (it should have been cleaned prior to this program) and then
@@ -2241,7 +2253,9 @@ module AlphaRelateModule
             !                                                 nInd=This%Gen%nInd,&
             !                                                 nLoc=This%Gen%nLoc,&
             !                                                 AlleleFreq=nLoc=This%Gen%AlleleFreq)
+            ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%Gen%AlleleFreq * (1.0d0 - This%Gen%AlleleFreq)))
 
           case ("vanraden2")
@@ -2252,7 +2266,9 @@ module AlphaRelateModule
               call This%Gen%CalcAlleleFreq
             end if
             call This%Gen%CenterAndScaleGenotypeReal
+            ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
           case ("yang")
@@ -2293,10 +2309,27 @@ module AlphaRelateModule
                 This%GenNrm%Nrm(Ind, Ind) = Diag(Ind)
               end do
             end block
+            ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
-          ! case ("nejati-javaremi")
-            ! @todo
+          case ("nejati-javaremi")
+            if (.not. allocated(This%Gen%GenotypeReal)) then
+              call This%Gen%MakeGenotypeReal
+            end if
+            ! Center by allele freq of 0.5
+            block
+              real(real64) :: AlleleFreqHalf(This%Gen%nLoc)
+              AlleleFreqHalf = 0.5d0
+              call This%Gen%CenterGenotypeReal(AlleleFreq=AlleleFreqHalf)
+            end block
+            ! Compute ~Z'Z
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            ! Average over loci
+            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
+            ! Modify scale from [-1,1] to [0,2]
+            This%GenNrm%Nrm = This%GenNrm%Nrm + 1.0d0
+            This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
+            This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
 
         end select
       end subroutine
@@ -2373,12 +2406,6 @@ module AlphaRelateModule
       !       else
       !         ! @todo: use DGEMM
       !         GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
-      !       end if
-
-      !       if (trim(GType) == "VanRaden2" .or.&
-      !           trim(GType) == "Yang"      .or.&
-      !           trim(GType) == "Nejati-Javaremi") then
-      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/nLocD
       !       end if
 
       !       ! Put back scale from [-1,1] to [0,2]
