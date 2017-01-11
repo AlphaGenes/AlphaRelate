@@ -1268,10 +1268,12 @@ module AlphaRelateModule
         ! end do
         do Ind = 1, This%nInd
           do Loc = 1, This%nLoc
-            if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
-              This%GenotypeReal(Loc, Ind) = (This%GenotypeReal(Loc, Ind) - Mean(Loc)) / StDev(Loc)
-            else
-              This%GenotypeReal(Loc, Ind) = 0.0d0
+            if (StDev(Loc) > tiny(StDev(Loc))) then
+              if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
+                This%GenotypeReal(Loc, Ind) = (This%GenotypeReal(Loc, Ind) - Mean(Loc)) / StDev(Loc)
+              else
+                This%GenotypeReal(Loc, Ind) = 0.0d0
+              end if
             end if
           end do
         end do
@@ -2218,7 +2220,8 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
-        call This%GenNrm%Init(nInd=This%Gen%nInd, OriginalId=This%Gen%OriginalId)
+        call This%GenNrm%Init(nInd=This%Gen%nInd)
+        This%GenNrm%OriginalId = This%Gen%OriginalId
         This%GenNrm%Id = This%Gen%Id
 
         ! GEMM docs https://software.intel.com/en-us/node/468480
@@ -2227,6 +2230,12 @@ module AlphaRelateModule
 
         select case (trim(Spec%GenNrmType))
           case ("vanraden1")
+            if (.not. allocated(This%Gen%GenotypeReal)) then
+              call This%Gen%MakeGenotypeReal
+            end if
+            if (.not. allocated(This%Gen%AlleleFreq)) then
+              call This%Gen%CalcAlleleFreq
+            end if
             call This%Gen%CenterGenotypeReal
             ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
             !                                                 nInd=This%Gen%nInd,&
@@ -2236,15 +2245,55 @@ module AlphaRelateModule
             This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%Gen%AlleleFreq * (1.0d0 - This%Gen%AlleleFreq)))
 
           case ("vanraden2")
+            if (.not. allocated(This%Gen%GenotypeReal)) then
+              call This%Gen%MakeGenotypeReal
+            end if
+            if (.not. allocated(This%Gen%AlleleFreq)) then
+              call This%Gen%CalcAlleleFreq
+            end if
             call This%Gen%CenterAndScaleGenotypeReal
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-            This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
+            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
           case ("yang")
-            call This%Gen%CenterAndScaleGenotypeReal
-            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-            ! @todo diagonal fix
-            This%GenNrm%Nrm = This%GenNrm%Nrm / This%Gen%nLoc
+            if (.not. allocated(This%Gen%GenotypeReal)) then
+              call This%Gen%MakeGenotypeReal
+            end if
+            if (.not. allocated(This%Gen%AlleleFreq)) then
+              call This%Gen%CalcAlleleFreq
+            end if
+            block
+              ! Prepare diagonal (need to do it before GenotypeReal gets centered and scaled!!!)
+              integer(int32) :: Ind, Loc
+              real(real64) :: Diag(This%Gen%nInd), T2AFLoc(This%Gen%nLoc), Het(This%Gen%nLoc)
+              Diag = 0.0d0
+              T2AFLoc = 2.0d0 * This%Gen%AlleleFreq
+              Het = T2AFLoc * (1.0d0 - This%Gen%AlleleFreq)
+              do Ind = 1, This%GenNrm%nInd
+                do Loc = 1, This%Gen%nLoc
+                  if (Het(Loc) > tiny(Het(Loc))) then
+                    ! if (LocusWeightGiven) then
+                    !   Tmp2=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
+                    ! else
+                    !   Tmp2=1.0d0
+                    ! end if
+                    Diag(Ind) = Diag(Ind) + &
+                      1.0d0 + &
+                      ((This%Gen%GenotypeReal(Loc, Ind) * This%Gen%GenotypeReal(Loc, Ind)) - &
+                       ((1.0d0 + T2AFLoc(Loc)) * This%Gen%GenotypeReal(Loc, Ind)) + &
+                       (T2AFLoc(Loc) * This%Gen%AlleleFreq(Loc))) / Het(Loc)
+                  end if
+                end do
+              end do
+              ! Compute ~Z'Z
+              call This%Gen%CenterAndScaleGenotypeReal
+              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+              ! Modify diagonal
+              do Ind = 1, This%GenNrm%nInd
+                This%GenNrm%Nrm(Ind, Ind) = Diag(Ind)
+              end do
+            end block
+            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
           ! case ("nejati-javaremi")
             ! @todo
@@ -2291,43 +2340,11 @@ module AlphaRelateModule
 
     ! @todo Old code
 
-      ! subroutine MakeGAndInvGMatrix
-      !   implicit none
-
-      !   integer(int32) :: i,j,k,l,m,n,WhichMat
-
-      !   real(real64) :: nLocD, DMatSum, Tmp, Tmp2, Tmp3
-      !   real(real64), allocatable :: TmpZMat(:,:), DMat(:,:)
-
-      !   character(len=1000) :: filout,nChar,fmt
-
-      !   allocate(GMat(nAnisG,nAnisG,nGMat))
-      !   allocate(tZMat(nLoc,nAnisG))
-      !   allocate(TmpZMat(nAnisG,nLoc))
       !   if (LocusWeightGiven) then
       !     allocate(DMat(nLoc,nLoc))
       !     DMat(:,:)=0.0d0
       !   end if
 
-      !   print*, "Start making G - ", trim(GType)
-
-      !   nLocD = dble(nLoc)
-
-      !   ! Center allele dosages (Z)
-      !   if (trim(GType) == "VanRaden"  .or.&
-      !       trim(GType) == "VanRaden1" .or.&
-      !       trim(GType) == "VanRaden2" .or.&
-      !       trim(GType) == "Yang") then
-      !     do j=1,nLoc
-      !       do i=1,nAnisG
-      !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-      !           ZMat(i,j)=Genos(i,j)-2.0d0*AlleleFreq(j)
-      !         else
-      !           ZMat(i,j)=0.0d0
-      !         end if
-      !       end do
-      !     end do
-      !   end if
       !   if (trim(GType) == "Nejati-Javaremi" .or.&
       !       trim(GType) == "Day-Williams") then
       !     do j=1,nLoc
@@ -2340,23 +2357,7 @@ module AlphaRelateModule
       !       end do
       !     end do
       !   end if
-      !   ! Scale centered allele dosages
-      !   if (trim(GType) == "VanRaden2" .or. trim(GType) == "Yang") then
-      !     do j=1,nLoc
-      !       Tmp=2.0d0*AlleleFreq(j)*(1.0d0-AlleleFreq(j))
-      !       if (Tmp > tiny(Tmp)) then
-      !         ZMat(:,j)=ZMat(:,j)/sqrt(Tmp)
-      !       end if
-      !     end do
-      !   end if
 
-      !   ! Z'
-      !   tZMat=transpose(ZMat)
-
-      !   WhichMat=0
-      !   do j=1,nTrait
-      !     do i=j,nTrait
-      !       WhichMat=WhichMat+1
 
       !       ! ZHZ'
       !       if (LocusWeightGiven) then
@@ -2374,10 +2375,6 @@ module AlphaRelateModule
       !         GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
       !       end if
 
-      !       ! ZHZ'/Denom
-      !       if (trim(GType) == "VanRaden" .or. trim(GType) == "VanRaden1") then
-      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)/(2.0d0*sum(AlleleFreq(:)*(1.0d0-AlleleFreq(:))))
-      !       end if
       !       if (trim(GType) == "VanRaden2" .or.&
       !           trim(GType) == "Yang"      .or.&
       !           trim(GType) == "Nejati-Javaremi") then
@@ -2411,96 +2408,12 @@ module AlphaRelateModule
       !       !   end do
       !       ! end if
 
-      !       ! Different diagonal for Yang altogether
-      !       if (trim(GType) == "Yang") then
-      !         do l=1,nAnisG
-      !           GMat(l,l,WhichMat)=0.0d0
-      !         end do
-      !         do k=1,nLoc
-      !           Tmp=2.0d0*AlleleFreq(k)*(1.0d0-AlleleFreq(k))
-      !           if (Tmp > tiny(Tmp)) then
-      !             if (LocusWeightGiven) then
-      !               Tmp2=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
-      !             else
-      !               Tmp2=1.0d0
-      !             end if
-      !             do l=1,nAnisG
-      !               Tmp3=Tmp2 * (1.0d0 + ((Genos(l,k)*Genos(l,k) - (1.0d0+2.0d0*AlleleFreq(k))*Genos(l,k) + 2.0d0*AlleleFreq(k)*AlleleFreq(k)) / Tmp))/nLocD
-      !               GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+Tmp3
-      !             end do
-      !           end if
-      !         end do
-      !       end if
+
 
       !       ! Fudge diagonal
       !       do l=1,nAnisG
       !         GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
       !       end do
-
-      !       ! Export etc.
-      !       if (GFullMat) then
-      !         write(filout,'("GFullMatrix"i0,"-"i0".txt")')i,j
-      !         write(nChar,*) nAnisG
-      !         fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-      !         open(unit=202,file=trim(filout),status="unknown")
-      !         do m=1,nAnisG
-      !           write(202,fmt) IdGeno(m),GMat(:,m,WhichMat)
-      !         end do
-      !         close(202)
-      !       end if
-
-      !       if (GIJA) then
-      !         fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-      !         write(filout,'("Gija"i0,"-"i0".txt")')i,j
-      !         open(unit=202,file=trim(filout),status="unknown")
-      !         do m=1,nAnisG
-      !           do n=m,nAnisG
-      !             ! No test for non-zero here as all elements are non-zero
-      !             write(202,fmt) IdGeno(n),IdGeno(m),GMat(n,m,WhichMat)
-      !           end do
-      !         end do
-      !         close(202)
-      !       end if
-
-      !       if (MakeInvG) then
-      !         allocate(InvGMat(nAnisG,nAnisG,nGMat))
-
-      !         print*, "Start inverting G - ", trim(GType)
-      !         InvGMat(:,:,WhichMat)=GMat(:,:,WhichMat)
-      !         call invert(InvGMat(:,:,WhichMat),nAnisG,.true., 1)
-
-      !         print*, "Finished inverting G - ", trim(GType)
-
-      !         if (InvGFullMat) then
-      !           write(nChar,*) nAnisG
-      !           fmt="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-      !           write(filout,'("InvGFullMatrix"i0,"-"i0".txt")')i,j
-      !           open(unit=202,file=trim(filout),status="unknown")
-      !           do m=1,nAnisG
-      !             write(202,fmt) IdGeno(m),InvGMat(:,m,WhichMat)
-      !           end do
-      !           close(202)
-      !         end if
-
-      !         if (InvGIJA) then
-      !           write(filout,'("InvGija"i0,"-"i0".txt")')i,j
-      !           fmt="(2a20,"//trim(adjustl(OutputFormat))//")"
-      !           open(unit=202,file=trim(filout),status="unknown")
-      !           do m=1,nAnisG
-      !             do n=m,nAnisG
-      !               write(202,fmt) IdGeno(n),IdGeno(m),InvGMat(n,m,WhichMat)
-      !             end do
-      !           end do
-      !           close(202)
-      !         end if
-      !       end if
-
-      !     end do
-      !   end do
-      !   deallocate(tZMat)
-      !   deallocate(TmpZMat)
-      !   print*, "Finished making G - ", trim(GType)
-      ! end subroutine
 
       !###########################################################################
 
