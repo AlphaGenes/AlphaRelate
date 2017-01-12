@@ -164,6 +164,7 @@ module AlphaRelateModule
   type AlphaRelateSpec
     character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile, HaplotypeFile
     character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile, LocusWeightFile!, PedNrmOldFile
+    character(len=FILELENGTH) :: OutputBasename
     character(len=SPECOPTIONLENGTH) :: OutputFormat, GenNrmType
 
     logical :: PedigreeGiven, GenotypeGiven, HaplotypeGiven
@@ -1456,6 +1457,7 @@ module AlphaRelateModule
         This%HaplotypeFile    = "None"
         This%AlleleFreqFile   = "None"
         This%LocusWeightFile  = "None"
+        This%OutputBasename   = ""
 
         This%GenNrmType       = "None"
         This%OutputFormat     = "f"
@@ -1541,6 +1543,21 @@ module AlphaRelateModule
             cycle
           else
             select case (ToLower(trim(DumString)))
+
+              case ("outputbasename")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "none") then
+                    write(STDOUT, "(a)") " Not using output basename"
+                  else
+                    write(This%OutputBasename, *) trim(adjustl(Second(1)))
+                    This%OutputBasename = adjustl(This%OutputBasename)
+                    write(STDOUT, "(2a)") " Using output basename: ", trim(This%OutputBasename)
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, i.e., OutputBasename, AnalysisX"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               case ("pedigreefile")
                 if (allocated(Second)) then

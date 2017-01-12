@@ -57,33 +57,33 @@ program AlphaRelate
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating pedigree inbreeding ..."
     call Data%CalcPedInbreeding
-    call Data%PedInbreeding%Write(File="PedigreeInbreeding.txt", OutputFormat=Spec%OutputFormat)
+    call Data%PedInbreeding%Write(File=trim(Spec%OutputBasename)//"PedigreeInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
   if (Spec%PedNrm) then
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating pedigree NRM ..."
     call Data%CalcPedNrm(Spec=Spec)
-    call Data%PedNrm%Write(File="PedigreeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmIja)
+    call Data%PedNrm%Write(File=trim(Spec%OutputBasename)//"PedigreeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmIja)
   end if
 
   if (Spec%PedNrmInv) then
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating pedigree NRM inverse ..."
     call Data%CalcPedNrmInv
-    call Data%PedNrmInv%Write(File="PedigreeNrmInv.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmInvIja)
+    call Data%PedNrmInv%Write(File=trim(Spec%OutputBasename)//"PedigreeNrmInv.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmInvIja)
   end if
 
   if (Spec%GenNrm) then
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating genotype NRM ..."
     call Data%CalcGenNrm(Spec=Spec)
-    call Data%GenNrm%Write(File="GenotypeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%GenNrmIja)
+    call Data%GenNrm%Write(File=trim(Spec%OutputBasename)//"GenotypeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%GenNrmIja)
     if ((trim(Spec%GenNrmType) == "vanraden1" .or. &
          trim(Spec%GenNrmType) == "vanraden2" .or. &
          trim(Spec%GenNrmType) == "yang")    .and. &
          .not. Spec%AlleleFreqGiven) then
-      call Data%AlleleFreq%Write(File=trim(Spec%GenotypeFile)//"_AlleleFreq.txt")
+      call Data%AlleleFreq%Write(File=trim(Spec%OutputBasename)//"AlleleFreq.txt")
     end if
   end if
 
@@ -91,14 +91,14 @@ program AlphaRelate
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating genotype inbreeding ..."
     call Data%CalcGenInbreeding(Spec=Spec)
-    call Data%GenInbreeding%Write(File="GenotypeInbreeding.txt", OutputFormat=Spec%OutputFormat)
+    call Data%GenInbreeding%Write(File=trim(Spec%OutputBasename)//"GenotypeInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
   ! if (Spec%GenNrmInv) then
   !   write(STDOUT, "(a)") ""
   !   write(STDOUT, "(a)") " Calculating genotype NRM inverse ..."
   !   call Data%CalcGenNrmInv
-  !   call Data%WriteGenNrmInv(File="GenotypeNrmInv.txt", Spec=Spec)
+  !   call Data%WriteGenNrmInv(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", Spec=Spec)
   ! end if
 
   call cpu_time(EndTime)
