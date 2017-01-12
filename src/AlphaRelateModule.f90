@@ -174,12 +174,12 @@ module AlphaRelateModule
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
     logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
     ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
-    logical :: FudgeGenNrmDiag!, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
+    logical :: FudgeGenNrmDiag, BlendGenNrmWithPedNrm!, FudgeHapNrmDiag, BlendHapNrmWithPedNrm
 
     integer(int32):: nLoc
 
     real(real64):: AlleleFreqFixedValue
-    real(real64):: FudgeGenNrmDiagValue!, BlendGenNrmFactor, FudgeHapNrmDiagValue, BlendHapNrmFactor
+    real(real64):: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)!, FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
     contains
       procedure :: Init => InitAlphaRelateSpec
       procedure :: Read => ReadAlphaRelateSpec
@@ -259,7 +259,7 @@ module AlphaRelateModule
         ! Arguments
         class(IndSet), intent(out) :: This                                     !< @return IndSet holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
-        character(len=IDLENGTH), intent(in), optional :: OriginalId(:)         !< Original Id of individuals in the      set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
 
@@ -279,8 +279,8 @@ module AlphaRelateModule
           deallocate(This%OriginalId)
         end if
         allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
         if (present(OriginalId)) then
-          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         end if
 
@@ -288,12 +288,12 @@ module AlphaRelateModule
           deallocate(This%Id)
         end if
         allocate(This%Id(0:nInd))
+        This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(0) = 0
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(Ind, Ind=0, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
       end subroutine
 
@@ -439,10 +439,10 @@ module AlphaRelateModule
         ! Arguments
         class(Inbreeding), intent(out) :: This                                 !< @return Inbreeding holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
-        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(:)         !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients
+        real(real64), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -475,7 +475,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
         if (allocated(This%Inb)) then
@@ -620,10 +620,10 @@ module AlphaRelateModule
         ! Arguments
         class(Nrm), intent(out) :: This                                        !< @return Nrm holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
-        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: NrmInput(nInd, nInd)             !< Relationship coefficients
+        real(real64), intent(in), optional :: NrmInput(nInd, nInd)             !< Relationship coefficients (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -656,7 +656,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
         if (allocated(This%Nrm)) then
@@ -1072,11 +1072,11 @@ module AlphaRelateModule
         class(GenotypeArray), intent(out) :: This                              !< @return GenotypeArray holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         integer(int32), intent(in) :: nLoc                                     !< Number of loci in the set
-        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        integer(int8), intent(in), optional :: IntegerInput(nLoc, nInd)        !< Genotypes as an array of integers
-        type(Genotype), intent(in), optional :: GenotypeInput(nInd)            !< Genotypes as genotype type
+        integer(int8), intent(in), optional :: IntegerInput(nLoc, nInd)        !< Genotypes as an array of integers (note that this should not have 0th margin)
+        type(Genotype), intent(in), optional :: GenotypeInput(nInd)            !< Genotypes as genotype type (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -1115,7 +1115,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
         ! Init Genotype
@@ -1495,35 +1495,35 @@ module AlphaRelateModule
         This%AlleleFreqFixed   = .false.
         This%LocusWeightGiven  = .false.
 
-        This%PedInbreeding       = .false.
-        This%PedNrm              = .false.
-        This%PedNrmIja           = .false.
-        This%PedNrmInv           = .false.
-        This%PedNrmInvIja        = .false.
+        This%PedInbreeding = .false.
+        This%PedNrm        = .false.
+        This%PedNrmIja     = .false.
+        This%PedNrmInv     = .false.
+        This%PedNrmInvIja  = .false.
 
-        This%GenInbreeding       = .false.
-        This%GenNrm              = .false.
-        This%GenNrmIja           = .false.
-        This%GenNrmInv           = .false.
-        This%GenNrmInvIja        = .false.
-        This%FudgeGenNrmDiag     = .false.
-        ! This%BlendGenNrm         = .false.
+        This%GenInbreeding         = .false.
+        This%GenNrm                = .false.
+        This%GenNrmIja             = .false.
+        This%GenNrmInv             = .false.
+        This%GenNrmInvIja          = .false.
+        This%FudgeGenNrmDiag       = .false.
+        This%BlendGenNrmWithPedNrm = .false.
 
-        ! This%HapInbreeding       = .false.
-        ! This%HapNrm              = .false.
-        ! This%HapNrmIja           = .false.
-        ! This%HapNrmInv           = .false.
-        ! This%HapNrmInvIja        = .false.
-        ! This%FudgeHapNrmDiag     = .false.
-        ! This%BlendHapNrm         = .false.
+        ! This%HapInbreeding      = .false.
+        ! This%HapNrm             = .false.
+        ! This%HapNrmIja          = .false.
+        ! This%HapNrmInv          = .false.
+        ! This%HapNrmInvIja       = .false.
+        ! This%FudgeHapNrmDiag    = .false.
+        ! This%BlendHapWithPedNrm = .false.
 
         This%nLoc             = 0
 
-        This%AlleleFreqFixedValue  = 0.5d0
-        This%FudgeGenNrmDiagValue  = 0.0d0
-        ! This%BlendGenNrmFactor     = 0.0d0
-        ! This%FudgeHapNrmDiagValue = 0.0d0
-        ! This%BlendHapNrmFactor     = 0.0d0
+        This%AlleleFreqFixedValue        = 0.5d0
+        This%FudgeGenNrmDiagValue        = 0.0d0
+        This%BlendGenNrmWithPedNrmFactor = [1.0d0, 0.0d0]
+        ! This%FudgeHapNrmDiagValue        = 0.0d0
+        ! This%BlendHapNrmWithPedNrmFactor = [1.0d0, 0.0d0]
       end subroutine
 
       !#########################################################################
@@ -1848,17 +1848,24 @@ module AlphaRelateModule
                   stop 1
                 end if
 
-              ! case ("blendgennrm")
-              !   if (allocated(Second)) then
-              !     This%PedNrm = .true.
-              !     This%BlendGenNrm = .true.
-              !     This%BlendGenNrmFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !     write(STDOUT, "(2a)") " Blend genotype NRM: ", Real2Char(This%BlendGenNrmFactor, "(f6.4)")
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a value for BlendGenNrm, i.e., BlendGenNrm, 0.95"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
+              case ("blendgennrmwithpednrm")
+                if (allocated(Second)) then
+                  if (size(Second) == 2) then
+                    This%PedNrm = .true.
+                    This%BlendGenNrmWithPedNrm = .true.
+                    This%BlendGenNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+                    This%BlendGenNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
+                    write(STDOUT, "(a, 2f)") " Blend genotype NRM with pedigree NRM: ", This%BlendGenNrmWithPedNrmFactor
+                  else
+                    write(STDERR, "(a)") " ERROR: Must specify two values for BlendGenNrmWithPedNrm, i.e., BlendGenNrmWithPedNrm, 0.95, 0.05"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify two values for BlendGenNrmWithPedNrm, i.e., BlendGenNrmWithPedNrm, 0.95, 0.05"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               ! case ("fudgehapnrmdiag")
               !   if (allocated(Second)) then
@@ -1871,14 +1878,21 @@ module AlphaRelateModule
               !     stop 1
               !   end if
 
-              ! case ("blendhapnrm")
+              ! case ("blendhapnrmwithpednrm")
               !   if (allocated(Second)) then
-              !     This%PedNrm = .true.
-              !     This%BlendHapNrm = .true.
-              !     This%BlendHapNrmFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !     write(STDOUT, "(2a)") " Blend haplotype NRM: ", Real2Char(This%BlendHapNrmFactor, "(f6.4)")
+              !     if (size(Second) == 2) then
+              !       This%PedNrm = .true.
+              !       This%BlendHapNrmWithPedNrm = .true.
+              !       This%BlendHapNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+              !       This%BlendHapNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
+              !       write(STDOUT, "(a, 2f)") " Blend haplotype NRM with pedigree NRM: ", This%BlendHapNrmWithPedNrmFactor
+              !     else
+              !       write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapNrmWithPedNrm, i.e., BlendHapNrmWithPedNrm, 0.95, 0.05"
+              !       write(STDERR, "(a)") ""
+              !       stop 1
+              !     end if
               !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a value for BlendHapNrm, i.e., BlendHapNrm, 0.95"
+              !     write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapNrmWithPedNrm, i.e., BlendHapNrmWithPedNrm, 0.95, 0.05"
               !     write(STDERR, "(a)") ""
               !     stop 1
               !   end if
@@ -1936,24 +1950,17 @@ module AlphaRelateModule
         !   stop 1
         ! end if
 
-        ! if (This%BlendGenNrm .and. .not. This%PedigreeGiven) then
-        !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
-        !   write(STDERR, "(a)") ""
-        !   stop 1
-        ! end if
+        if (This%BlendGenNrmWithPedNrm .and. .not. This%PedigreeGiven) then
+          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
+          write(STDERR, "(a)") ""
+          stop 1
+        end if
 
         ! if (This%BlendHapNrm .and. .not. This%PedigreeGiven) then
         !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
         !   write(STDERR, "(a)") ""
         !   stop 1
         ! end if
-
-        ! This%nGenMat=0
-        ! do i = 1, This%nTrait
-        !   do j = i, This%nTrait
-        !     This%nGenMat = This%nGenMat + 1
-        !   end do
-        ! end do
 
         ! if ((This%MakeG .or. This%MakeInvG .or. This%MakeH .or. This%MakeInvH) .and. .not. This%GenotypeGiven) then
         !   write(STDOUT, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
@@ -2012,7 +2019,7 @@ module AlphaRelateModule
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
             write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset"
             call This%PedNrmSubset%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
-            block ! @todo make this block a subroutine - it is 99% copied several times?
+            block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               integer(int32) :: Ind
               logical :: IdMatchNotFound
               IdMatchNotFound = .false.
@@ -2037,7 +2044,7 @@ module AlphaRelateModule
 
           if (Spec%PedigreeGiven) then
             call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
-            block ! @todo make this block a subroutine - it is 99% copied several times?
+            block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               integer(int32) :: Ind
               logical :: IdMatchNotFound
               IdMatchNotFound = .false.
@@ -2338,7 +2345,8 @@ module AlphaRelateModule
       pure subroutine CalcPedInbreedingAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
-        call This%PedInbreeding%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
+        call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
+        This%PedInbreeding%OriginalId = This%RecPed%OriginalId
         This%PedInbreeding%Inb = PedInbreeding(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
       end subroutine
 
@@ -2356,8 +2364,8 @@ module AlphaRelateModule
 
         if (Spec%PedNrmSubsetGiven) then
           ! Using the Colleau/Tier method to get Nrm for a subset of individuals
-          call This%PedNrm%Init(nInd=This%PedNrmSubset%nInd,&
-                                OriginalId=This%PedNrmSubset%OriginalId)
+          call This%PedNrm%Init(nInd=This%PedNrmSubset%nInd)
+          This%PedNrm%OriginalId = This%PedNrmSubset%OriginalId
           This%PedNrm%Id = This%PedNrmSubset%Id
           block
             integer(int32) :: Ind, xPos
@@ -2428,7 +2436,8 @@ module AlphaRelateModule
           !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
         else
           ! Standard method for all individuals
-          call This%PedNrm%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
+          call This%PedNrm%Init(nInd=This%RecPed%nInd)
+          This%PedNrm%OriginalId = This%RecPed%OriginalId
           This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
         end if
       end subroutine
@@ -2446,7 +2455,8 @@ module AlphaRelateModule
         if (.not. allocated(This%PedInbreeding%Inb)) then
           call This%CalcPedInbreeding
         end if
-        call This%PedNrmInv%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId)
+        call This%PedNrmInv%Init(nInd=This%RecPed%nInd)
+        This%PedNrmInv%OriginalId = This%RecPed%OriginalId
         This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
                                        Inbreeding=This%PedInbreeding%Inb)
       end subroutine
@@ -2505,7 +2515,8 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcGenNrmAlphaRelateData(This, Spec)
+!pure subroutine CalcGenNrmAlphaRelateData(This, Spec)
+subroutine CalcGenNrmAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
@@ -2647,6 +2658,14 @@ module AlphaRelateModule
             end do
           end block
         end if
+
+        if (Spec%BlendGenNrmWithPedNrm) then
+          if (.not. allocated(This%PedNrm%Nrm)) then
+            call This%CalcPedNrm(Spec=Spec)
+          end if
+          This%GenNrm%Nrm = Spec%BlendGenNrmWithPedNrmFactor(1) * This%GenNrm%Nrm + &
+                            Spec%BlendGenNrmWithPedNrmFactor(2) * This%PedNrm%Nrm(This%GenNrm%Id, This%GenNrm%Id)
+        end if
       end subroutine
 
       !#########################################################################
@@ -2690,7 +2709,8 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-      pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
+!pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
+      subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%GenInbreeding(0) = -1.0!!!
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
@@ -2701,7 +2721,8 @@ module AlphaRelateModule
           call This%CalcGenNrm(Spec=Spec)
         end if
 
-        call This%GenInbreeding%Init(nInd=This%GenNrm%nInd, OriginalId=This%GenNrm%OriginalId)
+        call This%GenInbreeding%Init(nInd=This%GenNrm%nInd)
+        This%GenInbreeding%OriginalId = This%GenNrm%OriginalId
         do Ind = 1, This%GenInbreeding%nInd
           This%GenInbreeding%Inb(Ind) = This%GenNrm%Nrm(Ind, Ind) - 1.0d0
         end do
