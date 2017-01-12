@@ -36,6 +36,7 @@ module AlphaRelateModule
   use GenotypeModule, only : Genotype
   use HaplotypeModule, only : Haplotype
   use Blas95
+  use Lapack95
   use F95_precision
 
   implicit none
@@ -217,7 +218,7 @@ module AlphaRelateModule
       procedure :: CalcAlleleFreq    => CalcAlleleFreqAlphaRelateData
       procedure :: CalcGenInbreeding => CalcGenInbreedingAlphaRelateData
       procedure :: CalcGenNrm        => CalcGenNrmAlphaRelateData
-      ! procedure :: CalcGenNrmInv
+      procedure :: CalcGenNrmInv     => CalcGenNrmInvAlphaRelateData
   end type
 
   contains
@@ -2515,8 +2516,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-!pure subroutine CalcGenNrmAlphaRelateData(This, Spec)
-subroutine CalcGenNrmAlphaRelateData(This, Spec)
+      pure subroutine CalcGenNrmAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
@@ -2709,8 +2709,7 @@ subroutine CalcGenNrmAlphaRelateData(This, Spec)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-!pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
-      subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
+      pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%GenInbreeding(0) = -1.0!!!
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
@@ -2723,9 +2722,61 @@ subroutine CalcGenNrmAlphaRelateData(This, Spec)
 
         call This%GenInbreeding%Init(nInd=This%GenNrm%nInd)
         This%GenInbreeding%OriginalId = This%GenNrm%OriginalId
+        This%GenInbreeding%Id = This%GenNrm%Id
         do Ind = 1, This%GenInbreeding%nInd
           This%GenInbreeding%Inb(Ind) = This%GenNrm%Nrm(Ind, Ind) - 1.0d0
         end do
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate genotype NRM inverse on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+!pure subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
+subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
+        logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
+
+        integer(int32) :: InfoInt, Ind
+
+        if (.not. allocated(This%GenNrm%Nrm)) then
+          call This%CalcGenNrm(Spec=Spec)
+        end if
+        call This%GenNrmInv%Init(nInd=This%GenNrm%nInd)
+        This%GenNrmInv%OriginalId = This%GenNrm%OriginalId
+        This%GenNrmInv%Id = This%GenNrm%Id
+
+        This%GenNrmInv%Nrm = This%GenNrm%Nrm
+
+        Info = .true.
+
+        ! Cholesky factorization of a symmetric positive definite matrix
+        ! https://software.intel.com/en-us/node/468690
+call This%GenNrmInv%Write
+        call potrf(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+call This%GenNrmInv%Write
+        if (InfoInt == 0) then
+          ! Computes the inverse of a symmetric positive definite matrix based on the Cholesky factorization via potrf()
+          ! https://software.intel.com/en-us/node/468824
+          call potri(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+call This%GenNrmInv%Write
+          if (InfoInt == 0) then
+            ! Fill the upper triangle
+            do Ind = 1, This%GenNrmInv%nInd
+              This%GenNrmInv%Nrm(Ind, (Ind+1):This%GenNrmInv%nInd) = This%GenNrmInv%Nrm(Ind:This%GenNrmInv%nInd, Ind)
+            end do
+call This%GenNrmInv%Write
+          else
+            Info = .false.
+          end if
+        else
+          Info = .false.
+        end if
       end subroutine
 
       !#########################################################################
@@ -3040,73 +3091,7 @@ subroutine CalcGenNrmAlphaRelateData(This, Spec)
       !           end if
       !         end do
 
-      !###########################################################################
-
-      ! subroutine invert(x,n,sym, method)
-
-      !   ! Interface to call inverse subroutines from BLAS/LAPACK libraries
-
-      !   ! x symmetric positive-definite matrix to be inverted
-      !   ! n matrix dimension
-      !   ! sym return lower-triangular (sym=.false) or full matrix (sym=.true.)
-      !   ! method for inversion
-      !   ! 0 -- Generalised solving using LU decomposition (dgetrs)
-      !   ! 1 -- Cholesky decomposition
-
-      !   implicit none
-      !   integer(int32), intent(in) :: n,method
-      !   integer(int32) :: i,j,info
-
-      !   real(real64),intent(inout) :: x(n,n)
-      !   real(real64),allocatable :: Iden(:,:)
-
-      !   logical, intent(in) :: sym
-
-      !   if (method == 0) then
-      !     !Solves a general system of linear equations AX=B, A**T X=B or A**H X=B, using the LU factorization computed by SGETRF/CGETRF
-      !     !http://physics.oregonstate.edu/~rubin/nacphy/lapack/routines/dgetrs.html
-
-      !     allocate(Iden(n,n))
-      !     ForAll(i = 1:n, j = 1:n) Iden(i,j) = (i/j)*(j/i)  !https://rosettacode.org/wiki/Identity_matrix#Notorious_trick
-
-      !     !https://software.intel.com/en-us/node/468712
-      !     !Solves a system of linear equations with an LU-factored square coefficient matrix, with multiple right-hand sides.
-      !     ! dgetrs(trans,n,nrhs,A,b,lda,ldb,info)
-      !     !Output: Solution overwrites `b`.
-      !     call dgetrs("N",n,n,x,Iden,n,n,info)
-      !     if (info /= 0) then
-      !       print *, "Matrix not positive-definite - info",info
-      !       stop 1
-      !     end if
-
-      !     x(:,:) = Iden(:,:)
-
-      !   else if (method == 1) then
-
-      !     ! Computes the Cholesky factorization of a symmetric positive definite matrix
-      !     ! https://software.intel.com/en-us/node/468690
-      !     call dpotrf("L",n,x,n,info)
-      !     if (info /= 0) then
-      !       print*,"Matrix not positive-definite - info",info
-      !       stop 1
-      !     end if
-
-      !     ! Computes the inverse of a symmetric positive definite matrix,
-      !     !   using the Cholesky factorization computed by dpotrf()
-      !     ! https://software.intel.com/en-us/node/468824
-      !     call dpotri("L",n,x,n,info)
-      !     if (info /= 0) then
-      !      print*,"Matrix not positive-definite - info",info
-      !      stop 1
-      !     end if
-
-      !     ! Fills the upper triangle
-      !     if (sym) then
-      !       forall (i=1:n,j=1:n,j>i) x(i,j)=x(j,i)
-      !     end if
-
-      !   end if
-      ! end subroutine
+      !#########################################################################
 
     !###########################################################################
 

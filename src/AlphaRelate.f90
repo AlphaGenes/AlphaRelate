@@ -32,6 +32,7 @@ program AlphaRelate
   integer(int32) :: nArg
   real(real32) :: StartTime, EndTime
   character(len=FILELENGTH) :: SpecFile
+  logical :: InversionSucceded
   type(AlphaRelateSpec) :: Spec
   type(AlphaRelateData) :: Data
 
@@ -94,12 +95,18 @@ program AlphaRelate
     call Data%GenInbreeding%Write(File=trim(Spec%OutputBasename)//"GenotypeInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
-  ! if (Spec%GenNrmInv) then
-  !   write(STDOUT, "(a)") ""
-  !   write(STDOUT, "(a)") " Calculating genotype NRM inverse ..."
-  !   call Data%CalcGenNrmInv
-  !   call Data%WriteGenNrmInv(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", Spec=Spec)
-  ! end if
+  if (Spec%GenNrmInv) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating genotype NRM inverse ..."
+    call Data%CalcGenNrmInv(Spec=Spec, Info=InversionSucceded)
+    if (InversionSucceded) then
+      call Data%WriteGenNrmInv(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", Spec=Spec)
+    else
+      write(STDERR, "(a)") " ERROR: Inversion of genotype NRM failed"
+      write(STDERR, "(a)") " "
+      stop 1
+    end if
+  end if
 
   call cpu_time(EndTime)
   call AlphaRelateTitle
