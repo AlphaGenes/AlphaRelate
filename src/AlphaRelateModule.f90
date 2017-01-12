@@ -174,12 +174,12 @@ module AlphaRelateModule
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
     logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
     ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
-    ! logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
+    logical :: FudgeGenNrmDiag!, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
 
     integer(int32):: nLoc
 
     real(real64):: AlleleFreqFixedValue
-    !real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
+    real(real64):: FudgeGenNrmDiagValue!, BlendGenNrmFactor, FudgeHapNrmDiagValue, BlendHapNrmFactor
     contains
       procedure :: Init => InitAlphaRelateSpec
       procedure :: Read => ReadAlphaRelateSpec
@@ -189,9 +189,9 @@ module AlphaRelateModule
   type AlphaRelateData
     ! Pedigree stuff
     type(RecodedPedigreeArray) :: RecPed
+    type(IndSet)               :: PedNrmSubset
     type(Inbreeding)           :: PedInbreeding
     type(Nrm)                  :: PedNrm
-    type(IndSet)               :: PedNrmSubset
     type(Nrm)                  :: PedNrmInv
     ! Genome stuff
     type(AlleleFreq)           :: AlleleFreq
@@ -1506,7 +1506,7 @@ module AlphaRelateModule
         This%GenNrmIja           = .false.
         This%GenNrmInv           = .false.
         This%GenNrmInvIja        = .false.
-        ! This%FudgeGenNrmDiag     = .false.
+        This%FudgeGenNrmDiag     = .false.
         ! This%BlendGenNrm         = .false.
 
         ! This%HapInbreeding       = .false.
@@ -1519,10 +1519,10 @@ module AlphaRelateModule
 
         This%nLoc             = 0
 
-        This%AlleleFreqFixedValue    = 0.5d0
-        ! This%FudgeHapNrmDiagFactor = 0.0d0
-        ! This%BlendHapNrmFactor     = 0.0d0
-        ! This%FudgeHapNrmDiagFactor = 0.0d0
+        This%AlleleFreqFixedValue  = 0.5d0
+        This%FudgeGenNrmDiagValue  = 0.0d0
+        ! This%BlendGenNrmFactor     = 0.0d0
+        ! This%FudgeHapNrmDiagValue = 0.0d0
         ! This%BlendHapNrmFactor     = 0.0d0
       end subroutine
 
@@ -1837,16 +1837,16 @@ module AlphaRelateModule
                   stop 1
                 end if
 
-              ! case ("fudgegennrmdiag")
-              !   if (allocated(Second)) then
-              !     This%FudgeGenNrmDiag = .true.
-              !     This%FudgeGenNrmDiagFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !     write(STDOUT, "(2a)") " Fudge genotype NRM diagonal: ", Real2Char(This%FudgeGenNrmDiagFactor, "(f6.4)")
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a number for FudgeGenNrmDiag, i.e., FudgeGenNrmDiag, 0.001"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
+              case ("fudgegennrmdiag")
+                if (allocated(Second)) then
+                  This%FudgeGenNrmDiag = .true.
+                  This%FudgeGenNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+                  write(STDOUT, "(2a)") " Fudge genotype NRM diagonal: ", Real2Char(This%FudgeGenNrmDiagValue, "(f6.4)")
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for FudgeGenNrmDiag, i.e., FudgeGenNrmDiag, 0.001"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               ! case ("blendgennrm")
               !   if (allocated(Second)) then
@@ -1855,7 +1855,7 @@ module AlphaRelateModule
               !     This%BlendGenNrmFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
               !     write(STDOUT, "(2a)") " Blend genotype NRM: ", Real2Char(This%BlendGenNrmFactor, "(f6.4)")
               !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a number for BlendGenNrm, i.e., BlendGenNrm, 0.95"
+              !     write(STDERR, "(a)") " ERROR: Must specify a value for BlendGenNrm, i.e., BlendGenNrm, 0.95"
               !     write(STDERR, "(a)") ""
               !     stop 1
               !   end if
@@ -1863,10 +1863,10 @@ module AlphaRelateModule
               ! case ("fudgehapnrmdiag")
               !   if (allocated(Second)) then
               !     This%FudgeHapNrmDiag = .true.
-              !     This%FudgeHapNrmDiagFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !     write(STDOUT, "(2a)") " Fudge haplotype NRM diagonal: ", Real2Char(This%FudgeHapNrmDiagFactor, "(f6.4)")
+              !     This%FudgeHapNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+              !     write(STDOUT, "(2a)") " Fudge haplotype NRM diagonal: ", Real2Char(This%FudgeHapNrmDiagValue, "(f6.4)")
               !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a number for FudgeHapNrmDiag, i.e., FudgeHapNrmDiag, 0.001"
+              !     write(STDERR, "(a)") " ERROR: Must specify a value for FudgeHapNrmDiag, i.e., FudgeHapNrmDiag, 0.001"
               !     write(STDERR, "(a)") ""
               !     stop 1
               !   end if
@@ -1878,7 +1878,7 @@ module AlphaRelateModule
               !     This%BlendHapNrmFactor = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
               !     write(STDOUT, "(2a)") " Blend haplotype NRM: ", Real2Char(This%BlendHapNrmFactor, "(f6.4)")
               !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a number for BlendHapNrm, i.e., BlendHapNrm, 0.95"
+              !     write(STDERR, "(a)") " ERROR: Must specify a value for BlendHapNrm, i.e., BlendHapNrm, 0.95"
               !     write(STDERR, "(a)") ""
               !     stop 1
               !   end if
@@ -2121,6 +2121,10 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(in) :: This         !< AlphaRelateData holder
         character(len=*), intent(in), optional :: Basename !< Basename for produced files
 
+        ! The best is to be in line with the AlphaRelateData type definition
+
+        ! Pedigree stuff
+
         if (allocated(This%RecPed%OriginalId)) then
           if (present(Basename)) then
             call This%RecPed%Write(File=trim(Basename)//"RecodedPedigree.txt")
@@ -2130,33 +2134,43 @@ module AlphaRelateModule
           end if
         end if
 
-        if (allocated(This%Gen%OriginalId)) then
+        if (allocated(This%PedNrmSubset%OriginalId)) then
           if (present(Basename)) then
-            call This%Gen%Write(File=trim(Basename)//"Genotype.txt")
+            call This%PedNrmSubset%Write(File=trim(Basename)//"PedNrmSubset.txt")
           else
-            write(STDOUT, "(a)") "Genotype"
-            call This%Gen%Write
+            write(STDOUT, "(a)") "Pedigree NRM subset"
+            call This%PedNrmSubset%Write
           end if
         end if
 
-        if (allocated(This%Gen%GenotypeReal)) then
+        if (allocated(This%PedInbreeding%OriginalId)) then
           if (present(Basename)) then
-            call This%Gen%WriteReal(File=trim(Basename)//"GenotypeReal.txt")
+            call This%PedInbreeding%Write(File=trim(Basename)//"PedInbreeding.txt")
           else
-            write(STDOUT, "(a)") "Genotype (as real)"
-            call This%Gen%WriteReal
+            write(STDOUT, "(a)") "Pedigree inbreeding"
+            call This%PedInbreeding%Write
           end if
         end if
 
-        ! @todo Write Haplotypes
-        ! if (allocated(This%Hap%OriginalId)) then
-        !   if (present(Basename)) then
-        !     call This%Hap%Write(File=trim(Basename)//"Haplotype.txt")
-        !   else
-        !     write(STDOUT, "(a)") "Haplotype"
-        !     call This%Hap%Write
-        !   end if
-        ! end if
+        if (allocated(This%PedNrm%OriginalId)) then
+          if (present(Basename)) then
+            call This%PedNrm%Write(File=trim(Basename)//"PedNrm.txt")
+          else
+            write(STDOUT, "(a)") "Pedigree NRM"
+            call This%PedNrm%Write
+          end if
+        end if
+
+        if (allocated(This%PedNrmInv%OriginalId)) then
+          if (present(Basename)) then
+            call This%PedNrmInv%Write(File=trim(Basename)//"PedNrmInv.txt")
+          else
+            write(STDOUT, "(a)") "Pedigree NRM inverse"
+            call This%PedNrmInv%Write
+          end if
+        end if
+
+        ! Genome stuff
 
         if (allocated(This%AlleleFreq%Value)) then
           if (present(Basename)) then
@@ -2176,39 +2190,23 @@ module AlphaRelateModule
           end if
         end if
 
-        if (allocated(This%PedInbreeding%OriginalId)) then
+        ! Genotype stuff
+
+        if (allocated(This%Gen%OriginalId)) then
           if (present(Basename)) then
-            call This%PedInbreeding%Write(File=trim(Basename)//"PedInbreeding.txt")
+            call This%Gen%Write(File=trim(Basename)//"Genotype.txt")
           else
-            write(STDOUT, "(a)") "Pedigree inbreeding"
-            call This%PedInbreeding%Write
+            write(STDOUT, "(a)") "Genotype"
+            call This%Gen%Write
           end if
         end if
 
-        if (allocated(This%PedNrmSubset%OriginalId)) then
+        if (allocated(This%Gen%GenotypeReal)) then
           if (present(Basename)) then
-            call This%PedNrmSubset%Write(File=trim(Basename)//"PedNrmSubset.txt")
+            call This%Gen%WriteReal(File=trim(Basename)//"GenotypeReal.txt")
           else
-            write(STDOUT, "(a)") "Pedigree NRM subset"
-            call This%PedNrmSubset%Write
-          end if
-        end if
-
-        if (allocated(This%PedNrm%OriginalId)) then
-          if (present(Basename)) then
-            call This%PedNrm%Write(File=trim(Basename)//"PedNrm.txt")
-          else
-            write(STDOUT, "(a)") "Pedigree NRM"
-            call This%PedNrm%Write
-          end if
-        end if
-
-        if (allocated(This%PedNrmInv%OriginalId)) then
-          if (present(Basename)) then
-            call This%PedNrmInv%Write(File=trim(Basename)//"PedNrmInv.txt")
-          else
-            write(STDOUT, "(a)") "Pedigree NRM inverse"
-            call This%PedNrmInv%Write
+            write(STDOUT, "(a)") "Genotype (as real)"
+            call This%Gen%WriteReal
           end if
         end if
 
@@ -2238,6 +2236,19 @@ module AlphaRelateModule
             call This%GenNrmInv%Write
           end if
         end if
+
+        ! Haplotype stuff
+
+        ! @todo Write Haplotypes
+        ! if (allocated(This%Hap%OriginalId)) then
+        !   if (present(Basename)) then
+        !     call This%Hap%Write(File=trim(Basename)//"Haplotype.txt")
+        !   else
+        !     write(STDOUT, "(a)") "Haplotype"
+        !     call This%Hap%Write
+        !   end if
+        ! end if
+
         ! @todo Write Haplotypes results
       end subroutine
 
@@ -2251,6 +2262,10 @@ module AlphaRelateModule
       pure subroutine DestroyAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+
+        ! The best is to be in line with the AlphaRelateData type definition
+
+        ! Pedigree stuff
 
         if (allocated(This%RecPed%OriginalId)) then
           call This%RecPed%Destroy
@@ -2271,6 +2286,46 @@ module AlphaRelateModule
         if (allocated(This%PedNrmInv%OriginalId)) then
           call This%PedNrmInv%Destroy
         end if
+
+        ! Genome stuff
+
+        if (allocated(This%AlleleFreq%Value)) then
+          call This%AlleleFreq%Destroy
+        end if
+
+        if (allocated(This%LocusWeight%Value)) then
+          call This%LocusWeight%Destroy
+        end if
+
+        ! Genotype stuff
+
+        if (allocated(This%Gen%OriginalId)) then
+          call This%Gen%Destroy
+        end if
+
+        if (allocated(This%GenInbreeding%OriginalId)) then
+          call This%GenInbreeding%Destroy
+        end if
+
+        if (allocated(This%GenNrm%OriginalId)) then
+          call This%GenNrm%Destroy
+        end if
+
+        if (allocated(This%GenNrmInv%OriginalId)) then
+          call This%GenNrmInv%Destroy
+        end if
+
+        ! Haplotype stuff
+
+        ! if (allocated(This%Hap%OriginalId)) then
+        !   call This%Hap%Destroy
+        ! end if
+
+        ! @todo
+        ! type(Inbreeding)           :: HapInbreeding
+        ! type(Nrm)                  :: HapNrm
+        ! type(Nrm)                  :: HapNrmInv
+
       end subroutine
 
       !#########################################################################
@@ -2463,30 +2518,6 @@ module AlphaRelateModule
         ! NOTE: Cov(a|Z) = Cov(Zalpha|Z) = ZVar(alpha)Z', where Z(nInd, nLoc)
         ! NOTE: Z here is (nLoc, 0:nInd), hence need to compute Z'Z
 
-      !       ! ZHZ'
-      !       if (LocusWeightGiven) then
-      !         DMatSum=0.0d0
-      !         do k=1,nLoc
-      !           DMat(k,k)=LocusWeight(k,i)
-      !           DMatSum=DMatSum+DMat(k,k)
-      !         end do
-      !         ! @todo: use DGEMM equivalent for X * Diagonal
-      !         TmpZMat=matmul(ZMat,DMat)
-      !         ! @todo: use DGEMM
-      !         GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
-      !       end if
-
-      !       ! Put back scale from [-1,1] to [0,2]
-      !       if (trim(GType) == "Nejati-Javaremi") then
-      !         if (LocusWeightGiven) then
-      !           Tmp=DMatSum/nLocD
-      !         else
-      !           Tmp=1.0d0
-      !         end if
-      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
-      !       end if
-
-
         select case (trim(Spec%GenNrmType))
           case ("vanraden1")
             ! Setup
@@ -2606,8 +2637,16 @@ module AlphaRelateModule
               This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
               This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
             end block
-
         end select
+
+        if (Spec%FudgeGenNrmDiag) then
+          block
+            integer(int32) :: Ind
+            do Ind = 1, This%GenNrm%nInd
+              This%GenNrm%Nrm(Ind, Ind) = This%GenNrm%Nrm(Ind, Ind) + Spec%FudgeGenNrmDiagValue
+            end do
+          end block
+        end if
       end subroutine
 
       !#########################################################################
