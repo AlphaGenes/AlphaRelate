@@ -157,9 +157,9 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTAFFILE, action="write", status="unknown")
-        write(Unit, "(a)") "1 0.500000000"
-        write(Unit, "(a)") "3 1.000000000" ! order swapped on purpose
         write(Unit, "(a)") "2 0.666666666" ! order swapped on purpose
+        write(Unit, "(a)") "1 0.500000000" ! order swapped on purpose
+        write(Unit, "(a)") "3 1.000000000"
         write(Unit, "(a)") "4 0.000000000"
         close(Unit)
       end subroutine
@@ -179,9 +179,9 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTLWFILE, action="write", status="unknown")
-        write(Unit, "(a)") "1 1.0"
-        write(Unit, "(a)") "3 1.0" ! order swapped on purpose
         write(Unit, "(a)") "2 2.0" ! order swapped on purpose
+        write(Unit, "(a)") "1 1.0" ! order swapped on purpose
+        write(Unit, "(a)") "3 1.0"
         write(Unit, "(a)") "4 0.0"
         close(Unit)
       end subroutine
@@ -1687,6 +1687,227 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+
+      @test
+      subroutine TestCalcGenNrmWithWeights
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind1, Ind2!, Ind
+        real(real64), allocatable, dimension(:, :) :: ExpGenNrm
+
+        call CreateTinyGenotypeFile
+        call CreateLocusWeightFile
+        call Spec%Init
+        Spec%GenotypeGiven = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        Spec%LocusWeightGiven = .true.
+        Spec%LocusWeightFile = TESTLWFILE
+        Spec%nLoc = 2
+        allocate(ExpGenNrm(0:3, 0:3))
+
+        Spec%GenNrmType = "vanraden1"
+
+        call Data%Read(Spec=Spec)
+        ! Make constant weights
+        Data%LocusWeight%Value = [1.0, 1.0]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0      B       D       E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.00,  0.00,   0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  20.00, -4.00, -16.00] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  -4.00,  8.00,  -4.00] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -16.00, -4.00,  20.00] ! E
+        ExpGenNrm = ExpGenNrm / 17.0d0
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with constant weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        call Data%Read(Spec=Spec)
+        ! Make variable weights
+        Data%LocusWeight%Value = [1.0, 0.5]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0       B      D       E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.00,  0.00,   0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  19.00, -2.00, -17.00] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  -2.00,  4.00,  -2.00] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -17.00, -2.00,  19.00] ! E
+        ExpGenNrm = ExpGenNrm / 17.0d0
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with variable weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "vanraden2"
+
+        call Data%Read(Spec=Spec)
+        ! Make constant weights
+        Data%LocusWeight%Value = [1.0, 1.0]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0       B      D       E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.000,  0.00,  0.000] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  1.125, -0.25, -0.875] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00, -0.250,  0.50, -0.250] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -0.875, -0.25,  1.125] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with constant weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        call Data%Read(Spec=Spec)
+        ! Make variable weights
+        Data%LocusWeight%Value = [1.0, 0.5]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0        B        D        E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.0000,  0.0000,  0.0000] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  1.0625, -0.1250, -0.9375] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00, -0.1250,  0.2500, -0.1250] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -0.9375, -0.1250,  1.0625] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with variable weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "yang"
+
+        call Data%Read(Spec=Spec)
+        ! Make constant weights
+        Data%LocusWeight%Value = [1.0, 1.0]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0      B     D      E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.000,  0.00,  0.000] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  1.000, -0.25, -0.875] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00, -0.250,  0.75, -0.250] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -0.875, -0.25,  1.000] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with constant weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        call Data%Read(Spec=Spec)
+        ! Make variable weights
+        Data%LocusWeight%Value = [1.0, 0.5]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0        B        D        E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.0000,  0.0000,  0.0000] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  1.0000, -0.1250, -0.9375] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00, -0.1250,  0.3750, -0.1250] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -0.9375, -0.1250,  1.0000] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with variable weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "nejati-javaremi"
+
+        call Data%Read(Spec=Spec)
+        ! Make constant weights
+        Data%LocusWeight%Value = [1.0, 1.0]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                  0    B    D    E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.0, 0.0, 0.0, 0.0] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.0, 1.5, 1.0, 0.5] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.0, 1.0, 1.5, 1.0] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.0, 0.5, 1.0, 1.5] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with constant weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        call Data%Read(Spec=Spec)
+        ! Make variable weights
+        Data%LocusWeight%Value = [1.0, 0.5]
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                  0     B     D     E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.0, 0.00, 0.00, 0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.0, 1.25, 0.75, 0.25] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.0, 0.75, 1.00, 0.75] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.0, 0.25, 0.75, 1.25] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with variable weights is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        deallocate(ExpGenNrm)
+        call Data%Destroy
+        call DeleteLocusWeightFile
+        call DeleteGenotypeFile
+      end subroutine
+
+      !#########################################################################
+
       @test
       subroutine TestCalcGenInbreeding
         implicit none
@@ -1718,116 +1939,6 @@ module TestAlphaRelateModule
       end subroutine
 
       !#########################################################################
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with equal weights is not correct")
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 19.0d0, -2.0d0, -17.0d0]
-!     !   !GMatTarget(2, :, 1) = [ -2.0d0,  4.0d0,  -2.0d0]
-!     !   !GMatTarget(3, :, 1) = [-17.0d0, -2.0d0,  19.0d0]
-!     !   !GMatTarget(:, :, 1) = GMatTarget(:, :, 1) / 17.0d0
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with variable weights is not correct")
-
-!     !   !WeightsGiven = .false.
-!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
-
-!     !   call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with given/fixed allele frequencies is not correct")
-!     ! end subroutine
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
-
-!     !   call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with equal weights is not correct")
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 1.0625d0, -0.125d0, -0.9375d0]
-!     !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.250d0, -0.1250d0]
-!     !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0625d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
-
-!     !   !WeightsGiven = .false.
-!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with given/fixed allele frequencies is not correct")
-!     ! end subroutine
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
-
-!     !   call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with equal weights is not correct")
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 1.0000d0, -0.125d0, -0.9375d0]
-!     !   !GMatTarget(2, :, 1) = [-0.1250d0,  0.375d0, -0.1250d0]
-!     !   !GMatTarget(3, :, 1) = [-0.9375d0, -0.125d0,  1.0000d0]
-
-!     !   call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with variable weights is not correct")
-
-!     !   !WeightsGiven = .false.
-!     !   AlleleFreq(:) = [0.5d0, 0.5d0]
-
-!     !   !GMatTarget(1, :, 1) = [ 1.0d0, 0.0d0, -1.0d0]
-!     !   !GMatTarget(2, :, 1) = [ 0.0d0, 1.0d0,  0.0d0]
-!     !   !GMatTarget(3, :, 1) = [-1.0d0, 0.0d0,  1.0d0]
-
-!     !   call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with given/fixed allele frequencies is not correct")
-!     ! end subroutine
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with equal weights is not correct")
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
-
-!     !   !GMatTarget(1, :, 1) = [1.25d0, 0.75d0, 0.25d0]
-!     !   !GMatTarget(2, :, 1) = [0.75d0, 1.00d0, 0.75d0]
-!     !   !GMatTarget(3, :, 1) = [0.25d0, 0.75d0, 1.25d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with variable weights is not correct")
-!     ! end subroutine
 
 end module
 

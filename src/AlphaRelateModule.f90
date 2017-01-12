@@ -114,6 +114,7 @@ module AlphaRelateModule
       procedure :: MakeGenotypeReal
       procedure :: CenterGenotypeReal
       procedure :: CenterAndScaleGenotypeReal
+      procedure :: WeightGenotypeReal
   end type
 
   !> @brief Haplotype data set holder
@@ -1416,7 +1417,7 @@ module AlphaRelateModule
         ! end do
         do Ind = 1, This%nInd
           do Loc = 1, This%nLoc
-            if (StDev(Loc) > tiny(StDev(Loc))) then
+            if (StDev(Loc) > tiny(StDev(Loc))) then ! to avoid dividing by zero
               if ((This%GenotypeReal(Loc, Ind) .ge. 0.0d0) .and. (This%GenotypeReal(Loc, Ind) .le. 2.0d0)) then
                 This%GenotypeReal(Loc, Ind) = (This%GenotypeReal(Loc, Ind) - Mean(Loc)) / StDev(Loc)
               else
@@ -1427,6 +1428,29 @@ module AlphaRelateModule
         end do
         deallocate(Mean)
         deallocate(StDev)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Weight genotypes real
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine WeightGenotypeReal(This, Weight)
+        implicit none
+        class(GenotypeArray), intent(inout) :: This              !< @return GenotypeArray holder
+        real(real64), intent(in), dimension(This%nLoc) :: Weight !< Locus weights
+
+        integer(int32) :: Ind
+
+        if (.not. allocated(This%GenotypeReal)) then
+          call This%MakeGenotypeReal
+        end if
+
+        do Ind = 1, This%nInd
+          This%GenotypeReal(:, Ind) = This%GenotypeReal(:, Ind) * Weight
+        end do
       end subroutine
 
       !#########################################################################
@@ -2038,23 +2062,11 @@ module AlphaRelateModule
               call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
               This%AlleleFreq%Value = Spec%AlleleFreqFixedValue
             else
-              call This%AlleleFreq%Read(File=trim(Spec%AlleleFreqFile))
-            end if
-          else
-            if (Spec%GenotypeGiven) then
-              call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
-            else
-              call This%AlleleFreq%Init(nLoc=This%Hap%nLoc)
+              call This%AlleleFreq%Read(File=trim(Spec%AlleleFreqFile), nLoc=This%Gen%nLoc)
             end if
           end if
           if (Spec%LocusWeightGiven) then
-            call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile))
-          else
-            if (Spec%GenotypeGiven) then
-              call This%LocusWeight%Init(nLoc=This%Gen%nLoc)
-            else
-              call This%LocusWeight%Init(nLoc=This%Hap%nLoc)
-            end if
+            call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile), nLoc=This%Gen%nLoc)
           end if
         end if
 
@@ -2095,38 +2107,6 @@ module AlphaRelateModule
         !     end if
         !   end do
         ! end if
-      end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
-      !> @brief  AlphaRelateData destructor
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   December 22, 2016
-      !-------------------------------------------------------------------------
-      pure subroutine DestroyAlphaRelateData(This)
-        implicit none
-        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-
-        if (allocated(This%RecPed%OriginalId)) then
-          call This%RecPed%Destroy
-        end if
-
-        if (allocated(This%PedInbreeding%OriginalId)) then
-          call This%PedInbreeding%Destroy
-        end if
-
-        if (allocated(This%PedNrm%OriginalId)) then
-          call This%PedNrm%Destroy
-        end if
-
-        if (allocated(This%PedNrmSubset%OriginalId)) then
-          call This%PedNrmSubset%Destroy
-        end if
-
-        if (allocated(This%PedNrmInv%OriginalId)) then
-          call This%PedNrmInv%Destroy
-        end if
       end subroutine
 
       !#########################################################################
@@ -2259,6 +2239,38 @@ module AlphaRelateModule
           end if
         end if
         ! @todo Write Haplotypes results
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  AlphaRelateData destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyAlphaRelateData(This)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+
+        if (allocated(This%RecPed%OriginalId)) then
+          call This%RecPed%Destroy
+        end if
+
+        if (allocated(This%PedInbreeding%OriginalId)) then
+          call This%PedInbreeding%Destroy
+        end if
+
+        if (allocated(This%PedNrm%OriginalId)) then
+          call This%PedNrm%Destroy
+        end if
+
+        if (allocated(This%PedNrmSubset%OriginalId)) then
+          call This%PedNrmSubset%Destroy
+        end if
+
+        if (allocated(This%PedNrmInv%OriginalId)) then
+          call This%PedNrmInv%Destroy
+        end if
       end subroutine
 
       !#########################################################################
@@ -2451,96 +2463,149 @@ module AlphaRelateModule
         ! NOTE: Cov(a|Z) = Cov(Zalpha|Z) = ZVar(alpha)Z', where Z(nInd, nLoc)
         ! NOTE: Z here is (nLoc, 0:nInd), hence need to compute Z'Z
 
+      !       ! ZHZ'
+      !       if (LocusWeightGiven) then
+      !         DMatSum=0.0d0
+      !         do k=1,nLoc
+      !           DMat(k,k)=LocusWeight(k,i)
+      !           DMatSum=DMatSum+DMat(k,k)
+      !         end do
+      !         ! @todo: use DGEMM equivalent for X * Diagonal
+      !         TmpZMat=matmul(ZMat,DMat)
+      !         ! @todo: use DGEMM
+      !         GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
+      !       end if
+
+      !       ! Put back scale from [-1,1] to [0,2]
+      !       if (trim(GType) == "Nejati-Javaremi") then
+      !         if (LocusWeightGiven) then
+      !           Tmp=DMatSum/nLocD
+      !         else
+      !           Tmp=1.0d0
+      !         end if
+      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
+      !       end if
+
+
         select case (trim(Spec%GenNrmType))
           case ("vanraden1")
+            ! Setup
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
             end if
             if (.not. Spec%AlleleFreqGiven) then
               call This%CalcAlleleFreq
             end if
+            ! Center
             call This%Gen%CenterGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
-            ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
-            !                                                 nInd=This%Gen%nInd,&
-            !                                                 nLoc=This%Gen%nLoc,&
-            !                                                 AlleleFreq=nLoc=This%AlleleFreq%Value)
+            ! Weight
+            if (Spec%LocusWeightGiven) then
+              call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
+            end if
             ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
+            ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
+            !                                                 nInd=This%Gen%nInd,&
+            !                                                 nLoc=This%Gen%nLoc,&
+            !                                                 AlleleFreq=nLoc=This%AlleleFreq%Value)
 
           case ("vanraden2")
+            ! Setup
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
             end if
             if (.not. Spec%AlleleFreqGiven) then
               call This%CalcAlleleFreq
             end if
+            ! Center and scale
             call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
+            ! Weight
+            if (Spec%LocusWeightGiven) then
+              call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
+            end if
             ! Compute ~Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
           case ("yang")
-            if (.not. allocated(This%Gen%GenotypeReal)) then
-              call This%Gen%MakeGenotypeReal
-            end if
-            if (.not. Spec%AlleleFreqGiven) then
-              call This%CalcAlleleFreq
-            end if
             block
-              ! Prepare diagonal (need to do it before GenotypeReal gets centered and scaled!!!)
               integer(int32) :: Ind, Loc
-              real(real64) :: Diag(This%Gen%nInd), T2AFLoc(This%Gen%nLoc), Het(This%Gen%nLoc)
+              real(real64) :: Diag(This%Gen%nInd), T2AFLoc(This%Gen%nLoc), Het(This%Gen%nLoc), Tmp
+              ! Setup
+              if (.not. allocated(This%Gen%GenotypeReal)) then
+                call This%Gen%MakeGenotypeReal
+              end if
+              if (.not. Spec%AlleleFreqGiven) then
+                call This%CalcAlleleFreq
+              end if
+              ! Prepare diagonal (need to do it before GenotypeReal gets centered and scaled!!!)
               Diag = 0.0d0
               T2AFLoc = 2.0d0 * This%AlleleFreq%Value
               Het = T2AFLoc * (1.0d0 - This%AlleleFreq%Value)
               do Ind = 1, This%GenNrm%nInd
                 do Loc = 1, This%Gen%nLoc
-                  if (Het(Loc) > tiny(Het(Loc))) then
-                    ! if (LocusWeightGiven) then
-                    !   Tmp2=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
-                    ! else
-                    !   Tmp2=1.0d0
-                    ! end if
+                  if (Het(Loc) > tiny(Het(Loc))) then ! to avoid dividing by zero
+                    if (Spec%LocusWeightGiven) then
+                      Tmp = This%LocusWeight%Value(Loc)
+                    else
+                      Tmp = 1.0d0
+                    end if
                     Diag(Ind) = Diag(Ind) + &
-                      1.0d0 + &
+                      Tmp * (1.0d0 + &
                       ((This%Gen%GenotypeReal(Loc, Ind) * This%Gen%GenotypeReal(Loc, Ind)) - &
                        ((1.0d0 + T2AFLoc(Loc)) * This%Gen%GenotypeReal(Loc, Ind)) + &
-                       (T2AFLoc(Loc) * This%AlleleFreq%Value(Loc))) / Het(Loc)
+                       (T2AFLoc(Loc) * This%AlleleFreq%Value(Loc))) / Het(Loc))
                   end if
                 end do
               end do
-              ! Compute ~Z'Z
+              ! Center and scale
               call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
+              ! Weight
+              if (Spec%LocusWeightGiven) then
+                call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
+              end if
+              ! Compute ~Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
               ! Modify diagonal
               do Ind = 1, This%GenNrm%nInd
                 This%GenNrm%Nrm(Ind, Ind) = Diag(Ind)
               end do
+              ! Average over loci
+              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
             end block
-            ! Average over loci
-            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
 
           case ("nejati-javaremi")
-            if (.not. allocated(This%Gen%GenotypeReal)) then
-              call This%Gen%MakeGenotypeReal
-            end if
-            ! Center by allele freq of 0.5
             block
-              real(real64) :: AlleleFreqHalf(This%Gen%nLoc)
+              real(real64) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
+              ! Setup
+              if (.not. allocated(This%Gen%GenotypeReal)) then
+                call This%Gen%MakeGenotypeReal
+              end if
+              ! Center with allele freq of 0.5
               AlleleFreqHalf = 0.5d0
               call This%Gen%CenterGenotypeReal(AlleleFreq=AlleleFreqHalf)
+              ! Weight
+              if (Spec%LocusWeightGiven) then
+                call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
+              end if
+              ! Compute ~Z'Z
+              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+              ! Average over loci
+              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
+              ! Modify scale from [-1,1] to [0,2]
+              if (Spec%LocusWeightGiven) then
+                Tmp = sum(This%LocusWeight%Value) / dble(This%Gen%nLoc)
+              else
+                Tmp = 1.0d0
+              end if
+              This%GenNrm%Nrm = This%GenNrm%Nrm + Tmp
+              ! Make sure the "0th" margin is 0.0
+              This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
+              This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
             end block
-            ! Compute ~Z'Z
-            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-            ! Average over loci
-            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
-            ! Modify scale from [-1,1] to [0,2]
-            This%GenNrm%Nrm = This%GenNrm%Nrm + 1.0d0
-            This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
-            This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
 
         end select
       end subroutine
@@ -2551,6 +2616,7 @@ module AlphaRelateModule
       !> @brief  Calculate genotype NRM - VanRaden1 loop on genotype type
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
+      !> @details This function is not tested to work properly!
       !-------------------------------------------------------------------------
       pure function GenNrmVanRaden1LoopOnGenotype(GenotypeInput, nInd, nLoc, AlleleFreq) result(Nrm)
         implicit none
@@ -2607,56 +2673,6 @@ module AlphaRelateModule
     !###########################################################################
 
     ! @todo Old code
-
-      !   if (LocusWeightGiven) then
-      !     allocate(DMat(nLoc,nLoc))
-      !     DMat(:,:)=0.0d0
-      !   end if
-
-      !   if (trim(GType) == "Nejati-Javaremi" .or.&
-      !       trim(GType) == "Day-Williams") then
-      !     do j=1,nLoc
-      !       do i=1,nAnisG
-      !         if ((Genos(i,j)>=0.0).and.(Genos(i,j)<=2.0)) then
-      !           ZMat(i,j)=Genos(i,j)-1.0d0
-      !         else
-      !           ZMat(i,j)=0.d00 ! @todo: is this OK?
-      !         end if
-      !       end do
-      !     end do
-      !   end if
-
-
-      !       ! ZHZ'
-      !       if (LocusWeightGiven) then
-      !         DMatSum=0.0d0
-      !         do k=1,nLoc
-      !           DMat(k,k)=sqrt(LocusWeight(k,i))*sqrt(LocusWeight(k,j))
-      !           DMatSum=DMatSum+DMat(k,k)
-      !         end do
-      !         ! @todo: use DGEMM equivalent for X * Diagonal
-      !         TmpZMat=matmul(ZMat,DMat)
-      !         ! @todo: use DGEMM
-      !         GMat(:,:,WhichMat)=matmul(TmpZMat,tZMat)
-      !       else
-      !         ! @todo: use DGEMM
-      !         GMat(:,:,WhichMat)=matmul(ZMat,tZMat)
-      !       end if
-
-      !       ! Put back scale from [-1,1] to [0,2]
-      !       if (trim(GType) == "Nejati-Javaremi") then
-      !         if (LocusWeightGiven) then
-      !           Tmp=DMatSum/nLocD
-      !         else
-      !           Tmp=1.0d0
-      !         end if
-      !         GMat(:,:,WhichMat)=GMat(:,:,WhichMat)+Tmp
-      !       end if
-
-      !       ! Fudge diagonal
-      !       do l=1,nAnisG
-      !         GMat(l,l,WhichMat)=GMat(l,l,WhichMat)+DiagFudge
-      !       end do
 
       !###########################################################################
 
