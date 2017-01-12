@@ -87,12 +87,12 @@ program AlphaRelate
     end if
   end if
 
-  ! if (Spec%GenInbreeding) then
-  !   write(STDOUT, "(a)") ""
-  !   write(STDOUT, "(a)") " Calculating genotype inbreeding ..."
-  !   call Data%CalcGenInbreeding
-  !   call Data%WriteGenInbreeding(File="GenotypeInbreeding.txt", Spec=Spec)
-  ! end if
+  if (Spec%GenInbreeding) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating genotype inbreeding ..."
+    call Data%CalcGenInbreeding(Spec=Spec)
+    call Data%GenInbreeding%Write(File="GenotypeInbreeding.txt", OutputFormat=Spec%OutputFormat)
+  end if
 
   ! if (Spec%GenNrmInv) then
   !   write(STDOUT, "(a)") ""

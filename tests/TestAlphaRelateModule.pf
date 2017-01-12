@@ -16,8 +16,6 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTPEDNRMSUBSETFILE = "TestPedNrmSubset.txt"
 
   CHARACTER(len=100), PARAMETER :: TESTGENFILE = "TestGenotype.txt"
-  CHARACTER(len=100), PARAMETER :: TESTGENINBFILE = "TestGenInb.txt"
-  CHARACTER(len=100), PARAMETER :: TESTGENNRMFILE = "TestGenNrm.txt"
 
   CHARACTER(len=100), PARAMETER :: TESTAFFILE = "TestAlleleFreq.txt"
   CHARACTER(len=100), PARAMETER :: TESTLWFILE = "TestLocusWeight.txt"
@@ -1488,7 +1486,7 @@ module TestAlphaRelateModule
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
-        integer(int32) :: Ind1, Ind2, Ind
+        integer(int32) :: Ind1, Ind2!, Ind
         real(real64), allocatable, dimension(:, :) :: ExpGenNrm
 
         call CreateTinyGenotypeFile
@@ -1689,6 +1687,38 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+      @test
+      subroutine TestCalcGenInbreeding
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind
+        real(real64), allocatable, dimension(:) :: ExpGenInbreeding
+
+        call CreateTinyGenotypeFile
+        call Spec%Init
+        Spec%GenotypeGiven = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        Spec%nLoc = 1
+        Spec%GenNrmType = "vanraden1"
+        call Data%Read(Spec=Spec)
+        call Data%CalcGenInbreeding(Spec=Spec)
+        allocate(ExpGenInbreeding(0:3))
+        !                                        0     B      D     E
+        ExpGenInbreeding(0:Data%Gen%nInd) = [-1.00, 1.00, -1.00, 1.00]
+        ! call Data%Write
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+        do Ind = 0, Data%GenInbreeding%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%GenInbreeding%OriginalId(Ind), ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind)
+          @AssertEqual(ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind), 0.000001d0, "Genotype inbreeding is not calculated correctly - tiny example")
+        end do
+        deallocate(ExpGenInbreeding)
+        call Data%Destroy
+        call DeleteGenotypeFile
+      end subroutine
+
+      !#########################################################################
+
 !     !   !WeightsGiven = .true.
 !     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
@@ -1720,32 +1750,6 @@ module TestAlphaRelateModule
 !     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 1 with given/fixed allele frequencies is not correct")
 !     ! end subroutine
 
-
-    !###########################################################################
-
-
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with equal weights is not correct")
-
-!     !   !WeightsGiven = .true.
-!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
-
-!     !   !GMatTarget(1, :, 1) = [1.25d0, 0.75d0, 0.25d0]
-!     !   !GMatTarget(2, :, 1) = [0.75d0, 1.00d0, 0.75d0]
-!     !   !GMatTarget(3, :, 1) = [0.25d0, 0.75d0, 1.25d0]
-
-!     !   !call MakeGAndInvGMatrix
-
-!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with variable weights is not correct")
-!     ! end subroutine
-
-!     !###########################################################################
-
 !     !   !WeightsGiven = .true.
 !     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
@@ -1776,8 +1780,6 @@ module TestAlphaRelateModule
 !     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - VanRaden type 2 with given/fixed allele frequencies is not correct")
 !     ! end subroutine
 
-!     !###########################################################################
-
 !     !   !WeightsGiven = .true.
 !     !   !Weights(:, 1) = [1.0d0, 1.00d0]
 
@@ -1806,6 +1808,25 @@ module TestAlphaRelateModule
 !     !   call MakeGAndInvGMatrix
 
 !     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Yang with given/fixed allele frequencies is not correct")
+!     ! end subroutine
+
+!     !   !WeightsGiven = .true.
+!     !   !Weights(:, 1) = [1.0d0, 1.00d0]
+
+!     !   !call MakeGAndInvGMatrix
+
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with equal weights is not correct")
+
+!     !   !WeightsGiven = .true.
+!     !   !Weights(:, 1) = [1.0d0, 0.50d0]
+
+!     !   !GMatTarget(1, :, 1) = [1.25d0, 0.75d0, 0.25d0]
+!     !   !GMatTarget(2, :, 1) = [0.75d0, 1.00d0, 0.75d0]
+!     !   !GMatTarget(3, :, 1) = [0.25d0, 0.75d0, 1.25d0]
+
+!     !   !call MakeGAndInvGMatrix
+
+!     !   @assertEqual(GMat, GMatTarget, "Genomic NRM - Nejati-Javaremi with variable weights is not correct")
 !     ! end subroutine
 
 end module

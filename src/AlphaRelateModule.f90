@@ -174,7 +174,7 @@ module AlphaRelateModule
     ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
     ! logical :: FudgeGenNrmDiag, BlendGenNrm, FudgeHapNrmDiag, BlendHapNrm
 
-    integer(int32):: nLoc!, nTrait, nGenMat
+    integer(int32):: nLoc
 
     real(real64):: AlleleFreqFixedValue
     !real(real64):: FudgeGenNrmDiagFactor, BlendGenNrmFactor, FudgeHapNrmDiagFactor, BlendHapNrmFactor
@@ -213,7 +213,7 @@ module AlphaRelateModule
       procedure :: CalcPedNrm        => CalcPedNrmAlphaRelateData
       procedure :: CalcPedNrmInv     => CalcPedNrmInvAlphaRelateData
       procedure :: CalcAlleleFreq    => CalcAlleleFreqAlphaRelateData
-      ! procedure :: CalcGenInbreeding
+      procedure :: CalcGenInbreeding => CalcGenInbreedingAlphaRelateData
       procedure :: CalcGenNrm        => CalcGenNrmAlphaRelateData
       ! procedure :: CalcGenNrmInv
   end type
@@ -457,23 +457,23 @@ module AlphaRelateModule
           deallocate(This%OriginalId)
         end if
         allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
         if (present(OriginalId)) then
-          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         else
-          This%OriginalId = EMPTYID
+          This%OriginalId(1:nInd) = EMPTYID
         end if
 
         if (allocated(This%Id)) then
           deallocate(This%Id)
         end if
         allocate(This%Id(0:nInd))
+        This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(0) = 0
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(Ind, Ind=0, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
         end if
 
         if (allocated(This%Inb)) then
@@ -638,35 +638,35 @@ module AlphaRelateModule
           deallocate(This%OriginalId)
         end if
         allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
         if (present(OriginalId)) then
-          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         else
-          This%OriginalId = EMPTYID
+          This%OriginalId(1:nInd) = EMPTYID
         end if
 
         if (allocated(This%Id)) then
           deallocate(This%Id)
         end if
         allocate(This%Id(0:nInd))
+        This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(0) = 0
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(Ind, Ind=0, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
         end if
 
         if (allocated(This%Nrm)) then
           deallocate(This%Nrm)
         end if
         allocate(This%Nrm(0:nInd, 0:nInd))
+        This%Nrm(0:nInd, 0) = 0.0d0
+        This%Nrm(0, 0:nInd) = 0.0d0
         if (present(NrmInput)) then
-          This%Nrm(0:nInd, 0) = 0.0d0
-          This%Nrm(0, 0:nInd) = 0.0d0
           This%Nrm(1:nInd, 1:nInd) = NrmInput
         else
-          This%Nrm = 0.0d0
+          This%Nrm(1:nInd, 1:nInd) = 0.0d0
         end if
       end subroutine
 
@@ -1096,11 +1096,11 @@ module AlphaRelateModule
           deallocate(This%OriginalId)
         end if
         allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
         if (present(OriginalId)) then
-          This%OriginalId(0) = EMPTYID
           This%OriginalId(1:nInd) = OriginalId
         else
-          This%OriginalId = EMPTYID
+          This%OriginalId(1:nInd) = EMPTYID
         end if
 
         ! Init Id
@@ -1108,12 +1108,12 @@ module AlphaRelateModule
           deallocate(This%Id)
         end if
         allocate(This%Id(0:nInd))
+        This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(0) = 0
           This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
                                     IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
-          This%Id = [(Ind, Ind=0, nInd)]
+          This%Id(1:nInd) = [(Ind, Ind=1, nInd)]
         end if
 
         ! Init Genotype
@@ -1124,8 +1124,8 @@ module AlphaRelateModule
         allocate(This%Genotype(0:nInd))
         TempInt = MISSINGGENOTYPECODE
         TempGeno = Genotype(Geno=TempInt)
+        This%Genotype(0) = TempGeno
         if (present(IntegerInput) .or. present(GenotypeInput)) then
-          This%Genotype(0) = TempGeno
           if (present(IntegerInput)) then
             do Ind = 1, nInd
               This%Genotype(Ind) = Genotype(Geno=IntegerInput(:, Ind))
@@ -1137,7 +1137,7 @@ module AlphaRelateModule
             end do
           end if
         else
-          do Ind = 0, nInd
+          do Ind = 1, nInd
             This%Genotype(Ind) = TempGeno
           end do
         end if
@@ -2563,6 +2563,30 @@ module AlphaRelateModule
 
       !#########################################################################
 
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate genotype inbreeding on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 9, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%GenInbreeding(0) = -1.0!!!
+        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
+
+        integer(int32) :: Ind
+
+        if (.not. allocated(This%GenNrm%Nrm)) then
+          call This%CalcGenNrm(Spec=Spec)
+        end if
+
+        call This%GenInbreeding%Init(nInd=This%GenNrm%nInd, OriginalId=This%GenNrm%OriginalId)
+        do Ind = 1, This%GenInbreeding%nInd
+          This%GenInbreeding%Inb(Ind) = This%GenNrm%Nrm(Ind, Ind) - 1.0d0
+        end do
+      end subroutine
+
+      !#########################################################################
+
     !###########################################################################
 
     ! @todo Old code
@@ -2889,55 +2913,11 @@ module AlphaRelateModule
       !           end if
       !         end do
 
-      !         if (HFullMat) then
-      !           close(202)
-      !         end if
-      !         if (HIJA) then
-      !           close(204)
-      !         end if
-
-      !         print *, "End writing H matrices"
-
       !       end if
 
       !       if (MakeInvH) then
       !         print *, "Start inverting scaled G matrix"
       !         call invert(G22, size(G22, 1), .true., 1)
-
-      !         !print *, "Gw inverted"
-      !         !write(fmt2, "(i0)") size(G22,1)
-      !         !fmt1="(a8,"//trim(adjustl(fmt2))//"f8.4)"
-      !         !do i=1,size(G22,1)
-      !         ! write(*,fmt1) IdGeno(i), G22(i,:)
-      !         !end do
-
-      !         !print *, "A22 inverted"
-      !         !do i=1,size(G22,1)
-      !         ! write(*,fmt1) IdGeno(i), InvA22(i,:)
-      !         !end do
-
-      !         !print *, "InvA(22)"
-      !         !do i=1,size(G22,1)
-      !         ! j = i+10
-      !         ! write(*,fmt1) Ids(j), InvAMat(j,11:25)
-      !         !end do
-
-      !         print *, "End inverting scaled G matrix"
-
-      !         print *, "Start writing inverted H matrices (full and/or ija)"
-
-      !         if (InvHFullMat) then
-      !           write(filout,'("InvHFullMatrix"i0,"-"i0".txt")') t1,t2
-      !           write(nChar,*) nAnisH
-      !           fmt1="(a20,"//trim(adjustl(nChar))//trim(adjustl(OutputFormat))//")"
-      !           open(unit=202,file=trim(filout),status="unknown")
-      !         end if
-
-      !         if (InvHIJA) then
-      !           write(filout,'("InvHija"i0,"-"i0".txt")') t1,t2
-      !           fmt2="(a,' ',a,' ',"//trim(adjustl(OutputFormat))//")"
-      !           open(unit=204,file=trim(filout),status="unknown")
-      !         end if
 
       !         do i=1,nAnisH
       !           if (AnimToWrite(i) .eq. .false.) then
@@ -2966,23 +2946,6 @@ module AlphaRelateModule
       !             write(202,fmt1) Ids(i),Hrow(:)
       !           end if
       !         end do
-
-      !         if (InvHFullMat) then
-      !           close(202)
-      !         end if
-      !         if (InvHIJA) then
-      !           close(204)
-      !         end if
-      !         print *, "End writing inverted H matrices (full and ija)"
-
-      !       end if
-
-      !       deallocate(Hrow)
-      !       deallocate(G22)
-      !     end do
-      !   end do
-      !   deallocate(Ids)
-      ! end subroutine
 
       !###########################################################################
 
