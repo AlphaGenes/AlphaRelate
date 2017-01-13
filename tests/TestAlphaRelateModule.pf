@@ -2126,11 +2126,11 @@ module TestAlphaRelateModule
 
         call Data%CalcGenNrmInv(Spec=Spec, Info=InversionSucceded)
         allocate(ExpGenNrmInv(0:3, 0:3))
-        !                                     0        B      D         E
-        ExpGenNrmInv(0:Data%Gen%nInd, 0) = [0.0,     0.0,   0.0,      0.0] ! 0
-        ExpGenNrmInv(0:Data%Gen%nInd, 1) = [0.0, 20100.0,   0.0,  20000.0] ! B
-        ExpGenNrmInv(0:Data%Gen%nInd, 2) = [0.0,     0.0, 401.0,      0.0] ! D
-        ExpGenNrmInv(0:Data%Gen%nInd, 3) = [0.0, 20000.0,   0.00, 20100.0] ! E
+        !                                     0        B        D         E
+        ExpGenNrmInv(0:Data%Gen%nInd, 0) = [0.0,     0.0,     0.0,      0.0] ! 0
+        ExpGenNrmInv(0:Data%Gen%nInd, 1) = [0.0, 20100.0,     0.0,  20000.0] ! B
+        ExpGenNrmInv(0:Data%Gen%nInd, 2) = [0.0,     0.0, 40100.0,      0.0] ! D
+        ExpGenNrmInv(0:Data%Gen%nInd, 3) = [0.0, 20000.0,     0.00, 20100.0] ! E
         ExpGenNrmInv = ExpGenNrmInv / 401.0
 
         ! call Data%Write
@@ -2150,7 +2150,6 @@ module TestAlphaRelateModule
         deallocate(ExpGenNrmInv)
         call Data%Destroy
         call DeleteGenotypeFile
-        call DeletePedigreeFile
       end subroutine
 
       !#########################################################################

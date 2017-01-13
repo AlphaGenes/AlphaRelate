@@ -2751,7 +2751,6 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         call This%GenNrmInv%Init(nInd=This%GenNrm%nInd)
         This%GenNrmInv%OriginalId = This%GenNrm%OriginalId
         This%GenNrmInv%Id = This%GenNrm%Id
-
         This%GenNrmInv%Nrm = This%GenNrm%Nrm
 
         Info = .true.
@@ -2759,24 +2758,22 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
 
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
-call This%GenNrmInv%Write
-        ! call potrf(A=This%GenNrmInv%Nrm, Info=InfoInt)
-        call potrf(A=This%GenNrmInv%Nrm)
-call This%GenNrmInv%Write
+        ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+        ! call potrf(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
+        call potrf(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
+
         if (InfoInt == 0) then
-          ! Computes the inverse based on the Cholesky factor obtained with potrf()
+          ! Inverse based on the Cholesky factor obtained with potrf()
           ! https://software.intel.com/en-us/node/468824
-          ! call potri(A=This%GenNrmInv%Nrm, Info=InfoInt)
-          call potri(A=This%GenNrmInv%Nrm)
-call This%GenNrmInv%Write
+          ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+          ! call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
+          call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
           if (InfoInt == 0) then
             ! Fill the lower triangle
             ! @todo would not need these memory jump if the Nrm would be considered as symmetric
             do Ind = 1, This%GenNrmInv%nInd
               This%GenNrmInv%Nrm((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Nrm(Ind, (Ind + 1):This%GenNrmInv%nInd)
             end do
-
-call This%GenNrmInv%Write
           else
             Info = .false.
           end if
