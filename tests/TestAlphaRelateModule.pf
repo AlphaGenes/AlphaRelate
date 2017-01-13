@@ -821,7 +821,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestPedInbreedingFunc
+      subroutine TestPedInbreedingRecursive
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -837,13 +837,13 @@ module TestAlphaRelateModule
         allocate(CalPedInbreeding(0:Data%RecPed%nInd))
         allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
 
-        CalPedInbreeding = PedInbreeding(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
+        CalPedInbreeding = PedInbreedingRecursive(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
         ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.125, 0.125]
 
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), CalPedInbreeding(Ind), ExpPedInbreeding(Ind)
-          @AssertEqual(CalPedInbreeding(Ind), ExpPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly - tiny example for function")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), CalPedInbreeding(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), CalPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly with recursive algorithm - tiny example for function")
         end do
         deallocate(CalPedInbreeding)
         deallocate(ExpPedInbreeding)
@@ -859,6 +859,143 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! inbreeding(Ped)
+
+        call CreatePedigreeFile
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+
+        allocate(CalPedInbreeding(0:Data%RecPed%nInd))
+        allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
+
+        CalPedInbreeding = PedInbreedingRecursive(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0,   0.0,    0.0, 0.0, 0.0, 0.25,    0.25,    0.25,  0.375,    0.375,  0.375, &
+                                                0.375,  0.4375, 0.5, 0.5, 0.5, 0.59375, 0.59375, 0.375, 0.484375, 0.4296875]
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+        do Ind = 0, Data%RecPed%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), CalPedInbreeding(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), CalPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly with recursive and Luo algorithm - example")
+        end do
+        deallocate(ExpPedInbreeding)
+        call Data%Destroy
+        call DeletePedigreeFile
+        ! R code to test using the pedigreemm package
+        ! library(pedigreemm)
+        ! Ped <- data.frame(Id=rep(9, 20), Fid=NA, Mid=NA)
+        ! Ped[1, ] <- c("Porto","0","0")
+        ! Ped[2, ] <- c("OldMoll","0","0")
+        ! Ped[3, ] <- c("Dash1","Porto","OldMoll")
+        ! Ped[4, ] <- c("Belle1","Porto","OldMoll")
+        ! Ped[5, ] <- c("Cora1","Dash1","Belle1")
+        ! Ped[6, ] <- c("Moll2","Dash1","Belle1")
+        ! Ped[7, ] <- c("Pilot","Dash1","Belle1")
+        ! Ped[8, ] <- c("Peg","Dash1","Moll2")
+        ! Ped[9, ] <- c("Rock","Pilot","Moll2")
+        ! Ped[10, ] <- c("Regent","Pilot","Moll2")
+        ! Ped[11, ] <- c("Jet1","Pilot","Moll2")
+        ! Ped[12, ] <- c("RockA","Peg","Rock")
+        ! Ped[13, ] <- c("CoraBlairs","Regent","Jet1")
+        ! Ped[14, ] <- c("Rock2","Regent","Jet1")
+        ! Ped[15, ] <- c("Fred1","RockA","Moll2")
+        ! Ped[16, ] <- c("Sting","CoraBlairs","Rock2")
+        ! Ped[17, ] <- c("Belle2","CoraBlairs","Rock2")
+        ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
+        ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
+        ! Ped[20, ] <- c("Dash2","Cora2","Sting")
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! inbreeding(Ped)
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestPedInbreedingMeuwissenLuo
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind
+        real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
+
+        call CreateTinyPedigreeFile
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+
+        allocate(CalPedInbreeding(0:Data%RecPed%nInd))
+        allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
+
+        CalPedInbreeding = PedInbreedingMeuwissenLuo(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.125, 0.125]
+
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+        do Ind = 0, Data%RecPed%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), CalPedInbreeding(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), CalPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly with Meuwissen and Luo algorithm - tiny example for function")
+        end do
+        deallocate(CalPedInbreeding)
+        deallocate(ExpPedInbreeding)
+        call Data%Destroy
+        call DeletePedigreeFile
+        ! R code to test using the pedigreemm package
+        ! library(pedigreemm)
+        ! Ped <- data.frame(Id=rep(0, 7), Fid=NA, Mid=NA)
+        ! Ped[1, ] <- c("A","0","0")
+        ! Ped[2, ] <- c("B","0","0")
+        ! Ped[3, ] <- c("dum001","0","0")
+        ! Ped[4, ] <- c("C","A","B")
+        ! Ped[5, ] <- c("D","A","dum001")
+        ! Ped[6, ] <- c("E","D","C")
+        ! Ped[7, ] <- c("F","E","B")
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! inbreeding(Ped)
+
+        call CreatePedigreeFile
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+
+        allocate(CalPedInbreeding(0:Data%RecPed%nInd))
+        allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
+
+        CalPedInbreeding = PedInbreedingMeuwissenLuo(RecPed=Data%RecPed%Id, n=Data%RecPed%nInd)
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0,   0.0,    0.0, 0.0, 0.0, 0.25,    0.25,    0.25,  0.375,    0.375,  0.375, &
+                                                0.375,  0.4375, 0.5, 0.5, 0.5, 0.59375, 0.59375, 0.375, 0.484375, 0.4296875]
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+        do Ind = 0, Data%RecPed%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), CalPedInbreeding(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), CalPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly with Meuwissen and Luo algorithm - example")
+        end do
+        deallocate(ExpPedInbreeding)
+        call Data%Destroy
+        call DeletePedigreeFile
+        ! R code to test using the pedigreemm package
+        ! library(pedigreemm)
+        ! Ped <- data.frame(Id=rep(9, 20), Fid=NA, Mid=NA)
+        ! Ped[1, ] <- c("Porto","0","0")
+        ! Ped[2, ] <- c("OldMoll","0","0")
+        ! Ped[3, ] <- c("Dash1","Porto","OldMoll")
+        ! Ped[4, ] <- c("Belle1","Porto","OldMoll")
+        ! Ped[5, ] <- c("Cora1","Dash1","Belle1")
+        ! Ped[6, ] <- c("Moll2","Dash1","Belle1")
+        ! Ped[7, ] <- c("Pilot","Dash1","Belle1")
+        ! Ped[8, ] <- c("Peg","Dash1","Moll2")
+        ! Ped[9, ] <- c("Rock","Pilot","Moll2")
+        ! Ped[10, ] <- c("Regent","Pilot","Moll2")
+        ! Ped[11, ] <- c("Jet1","Pilot","Moll2")
+        ! Ped[12, ] <- c("RockA","Peg","Rock")
+        ! Ped[13, ] <- c("CoraBlairs","Regent","Jet1")
+        ! Ped[14, ] <- c("Rock2","Regent","Jet1")
+        ! Ped[15, ] <- c("Fred1","RockA","Moll2")
+        ! Ped[16, ] <- c("Sting","CoraBlairs","Rock2")
+        ! Ped[17, ] <- c("Belle2","CoraBlairs","Rock2")
+        ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
+        ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
+        ! Ped[20, ] <- c("Dash2","Cora2","Sting")
         ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
         ! inbreeding(Ped)
       end subroutine
@@ -883,10 +1020,10 @@ module TestAlphaRelateModule
 
         allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
         ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.125, 0.125]
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%PedInbreeding%Inb(Ind), ExpPedInbreeding(Ind)
-          @AssertEqual(Data%PedInbreeding%Inb(Ind), ExpPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly - tiny example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly - tiny example")
         end do
         deallocate(ExpPedInbreeding)
         call Data%Destroy
@@ -915,10 +1052,10 @@ module TestAlphaRelateModule
         allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
         ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0,   0.0,    0.0, 0.0, 0.0, 0.25,    0.25,    0.25,  0.375,    0.375,  0.375, &
                                                 0.375,  0.4375, 0.5, 0.5, 0.5, 0.59375, 0.59375, 0.375, 0.484375, 0.4296875]
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%PedInbreeding%Inb(Ind), ExpPedInbreeding(Ind)
-          @AssertEqual(Data%PedInbreeding%Inb(Ind), ExpPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly - example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly - example")
         end do
         deallocate(ExpPedInbreeding)
         call Data%Destroy
@@ -2049,6 +2186,8 @@ module TestAlphaRelateModule
       end subroutine
 
       !#########################################################################
+
+    !###########################################################################
 
 end module
 
