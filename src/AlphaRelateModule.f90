@@ -2735,8 +2735,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
-!pure subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
-subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
+      pure subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
