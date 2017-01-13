@@ -100,7 +100,7 @@ program AlphaRelate
     write(STDOUT, "(a)") " Calculating genotype NRM inverse ..."
     call Data%CalcGenNrmInv(Spec=Spec, Info=InversionSucceded)
     if (InversionSucceded) then
-      call Data%GenNrmInv%Write(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", Spec=Spec)
+      call Data%GenNrmInv%Write(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", OutputFormat=Spec%OutputFormat)
     else
       write(STDERR, "(a)") " ERROR: Inversion of genotype NRM failed"
       write(STDERR, "(a)") " "
