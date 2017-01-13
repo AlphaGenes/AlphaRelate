@@ -2333,7 +2333,6 @@ module AlphaRelateModule
         ! type(Inbreeding)           :: HapInbreeding
         ! type(Nrm)                  :: HapNrm
         ! type(Nrm)                  :: HapNrmInv
-
       end subroutine
 
       !#########################################################################
@@ -3120,14 +3119,28 @@ module AlphaRelateModule
         f(0) = -1.0d0
 
         do Ind = 1, n
-          if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
-            f(Ind) = 0.0d0
-          else
-            f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
-          end if
+          f(Ind) = PedInb(Ind=Ind)
         end do
 
         contains
+
+          !---------------------------------------------------------------------
+          !> @brief  Calculate pedigree inbreeding for an individual
+          !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+          !> @date   January 13, 2017
+          !---------------------------------------------------------------------
+          pure function PedInb(Ind) result(f)
+            integer(int32), intent(in) :: Ind !< Individual
+            real(real64) :: f                 !< @return pedigree inbreeding for the individual
+
+            ! Needs access to RecPed(3, 0:n)
+
+            if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
+              f = 0.0d0
+            else
+              f = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
+            end if
+          end function
 
           !---------------------------------------------------------------------
           !> @brief  Calculate pedigree numerator relationship between two individuals
@@ -3137,7 +3150,7 @@ module AlphaRelateModule
           pure recursive function PedNrmRecursive(Ind1, Ind2) result(r)
             integer(int32), intent(in) :: Ind1 !< First  individual
             integer(int32), intent(in) :: Ind2 !< Second individual
-            real(real64) :: r                  !< @return relationship between the individuals
+            real(real64) :: r                  !< @return pedigree relationship between the individuals
 
             ! Needs access to f(0:n) and RecPed(3, 0:n)
 
