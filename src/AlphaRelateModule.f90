@@ -177,10 +177,10 @@ module AlphaRelateModule
     ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
     logical :: FudgeGenNrmDiag, BlendGenNrmWithPedNrm!, FudgeHapNrmDiag, BlendHapNrmWithPedNrm
 
-    integer(int32):: nLoc
+    integer(int32) :: nLoc
 
-    real(real64):: AlleleFreqFixedValue
-    real(real64):: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)!, FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
+    real(real64) :: AlleleFreqFixedValue
+    real(real64) :: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)!, FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
     contains
       procedure :: Init => InitAlphaRelateSpec
       procedure :: Read => ReadAlphaRelateSpec
@@ -2758,18 +2758,20 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
 call This%GenNrmInv%Write
-!        call potrf(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt)
+        call potrf(A=This%GenNrmInv%Nrm)
 call This%GenNrmInv%Write
         if (InfoInt == 0) then
           ! Computes the inverse based on the Cholesky factor obtained with potrf()
           ! https://software.intel.com/en-us/node/468824
-!          call potri(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt)
+          call potri(A=This%GenNrmInv%Nrm)
 call This%GenNrmInv%Write
           if (InfoInt == 0) then
-            ! Fill the upper triangle
+            ! Fill the lower triangle
+            ! @todo would not need these memory jump if the Nrm would be considered as symmetric
             do Ind = 1, This%GenNrmInv%nInd
-              This%GenNrmInv%Nrm(Ind, (Ind+1):This%GenNrmInv%nInd) = This%GenNrmInv%Nrm(Ind:This%GenNrmInv%nInd, Ind)
+              This%GenNrmInv%Nrm((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Nrm(Ind, (Ind + 1):This%GenNrmInv%nInd)
             end do
+
 call This%GenNrmInv%Write
           else
             Info = .false.
@@ -3244,6 +3246,7 @@ call This%GenNrmInv%Write
       !> @brief  Calculate pedigree NRM
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
+      !> @todo Metafounders and/or inbreeding for animals with unknown parents
       !-------------------------------------------------------------------------
       pure function PedNrm(RecPed, n) result(Nrm)
         implicit none
@@ -3257,14 +3260,16 @@ call This%GenNrmInv%Write
         integer(int32) :: Ind1, Ind2, Par1, Par2
 
         Nrm = 0.0d0
-        do Ind1 = 1, n
-            Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1))
-            Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1))
-            do Ind2 = 1, Ind1 - 1
-                Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
-                Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
+        do Ind2 = 1, n
+            Par1 = min(RecPed(2, Ind2), RecPed(3, Ind2))
+            Par2 = max(RecPed(3, Ind2), RecPed(2, Ind2))
+            do Ind1 = 1, Ind2 - 1
+                Nrm(Ind1, Ind2) = 0.50d0 * (Nrm(Ind1, Par1) + Nrm(Ind1, Par2))
+                ! @todo would not need this memory jump if the Nrm would be considered as symmetric,
+                !       but would also have to make sure algorithm is using only one triangle
+                Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
             end do
-            Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
+            Nrm(Ind2, Ind2) = 1.0d0 + 0.5d0 * Nrm(Par2, Par1)
         end do
       end function
 
@@ -3350,10 +3355,10 @@ call This%GenNrmInv%Write
       !       Par1 = max(RecPed(2, Ind1), RecPed(3, Ind1)) - MinOldId + 1
       !       Par2 = min(RecPed(3, Ind1), RecPed(2, Ind1)) - MinOldId + 1
       !       do Ind2 = 1, Ind1 - 1
-      !           Nrm(Ind2, Ind1) = (Nrm(Ind2, Par1) + Nrm(Ind2, Par2)) / 2.0d0
+      !           Nrm(Ind2, Ind1) = 0.5d0 * (Nrm(Ind2, Par1) + Nrm(Ind2, Par2))
       !           Nrm(Ind1, Ind2) = Nrm(Ind2, Ind1)
       !       end do
-      !       Nrm(Ind1, Ind1) = 1.0d0 + Nrm(Par1, Par2) / 2.0d0
+      !       Nrm(Ind1, Ind1) = 1.0d0 + 0.5d0 * Nrm(Par1, Par2)
       !   end do
       ! end function
       !
@@ -3423,15 +3428,15 @@ call This%GenNrmInv%Write
           ! Precision for the individual
           NrmInv(Ind,Ind) = PreM
           ! Add precision to the first parent and set the co-precision
-          NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + PreM / 4.0d0
-          NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - PreM / 2.0d0
+          NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + 0.25d0 * PreM
+          NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - 0.50d0 * PreM
           NrmInv(Par1, Ind)  = NrmInv(Ind, Par1)
           ! Add precision to the second parent and set the co-precision
-          NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + PreM / 4.0d0
-          NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - PreM / 2.0d0
+          NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + 0.25d0 * PreM
+          NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - 0.50d0 * PreM
           NrmInv(Par2, Ind)  = NrmInv(Ind, Par2)
           ! Add co-precision between the parents
-          NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + PreM / 4.0d0
+          NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + 0.25d0 * PreM
           NrmInv(Par2, Par1) = NrmInv(Par1, Par2)
         end do
         ! Reset the "margins"
