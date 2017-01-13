@@ -333,7 +333,7 @@ module AlphaRelateModule
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
         ! Other
-        integer(int32) :: n, Start
+        integer(int32) :: Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -341,10 +341,9 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        n = This%nInd
         This%Id(0) = 0
-        This%Id(1:n) = MatchId(IdSet=This%OriginalId(1:n),& ! to handle "0th margin"
-                               IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -363,12 +362,12 @@ module AlphaRelateModule
         integer(int32), allocatable, dimension(:) :: Result  !< @return Locations
 
         ! Other
-        integer(int32) :: n, i
+        integer(int32) :: Ind, nInd
 
-        n = size(IdSet)
-        allocate(Result(n))
-        do i = 1, n
-          Result(i) = FindLoc(Val=IdSet(i), Vec=IdSuperset)
+        nInd = size(IdSet)
+        allocate(Result(nInd))
+        do Ind = 1, nInd
+          Result(Ind) = FindLoc(Val=IdSet(Ind), Vec=IdSuperset)
         end do
       end function
 
@@ -537,10 +536,9 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        n = This%nInd
         This%Id(0) = 0
-        This%Id(1:n) = MatchId(IdSet=This%OriginalId(1:n),& ! to handle "0th margin"
-                               IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -719,10 +717,9 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        n = This%nInd
         This%Id(0) = 0
-        This%Id(1:n) = MatchId(IdSet=This%OriginalId(1:n),& ! to handle "0th margin"
-                               IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -809,7 +806,7 @@ module AlphaRelateModule
         character(len=*), intent(in) :: File !< File that holds Original Id and NRM
         logical, intent(in) :: Ija           !< Read from a sparse ija format?
 
-        integer(int32) :: n, Line, nLine, Unit, Unit2, Ind1, Ind2
+        integer(int32) :: nInd, Line, nLine, Unit, Unit2, Ind1, Ind2
         character(len=:), allocatable :: Fmt
 
         nLine = CountLines(File)
@@ -817,12 +814,12 @@ module AlphaRelateModule
         open(newunit=Unit, file=trim(File), action="read", status="old")
         if (Ija) then
           ! No. of individuals
-          read(Unit, *) n
-          call This%Init(nInd=n)
+          read(Unit, *) nInd
+          call This%Init(nInd=nInd)
           open(newunit=Unit2, file=trim(File)//"_IdMap", action="read", status="old")
           Fmt = "(i"//Int2Char(IDINTLENGTH)//", a"//Int2Char(IDLENGTH)//")"
-          do Ind1 = 1, This%nInd
-            read(Unit2, *) Ind2, This%OriginalId(Ind1) ! Ind2 just placeholder here
+          do Ind1 = 1, nInd
+            read(Unit2, *) Ind2, This%OriginalId(Ind2)
           end do
           close(Unit2)
           ! Triplets
@@ -831,10 +828,10 @@ module AlphaRelateModule
             This%Nrm(Ind1,Ind2) = This%Nrm(Ind2, Ind1)
           end do
         else
-          n = nLine
-          call This%Init(nInd=n)
-          do Ind1 = 1, n
-            read(Unit, *) This%OriginalId(Ind1), This%Nrm(1:n, Ind1)
+          nInd = nLine
+          call This%Init(nInd=nInd)
+          do Ind1 = 1, nInd
+            read(Unit, *) This%OriginalId(Ind1), This%Nrm(1:nInd, Ind1)
           end do
         end if
         close(Unit)
@@ -1203,10 +1200,9 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        n = This%nInd
         This%Id(0) = 0
-        This%Id(1:n) = MatchId(IdSet=This%OriginalId(1:n),& ! to handle "0th margin"
-                               IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -2347,7 +2343,7 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
-        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
+        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
       end subroutine
 
       !#########################################################################
@@ -2378,7 +2374,7 @@ module AlphaRelateModule
             do Ind = 1, This%PedNrm%nInd
               xPos = This%PedNrmSubset%Id(Ind)
               x(xPos) = 1.0d0
-              NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+              NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
                                          Inbreeding=This%PedInbreeding%Inb, Vector=x)
               This%PedNrm%Nrm(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
               x(xPos) = 0.0d0
@@ -2394,7 +2390,7 @@ module AlphaRelateModule
           ! logical :: OldIdUnknown
           ! @todo: read this already in the Data function!!!
           ! call ReadNrm(File=Spec%OldPedNrmFile, Ija=Spec%PedNrmIja,&
-          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Nrm, n=OldNrm%nInd)
+          !              OriginalId=OldNrm%OriginalId, Nrm=OldNrm%Nrm, nInd=OldNrm%nInd)
           ! MinOldId = 1
           ! MaxOldId = 1
           ! OldIdUnknown = .true.
@@ -2430,7 +2426,7 @@ module AlphaRelateModule
           ! end if
           ! allocate(This%PedNrm%Nrm(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
           !
-          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, n=This%RecPed%nInd,&
+          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
           !                                      nNew=This%PedNrm%nInd,&
           !                                      OldNrm=OldNrm%Nrm, nOld=OldNrm%nInd,&
           !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
@@ -2438,7 +2434,7 @@ module AlphaRelateModule
           ! Standard method for all individuals
           call This%PedNrm%Init(nInd=This%RecPed%nInd)
           This%PedNrm%OriginalId = This%RecPed%OriginalId
-          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, n=This%PedNrm%nInd)
+          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, nInd=This%PedNrm%nInd)
         end if
       end subroutine
 
@@ -2457,7 +2453,7 @@ module AlphaRelateModule
         end if
         call This%PedNrmInv%Init(nInd=This%RecPed%nInd)
         This%PedNrmInv%OriginalId = This%RecPed%OriginalId
-        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, n=This%PedNrmInv%nInd,&
+        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, nInd=This%PedNrmInv%nInd,&
                                        Inbreeding=This%PedInbreeding%Inb)
       end subroutine
 
@@ -3101,46 +3097,53 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Calculate pedigree inbreeding using the recursive method
+      !> @brief  Calculate pedigree inbreeding using the recursive method of
+      !>         Aguilar and Misztal (2008, JDS 91: 1669-1672)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 13, 2017
       !-------------------------------------------------------------------------
-      pure function PedInbreedingRecursive(RecPed, n) result(f)
+      pure function PedInbreedingRecursive(RecPed, nInd, Yob) result(f)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
-        real(real64) :: f(0:n)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+        integer(int32), intent(in) :: RecPed(1:3, 0:nInd)   !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd                  !< Number of individuals in pedigree
+        integer(int32), intent(in), optional :: Yob(0:nInd) !< Year of birth of individuals
+        real(real64) :: f(0:nInd)                           !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
-        integer(int32) :: Ind
+        integer(int32) :: Ind, nYob
 
         f(0) = -1.0d0
 
-        do Ind = 1, n
-          f(Ind) = PedInb(Ind=Ind)
-        end do
+        if (.not. present(Yob)) then
+          do Ind = 1, nInd
+            if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
+              f(Ind) = 0.0d0
+            else
+              f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
+            end if
+          end do
+        else
+          nYob = 10 ! @todo
+          block
+            ! k --> nYob
+            integer(int32) :: nAvg(nYob)
+            real(real64) :: AvgInb(nYob), AvgInbN(nYob)
+            AvgInbN = 0.0d0
+            do
+              f = -1.0d0
+              AvgInb = AvgInbN
+              AvgInbN = 0.0d0
+              nAvg = 0
+              do Ind = 1, nInd
+              end do
+              exit ! @todo
+            end do
+          end block
+        end if
 
         contains
-
-          !---------------------------------------------------------------------
-          !> @brief  Calculate pedigree inbreeding for an individual
-          !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-          !> @date   January 13, 2017
-          !---------------------------------------------------------------------
-          pure function PedInb(Ind) result(f)
-            integer(int32), intent(in) :: Ind !< Individual
-            real(real64) :: f                 !< @return pedigree inbreeding for the individual
-
-            ! Needs access to RecPed(3, 0:n)
-
-            if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
-              f = 0.0d0
-            else
-              f = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
-            end if
-          end function
 
           !---------------------------------------------------------------------
           !> @brief  Calculate pedigree numerator relationship between two individuals
@@ -3178,18 +3181,18 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure function PedInbreedingMeuwissenLuo(RecPed, n) result(f)
+      pure function PedInbreedingMeuwissenLuo(RecPed, nInd) result(f)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
-        real(real64) :: f(0:n)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+        integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
+        real(real64) :: f(0:nInd)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
         integer(int32) :: i, is, id, j, k, ks, kd
-        integer(int32) :: ped(3, 0:n), point(0:n)
-        real(real64) :: l(n), d(n), fi, r
+        integer(int32) :: ped(3, 0:nInd), point(0:nInd)
+        real(real64) :: l(nInd), d(nInd), fi, r
 
         point = 0
         l = 0.0d0
@@ -3201,7 +3204,7 @@ module AlphaRelateModule
         ped(3, :) = RecPed(3, :)
 
         f(0) = -1.0d0
-        do i = 1, n
+        do i = 1, nInd
           is = RecPed(2, i)
           id = RecPed(3, i)
           ped(2, i) = max(is, id)
@@ -3261,19 +3264,19 @@ module AlphaRelateModule
       !> @date   December 22, 2016
       !> @todo Metafounders and/or inbreeding for animals with unknown parents
       !-------------------------------------------------------------------------
-      pure function PedNrm(RecPed, n) result(Nrm)
+      pure function PedNrm(RecPed, nInd) result(Nrm)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
-        real(real64) :: Nrm(0:n, 0:n)                  !< @return Pedigree NRM
+        integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
+        real(real64) :: Nrm(0:nInd, 0:nInd)               !< @return Pedigree NRM
 
         ! Other
         integer(int32) :: Ind1, Ind2, Par1, Par2
 
         Nrm = 0.0d0
-        do Ind2 = 1, n
+        do Ind2 = 1, nInd
             Par1 = min(RecPed(2, Ind2), RecPed(3, Ind2))
             Par2 = max(RecPed(3, Ind2), RecPed(2, Ind2))
             do Ind1 = 1, Ind2 - 1
@@ -3295,24 +3298,24 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 31, 2016
       !-------------------------------------------------------------------------
-      pure function PedNrmTimesVector(RecPed, n, Inbreeding, Vector) result(Result)
+      pure function PedNrmTimesVector(RecPed, nInd, Inbreeding, Vector) result(Result)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
-        real(real64), intent(in) :: Inbreeding(0:n)    !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-        real(real64), intent(in) :: Vector(0:n)        !< Vector to multiply NRM with
-        real(real64) :: Result(0:n)                    !< @return PedNrm*Vector, i.e., Ax=b
+        integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
+        real(real64), intent(in) :: Inbreeding(0:nInd)    !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+        real(real64), intent(in) :: Vector(0:nInd)        !< Vector to multiply NRM with
+        real(real64) :: Result(0:nInd)                    !< @return PedNrm*Vector, i.e., Ax=b
 
         ! Other
         integer(int32) :: Ind, Par1, Par2
-        real(real64) :: q(0:n), VarM, Tmp
+        real(real64) :: q(0:nInd), VarM, Tmp
 
         Result = 0.0d0
         q = 0.0d0
 
-        do Ind = n, 1, -1
+        do Ind = nInd, 1, -1
           q(Ind) = q(Ind) + Vector(Ind)
           Tmp = 0.5d0 * q(Ind)
           Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
@@ -3321,7 +3324,7 @@ module AlphaRelateModule
           q(Par2) = q(Par2) + Tmp
         end do
 
-        do Ind = 1, n
+        do Ind = 1, nInd
           Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
           Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
           ! Variance of founder effects and Mendelian sampling terms
@@ -3418,21 +3421,21 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure function PedNrmInv(RecPed, n, Inbreeding) result(NrmInv)
+      pure function PedNrmInv(RecPed, nInd, Inbreeding) result(NrmInv)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-        real(real64), intent(in) :: Inbreeding(0:n)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-        real(real64) :: NrmInv(0:n, 0:n)              !< @return Pedigree NRM inverse
+        integer(int32), intent(in) :: RecPed(1:3,0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd               !< Number of individuals in pedigree
+        real(real64), intent(in) :: Inbreeding(0:nInd)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+        real(real64) :: NrmInv(0:nInd, 0:nInd)           !< @return Pedigree NRM inverse
 
         ! Other
         integer(int32) :: Ind, Par1, Par2
         real(real64) :: PreM
 
         NrmInv = 0.0d0
-        do Ind = 1, n
+        do Ind = 1, nInd
           Par1 = RecPed(2, Ind)
           Par2 = RecPed(3, Ind)
           ! Precision (1/variance) of founder effects and Mendelian sampling terms
@@ -3456,8 +3459,8 @@ module AlphaRelateModule
         ! (the above algorithm does not need ifs for testing unknown parents as it
         !  relies on using the zeroth "margin" and Inbreeding(0)=-1. as placeholders;
         !  so should clear the "margin" now)
-        NrmInv(0:n, 0) = 0.0d0
-        NrmInv(0, 0:n) = 0.0d0
+        NrmInv(0:nInd, 0) = 0.0d0
+        NrmInv(0, 0:nInd) = 0.0d0
       end function
 
       !#########################################################################
