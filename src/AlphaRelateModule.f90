@@ -2742,7 +2742,8 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
         logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
 
-        integer(int32) :: InfoInt, Ind
+        integer(int32) :: Ind
+        integer :: InfoInt
 
         if (.not. allocated(This%GenNrm%Nrm)) then
           call This%CalcGenNrm(Spec=Spec)
@@ -2754,16 +2755,19 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         This%GenNrmInv%Nrm = This%GenNrm%Nrm
 
         Info = .true.
+        InfoInt = 0
 
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
 call This%GenNrmInv%Write
-        call potrf(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+        ! call potrf(A=This%GenNrmInv%Nrm, Info=InfoInt)
+        call potrf(A=This%GenNrmInv%Nrm)
 call This%GenNrmInv%Write
         if (InfoInt == 0) then
           ! Computes the inverse of a symmetric positive definite matrix based on the Cholesky factorization via potrf()
           ! https://software.intel.com/en-us/node/468824
-          call potri(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+          ! call potri(A=This%GenNrmInv%Nrm, Info=InfoInt)
+          call potri(A=This%GenNrmInv%Nrm)
 call This%GenNrmInv%Write
           if (InfoInt == 0) then
             ! Fill the upper triangle
