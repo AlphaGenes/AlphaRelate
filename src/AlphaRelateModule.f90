@@ -46,7 +46,7 @@ module AlphaRelateModule
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding
   public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
   ! Functions
-  public :: MatchId, PedInbreeding, PedNrm, PedNrmTimesVector, PedNrmInv
+  public :: MatchId, PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedNrm, PedNrmTimesVector, PedNrmInv
 
   !> @brief Set of individuals holder
   type IndSet
@@ -2348,7 +2348,7 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
-        This%PedInbreeding%Inb = PedInbreeding(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
+        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, n=This%PedInbreeding%nInd)
       end subroutine
 
       !#########################################################################
@@ -2758,12 +2758,12 @@ subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
 call This%GenNrmInv%Write
-        call potrf(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+!        call potrf(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt)
 call This%GenNrmInv%Write
         if (InfoInt == 0) then
-          ! Computes the inverse of a symmetric positive definite matrix based on the Cholesky factorization via potrf()
+          ! Computes the inverse based on the Cholesky factor obtained with potrf()
           ! https://software.intel.com/en-us/node/468824
-          call potri(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt) ! lda=2 because of the "0th" margin
+!          call potri(A=This%GenNrmInv%Nrm, Uplo="L", Info=InfoInt)
 call This%GenNrmInv%Write
           if (InfoInt == 0) then
             ! Fill the upper triangle
@@ -3100,22 +3100,80 @@ call This%GenNrmInv%Write
       !#########################################################################
 
       !-------------------------------------------------------------------------
+      !> @brief  Calculate pedigree inbreeding using the recursive method
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 13, 2017
+      !-------------------------------------------------------------------------
+      pure function PedInbreedingRecursive(RecPed, n) result(f)
+        implicit none
+
+        ! Arguments
+        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
+        real(real64) :: f(0:n)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+
+        ! Other
+        integer(int32) :: Ind
+
+        f(0) = -1.0d0
+
+        do Ind = 1, n
+          if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
+            f(Ind) = 0.0d0
+          else
+            f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
+          end if
+        end do
+
+        contains
+
+          !---------------------------------------------------------------------
+          !> @brief  Calculate pedigree numerator relationship between two individuals
+          !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+          !> @date   January 13, 2017
+          !---------------------------------------------------------------------
+          pure recursive function PedNrmRecursive(Ind1, Ind2) result(r)
+            integer(int32), intent(in) :: Ind1 !< First  individual
+            integer(int32), intent(in) :: Ind2 !< Second individual
+            real(real64) :: r                  !< @return relationship between the individuals
+
+            ! Needs access to f(0:n) and RecPed(3, 0:n)
+
+            if (Ind1 .eq. 0 .or. Ind2 .eq. 0) then
+              r = 0.0d0
+            else if (Ind1 .eq. Ind2) then
+              r = 1.0d0 + f(Ind1)
+            else
+              if (Ind1 .lt. Ind2) then
+                r = 0.5d0 * (PedNrmRecursive(Ind1=Ind1, Ind2=RecPed(2, Ind2)) + &
+                             PedNrmRecursive(Ind1=Ind1, Ind2=RecPed(3, Ind2)))
+              else
+                r = 0.5d0 * (PedNrmRecursive(Ind1=Ind2, Ind2=RecPed(2, Ind1)) + &
+                             PedNrmRecursive(Ind1=Ind2, Ind2=RecPed(3, Ind1)))
+              end if
+            end if
+          end function
+      end function
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
       !> @brief  Calculate pedigree inbreeding using the Meuwissen and
       !!         Luo (1992, GSE 24: 305-313) method
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk & John Hickey, john.hickey@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure function PedInbreeding(RecPed, n) result(f)
+      pure function PedInbreedingMeuwissenLuo(RecPed, n) result(f)
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-        real(real64) :: f(0:n)                        !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
+        real(real64) :: f(0:n)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
         integer(int32) :: i, is, id, j, k, ks, kd
-        integer(int32) :: ped(3,0:n), point(0:n)
+        integer(int32) :: ped(3, 0:n), point(0:n)
         real(real64) :: l(n), d(n), fi, r
 
         point = 0
@@ -3123,20 +3181,20 @@ call This%GenNrmInv%Write
         d = 0.0d0
 
         f = 0.0d0
-        ped(1,:) = RecPed(1,:)
-        ped(2,:) = RecPed(2,:)
-        ped(3,:) = RecPed(3,:)
+        ped(1, :) = RecPed(1, :)
+        ped(2, :) = RecPed(2, :)
+        ped(3, :) = RecPed(3, :)
 
         f(0) = -1.0d0
         do i = 1, n
-          is = RecPed(2,i)
-          id = RecPed(3,i)
-          ped(2,i) = max(is,id)
-          ped(3,i) = min(is,id)
+          is = RecPed(2, i)
+          id = RecPed(3, i)
+          ped(2, i) = max(is, id)
+          ped(3, i) = min(is, id)
           d(i) = 0.5d0 - 0.25d0 * (f(is) + f(id))
           if (is .eq. 0 .or. id .eq. 0) then
             f(i) = 0.0d0
-          else if ((ped(2,i-1) .eq. ped(2,i)) .and. (ped(3,i-1) .eq. ped(3,i))) then
+          else if ((ped(2, i-1) .eq. ped(2, i)) .and. (ped(3, i-1) .eq. ped(3, i))) then
             f(i) = f(i-1)
           else
             fi = -1.0d0
@@ -3146,8 +3204,8 @@ call This%GenNrmInv%Write
             do while (j .ne. 0)
               k = j
               r = 0.5d0 * l(k)
-              ks = ped(2,k)
-              kd = ped(3,k)
+              ks = ped(2, k)
+              kd = ped(3, k)
               if (ks .gt. 0) then
                 do while (point(k) .gt. ks)
                   k = point(k)
@@ -3191,9 +3249,9 @@ call This%GenNrmInv%Write
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-        real(real64) :: Nrm(0:n, 0:n)                 !< @return Pedigree NRM
+        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
+        real(real64) :: Nrm(0:n, 0:n)                  !< @return Pedigree NRM
 
         ! Other
         integer(int32) :: Ind1, Ind2, Par1, Par2
@@ -3223,11 +3281,11 @@ call This%GenNrmInv%Write
         implicit none
 
         ! Arguments
-        integer(int32), intent(in) :: RecPed(1:3,0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
-        integer(int32), intent(in) :: n               !< Number of individuals in pedigree
-        real(real64), intent(in) :: Inbreeding(0:n)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-        real(real64), intent(in) :: Vector(0:n)       !< Vector to multiply NRM with
-        real(real64) :: Result(0:n)                   !< @return PedNrm*Vector, i.e., Ax=b
+        integer(int32), intent(in) :: RecPed(1:3, 0:n) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: n                !< Number of individuals in pedigree
+        real(real64), intent(in) :: Inbreeding(0:n)    !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+        real(real64), intent(in) :: Vector(0:n)        !< Vector to multiply NRM with
+        real(real64) :: Result(0:n)                    !< @return PedNrm*Vector, i.e., Ax=b
 
         ! Other
         integer(int32) :: Ind, Par1, Par2
@@ -3271,14 +3329,14 @@ call This%GenNrmInv%Write
       !   implicit none
       !
       !   ! Arguments
-      !   integer(int32), intent(in) :: RecPed(1:3,0:n)      !< Sorted and recoded pedigree array (unknown parents as 0)
-      !   integer(int32), intent(in) :: n                    !< Number of individuals in pedigree
-      !   integer(int32), intent(in) :: nNew                 !< Number of new generation individuals
-      !   real(real64), intent(in) :: OldNrm(0:nOld, 0:nOld) !< Old NRM
-      !   integer(int32), intent(in) :: nOld                 !< Number of individuals in the old NRM
-      !   integer(int32), intent(in) :: MinOldId             !< Minimal sequential id for the old NRM
-      !   integer(int32), intent(in) :: MaxOldId             !< Maximal sequential id for the old NRM
-      !   real(real64) :: Nrm(0:n, 0:n)                      !< @return Pedigree NRM for the new generation individuals
+      !   integer(int32), intent(in) :: RecPed(1:3, 0:n)      !< Sorted and recoded pedigree array (unknown parents as 0)
+      !   integer(int32), intent(in) :: n                     !< Number of individuals in pedigree
+      !   integer(int32), intent(in) :: nNew                  !< Number of new generation individuals
+      !   real(real64), intent(in) :: OldNrm(0:nOld, 0:nOld)  !< Old NRM
+      !   integer(int32), intent(in) :: nOld                  !< Number of individuals in the old NRM
+      !   integer(int32), intent(in) :: MinOldId              !< Minimal sequential id for the old NRM
+      !   integer(int32), intent(in) :: MaxOldId              !< Maximal sequential id for the old NRM
+      !   real(real64) :: Nrm(0:n, 0:n)                       !< @return Pedigree NRM for the new generation individuals
       !
       !   ! Other
       !   integer(int32) :: Ind1, Ind2, Par1, Par2
