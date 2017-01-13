@@ -1,4 +1,12 @@
-PedigreeFile    ,Pedigree.txt
-PedInbreeding   ,Yes
-PedNrm          ,Yes
-PedNrmInv       ,Yes
+GenotypeFile       ,Genotype.txt
+NumberOfLoci       ,2
+GenNrm             ,Yes
+GenNrmType         ,VanRaden
+OutputBasename, Bla
+Stop
+
+PedigreeFile       ,Pedigree.txt
+PedInbreeding      ,Yes
+PedNrm             ,Yes
+PedNrmSetFile   ,PedNrmSelect.txt
+PedNrmInv          ,Yes
