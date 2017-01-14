@@ -18,12 +18,14 @@
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !
-!> @date     December 19, 2016
+!> @date     January 14, 2016
 !
-!> @version  0.0.1 (alpha)
+!> @version  0.1.0 (alpha)
 !
-! REVISION HISTORY:
-! 2016-12-19 GGorjanc - Initial setup as portable/documented module
+!> @todo Add largish examples
+!> @todo Add Single-step H matrix
+!> @todo Add metafounders
+!> @todo Add haplotype relationships
 !
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
@@ -1426,7 +1428,6 @@ module AlphaRelateModule
           This%GenotypeReal(:, Ind) = This%GenotypeReal(:, Ind) * Weight
         end do
       end subroutine
-
       !#########################################################################
 
     !###########################################################################
@@ -2320,7 +2321,8 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
-        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
+        !This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
+        This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
       end subroutine
 
       !#########################################################################
@@ -3098,6 +3100,7 @@ module AlphaRelateModule
               f(Ind) = 0.0d0
             else
               f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
+              ! @todo Can we memoise some of the recursive calls of PedNrmRecursive?
             end if
           end do
         else
@@ -3175,6 +3178,7 @@ module AlphaRelateModule
             real(real64) :: r                  !< @return pedigree relationship between the individuals
 
             ! Needs access to f(0:n) and RecPed(3, 0:n)
+            ! @todo Can we memoise some of the recursive calls of PedNrmRecursive?
 
             if (Ind1 .eq. 0 .or. Ind2 .eq. 0) then
               r = 0.0d0

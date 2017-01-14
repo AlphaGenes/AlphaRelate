@@ -15,9 +15,9 @@
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !
-!> @date     December 19, 2016
+!> @date     January 14, 2016
 !
-!> @version  0.0.1 (alpha)
+!> @version  0.1.0 (alpha)
 !
 !-------------------------------------------------------------------------------
 
