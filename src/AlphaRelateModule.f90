@@ -31,10 +31,12 @@ module AlphaRelateModule
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH,&
                              EMPTYID, MISSINGGENOTYPECODE
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char,&
-                            ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc
+                            ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc,&
+                            Match
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
   use GenotypeModule, only : Genotype
   use HaplotypeModule, only : Haplotype
+  use OrderPackModule, only : UniqueRank => UniInv, Unique => UniSta, Rank => MrgRnk
   use Blas95
   use Lapack95
   use F95_precision
@@ -46,7 +48,7 @@ module AlphaRelateModule
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding
   public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
   ! Functions
-  public :: MatchId, PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedNrm, PedNrmTimesVector, PedNrmInv
+  public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedNrm, PedNrmTimesVector, PedNrmInv
 
   !> @brief Set of individuals holder
   type IndSet
@@ -291,8 +293,8 @@ module AlphaRelateModule
         allocate(This%Id(0:nInd))
         This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
-                                    IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
@@ -342,34 +344,9 @@ module AlphaRelateModule
         end if
 
         This%Id(0) = 0
-        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
-                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
-
-      !#########################################################################
-
-      !-------------------------------------------------------------------------
-      !> @brief  Find location of a set of original Id in the superset of original Id
-      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-      !> @date   January 4, 2017
-      !-------------------------------------------------------------------------
-      pure function MatchId(IdSet, IdSuperset) result(Result)
-        implicit none
-
-        ! Arguments
-        character(len=IDLENGTH), intent(in) :: IdSet(:)      !< A        set of individual ids
-        character(len=IDLENGTH), intent(in) :: IdSuperset(:) !< The superset of individual ids
-        integer(int32), allocatable, dimension(:) :: Result  !< @return Locations
-
-        ! Other
-        integer(int32) :: Ind, nInd
-
-        nInd = size(IdSet)
-        allocate(Result(nInd))
-        do Ind = 1, nInd
-          Result(Ind) = FindLoc(Val=IdSet(Ind), Vec=IdSuperset)
-        end do
-      end function
 
       !#########################################################################
 
@@ -472,8 +449,8 @@ module AlphaRelateModule
         allocate(This%Id(0:nInd))
         This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
-                                    IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
@@ -537,8 +514,8 @@ module AlphaRelateModule
         end if
 
         This%Id(0) = 0
-        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
-                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -652,8 +629,8 @@ module AlphaRelateModule
         allocate(This%Id(0:nInd))
         This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
-                                    IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
@@ -718,8 +695,8 @@ module AlphaRelateModule
         end if
 
         This%Id(0) = 0
-        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
-                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -1110,8 +1087,8 @@ module AlphaRelateModule
         allocate(This%Id(0:nInd))
         This%Id(0) = 0
         if (present(OriginalIdSuperset)) then
-          This%Id(1:nInd) = MatchId(IdSet=This%OriginalId(1:nInd),& ! to handle "0th margin"
-                                    IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
         else
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
@@ -1201,8 +1178,8 @@ module AlphaRelateModule
         end if
 
         This%Id(0) = 0
-        This%Id(1:This%nInd) = MatchId(IdSet=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
-                                       IdSuperset=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
       end subroutine
 
       !#########################################################################
@@ -3097,8 +3074,8 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Calculate pedigree inbreeding using the recursive method of
-      !>         Aguilar and Misztal (2008, JDS 91: 1669-1672)
+      !> @brief  Calculate pedigree inbreeding using the recursive method as
+      !!         presented by Aguilar and Misztal (2008, JDS 91: 1669-1672)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 13, 2017
       !-------------------------------------------------------------------------
@@ -3108,15 +3085,14 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd)   !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                  !< Number of individuals in pedigree
-        integer(int32), intent(in), optional :: Yob(0:nInd) !< Year of birth of individuals
+        integer(int32), intent(in), optional :: Yob(0:nInd) !< Year of birth of individuals (used to correct for inbreeding of unknown parents)
         real(real64) :: f(0:nInd)                           !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
-        integer(int32) :: Ind, nYob
-
-        f(0) = -1.0d0
+        integer(int32) :: Ind
 
         if (.not. present(Yob)) then
+          f(0) = -1.0d0
           do Ind = 1, nInd
             if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
               f(Ind) = 0.0d0
@@ -3125,20 +3101,62 @@ module AlphaRelateModule
             end if
           end do
         else
-          nYob = 10 ! @todo
           block
-            ! k --> nYob
-            integer(int32) :: nAvg(nYob)
-            real(real64) :: AvgInb(nYob), AvgInbN(nYob)
-            AvgInbN = 0.0d0
+            integer(int32) :: YobId(0:nInd), nYob, Iter
+            integer(int32), allocatable, dimension(:) :: nByYob, YobTable
+            real(real64) :: AvgAll, AvgAllOld
+            real(real64), allocatable, dimension(:) :: AvgByYob, AvgByYobNew
+            YobId = UniqueRank(Yob)
+            YobTable = Unique(Yob)
+            YobTable = YobTable(Rank(YobTable))
+            nYob = size(YobTable)
+            allocate(nByYob(nYob))
+            allocate(AvgByYob(nYob))
+            allocate(AvgByYobNew(nYob))
+            AvgByYobNew = -1.0d0
+            AvgAllOld = -1.0d0
+            Iter = 0
             do
+              Iter = Iter + 1
               f = -1.0d0
-              AvgInb = AvgInbN
-              AvgInbN = 0.0d0
-              nAvg = 0
+              AvgByYob = AvgByYobNew
+              AvgByYobNew = 0.0d0
+              nByYob = 0
               do Ind = 1, nInd
+                ! Compute inbreeding coefficients
+                if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
+                  f(Ind) = AvgByYob(YobId(Ind))
+                  ! Aguilar and Misztal used genetic groups here, but not clear how we assign Yob to them
+                else
+                  f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
+                end if
+                ! Collate
+                if (RecPed(2, Ind) .gt. 0 .and. RecPed(3, Ind) .gt. 0) then
+                  AvgByYobNew(YobId(Ind)) = AvgByYobNew(YobId(Ind)) + f(Ind)
+                  nByYob(YobId(Ind)) = nByYob(YobId(Ind)) + 1
+                end if
               end do
-              exit ! @todo
+              ! Average
+              where (nByYob .gt. 0)
+                AvgByYobNew = AvgByYobNew / dble(nByYob)
+              end where
+              ! block
+              !   integer :: i
+              !   write(STDOUT, "(a, i0)") "Average inbreeding by year of birth @ iteration ", Iter
+              !   !                            1234567890    1234567890
+              !   write(STDOUT, "(3a10)") "", "      Year", "Inbreeding"
+              !   do i = 1, nYob
+              !     write(STDOUT, "(2i10, f10.7)") i, YobTable(i), AvgByYobNew(i)
+              !   end do
+              !   write(STDOUT, "(a)") ""
+              ! end block
+              ! Check convergence
+              AvgAll = sum(f) / nInd
+              if (abs(AvgAllOld - AvgAll) .lt. 1.0e-6) then
+                exit
+              else
+                AvgAllOld = AvgAll
+              end if
             end do
           end block
         end if
@@ -3147,6 +3165,7 @@ module AlphaRelateModule
 
           !---------------------------------------------------------------------
           !> @brief  Calculate pedigree numerator relationship between two individuals
+          !!         using recursion
           !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
           !> @date   January 13, 2017
           !---------------------------------------------------------------------

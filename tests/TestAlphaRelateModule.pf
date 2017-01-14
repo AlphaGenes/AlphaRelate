@@ -58,6 +58,24 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+      subroutine CreateTinyPedigreeFileExpanded
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTPEDFILE, action="write", status="unknown")
+        ! From the Mrode's book (2014) plus few more individuals
+        write(Unit, "(a)") "A 0 0"
+        write(Unit, "(a)") "B 0 0"
+        write(Unit, "(a)") "C A B"
+        write(Unit, "(a)") "D A 0"
+        write(Unit, "(a)") "E D C"
+        write(Unit, "(a)") "F E B"
+        write(Unit, "(a)") "G 0 0"
+        write(Unit, "(a)") "H F G"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
       subroutine CreatePedigreeFile
         implicit none
         integer(int32) :: Unit
@@ -200,55 +218,6 @@ module TestAlphaRelateModule
     !###########################################################################
 
     ! IndSet type tests
-
-      !#########################################################################
-
-      @test
-      subroutine TestMatchId
-        implicit none
-        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
-        integer(int32) :: i
-        integer(int32), allocatable, dimension(:) :: RetObs, RetExp
-
-        allocate(Id1(4))
-        allocate(Id2(6))
-        Id1 = ["D", "C", "A", "X"]
-        Id2 = ["A", "B", "C", "D", "E", "F"]
-        allocate(RetObs(4))
-        allocate(RetExp(4))
-        RetObs = MatchId(IdSet=Id1, IdSuperset=Id2)
-        RetExp = [4, 3, 1, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
-          @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 1")
-        end do
-
-        RetObs = MatchId(IdSet=Id1, IdSuperset=Id1)
-        RetExp = [1, 2, 3, 4]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 4
-          ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
-          @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 2")
-        end do
-
-        deallocate(RetObs)
-        deallocate(RetExp)
-        allocate(RetObs(6))
-        allocate(RetExp(6))
-        RetObs = MatchId(IdSet=Id2, IdSuperset=Id1)
-        RetExp = [3, 0, 2, 1, 0, 0]
-        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
-        do i = 1, 6
-          ! write(STDOUT, "(i8, a1, 2i9)") i, RetObs(i), RetExp(i)
-          @AssertEqual(RetObs(i), RetExp(i), "MatchId broken 3")
-        end do
-
-        deallocate(Id1)
-        deallocate(Id2)
-        deallocate(RetObs)
-        deallocate(RetExp)
-      end subroutine
 
       !#########################################################################
 
@@ -907,6 +876,42 @@ module TestAlphaRelateModule
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
         ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
         ! inbreeding(Ped)
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestPedInbreedingRecursiveWithYob
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind
+        integer(int32), allocatable, dimension(:) :: Yob
+        real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
+
+        call CreateTinyPedigreeFileExpanded
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+
+        allocate(CalPedInbreeding(0:Data%RecPed%nInd))
+        allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
+        allocate(Yob(0:Data%RecPed%nInd))
+        Yob = [0, 5, 5, 20, 5, 10, 10, 15, 20, 25]
+
+        CalPedInbreeding = PedInbreedingRecursive(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd, Yob=Yob)
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.125, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000, 0.000]
+
+        ! write(STDOUT, "(3a9, 2a16)") " ", " ", "     Year", "Expected", "Calculated"
+        do Ind = 0, Data%RecPed%nInd
+          ! write(STDOUT, "(i8, 1x, a9, i9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Yob(Ind), ExpPedInbreeding(Ind), CalPedInbreeding(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), CalPedInbreeding(Ind), "Pedigree inbreeding is not calculated correctly with iterative recursive algorithm - tiny example for function")
+        end do
+        deallocate(CalPedInbreeding)
+        deallocate(ExpPedInbreeding)
+        call Data%Destroy
+        call DeletePedigreeFile
       end subroutine
 
       !#########################################################################
