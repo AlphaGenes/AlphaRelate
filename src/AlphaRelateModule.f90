@@ -2742,8 +2742,7 @@ module AlphaRelateModule
           ! call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
           call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
           if (InfoInt == 0) then
-            ! Fill the lower triangle
-            ! @todo would not need these memory jump if the Nrm would be considered as symmetric
+            ! Fill the other (lower) triangle @todo consider symmetric
             do Ind = 1, This%GenNrmInv%nInd
               This%GenNrmInv%Nrm((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Nrm(Ind, (Ind + 1):This%GenNrmInv%nInd)
             end do
@@ -3304,8 +3303,7 @@ module AlphaRelateModule
             Par2 = max(RecPed(3, Ind2), RecPed(2, Ind2))
             do Ind1 = 1, Ind2 - 1
                 Nrm(Ind1, Ind2) = 0.50d0 * (Nrm(Ind1, Par1) + Nrm(Ind1, Par2))
-                ! @todo would not need this memory jump if the Nrm would be considered as symmetric,
-                !       but would also have to make sure algorithm is using only one triangle
+                ! Fill the other triangle @todo consider symmetric, but make sure algorithm works with just one triangle
                 Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
             end do
             Nrm(Ind2, Ind2) = 1.0d0 + 0.5d0 * Nrm(Par2, Par1)
@@ -3459,29 +3457,30 @@ module AlphaRelateModule
 
         NrmInv = 0.0d0
         do Ind = 1, nInd
-          Par1 = RecPed(2, Ind)
-          Par2 = RecPed(3, Ind)
+          Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
+          Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
           ! Precision (1/variance) of founder effects and Mendelian sampling terms
           ! PreM = 1.0d0 / (1.0d0 - 0.25d0 * (1.0d0 + Inbreeding(Par1)) - 0.25d0 * (1.0d0 + Inbreeding(Par2)))
           PreM = 1.0d0 / (0.5d0 - 0.25d0 * (Inbreeding(Par1) + Inbreeding(Par2)))
-          ! Precision for the individual
-          NrmInv(Ind,Ind) = PreM
           ! Add precision to the first parent and set the co-precision
           NrmInv(Par1, Par1) = NrmInv(Par1, Par1) + 0.25d0 * PreM
           NrmInv(Ind, Par1)  = NrmInv(Ind, Par1)  - 0.50d0 * PreM
-          NrmInv(Par1, Ind)  = NrmInv(Ind, Par1)
+          ! Add co-precision between the parents
+          NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + 0.25d0 * PreM
           ! Add precision to the second parent and set the co-precision
           NrmInv(Par2, Par2) = NrmInv(Par2, Par2) + 0.25d0 * PreM
           NrmInv(Ind, Par2)  = NrmInv(Ind, Par2)  - 0.50d0 * PreM
-          NrmInv(Par2, Ind)  = NrmInv(Ind, Par2)
-          ! Add co-precision between the parents
-          NrmInv(Par1, Par2) = NrmInv(Par1, Par2) + 0.25d0 * PreM
+          ! Fill the other triangle @todo consider symmetric, but make sure algorithm works with just one triangle
           NrmInv(Par2, Par1) = NrmInv(Par1, Par2)
+          NrmInv(Par1, Ind)  = NrmInv(Ind, Par1)
+          NrmInv(Par2, Ind)  = NrmInv(Ind, Par2)
+          ! Precision for the individual
+          NrmInv(Ind, Ind) = PreM
         end do
         ! Reset the "margins"
         ! (the above algorithm does not need ifs for testing unknown parents as it
         !  relies on using the zeroth "margin" and Inbreeding(0)=-1. as placeholders;
-        !  so should clear the "margin" now)
+        !  therefore must clear the "margin")
         NrmInv(0:nInd, 0) = 0.0d0
         NrmInv(0, 0:nInd) = 0.0d0
       end function
