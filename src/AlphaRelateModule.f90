@@ -50,7 +50,7 @@ module AlphaRelateModule
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding
   public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
   ! Functions
-  public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedNrm, PedNrmTimesVector, PedNrmInv
+  public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
 
   !> @brief Set of individuals holder
   type IndSet
@@ -2729,6 +2729,8 @@ module AlphaRelateModule
         Info = .true.
         InfoInt = 0
 
+        ! @todo make the code bellow as InvertSpdMatrix routine
+
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
         ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
@@ -3275,6 +3277,39 @@ module AlphaRelateModule
 
             f(i) = fi
           end if
+        end do
+      end function
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate pedigree gene flow matrix (aka the T matrix)
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 16, 2017
+      !> @todo Metafounders?
+      !-------------------------------------------------------------------------
+      pure function PedGeneFlow(RecPed, nInd) result(GeneFlow)
+        implicit none
+
+        ! Arguments
+        integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
+        integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
+        real(real64) :: GeneFlow(0:nInd, 0:nInd)          !< @return Pedigree gene flow matrix (as upper triangular matrix!!!)
+
+        ! Other
+        integer(int32) :: Ind, Par1, Par2
+
+        GeneFlow = 0.0d0
+        do Ind = 1, nInd
+          Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
+          Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
+          if (Par1 .gt. 0) then
+            GeneFlow(1:Par1, Ind) = 0.5d0 * GeneFlow(1:Par1, Par1)
+          end if
+          if (Par2 .gt. 0) then
+            GeneFlow(1:Par2, Ind) = GeneFlow(1:Par2, Ind) + 0.5d0 * GeneFlow(1:Par2, Par2)
+          end if
+          GeneFlow(Ind, Ind) = 1.0d0
         end do
       end function
 
