@@ -3299,14 +3299,14 @@ module AlphaRelateModule
 
         Nrm = 0.0d0
         do Ind2 = 1, nInd
-            Par1 = min(RecPed(2, Ind2), RecPed(3, Ind2))
-            Par2 = max(RecPed(3, Ind2), RecPed(2, Ind2))
-            do Ind1 = 1, Ind2 - 1
-                Nrm(Ind1, Ind2) = 0.50d0 * (Nrm(Ind1, Par1) + Nrm(Ind1, Par2))
-                ! Fill the other triangle @todo consider symmetric, but make sure algorithm works with just one triangle
-                Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
-            end do
-            Nrm(Ind2, Ind2) = 1.0d0 + 0.5d0 * Nrm(Par2, Par1)
+          Par1 = min(RecPed(2, Ind2), RecPed(3, Ind2))
+          Par2 = max(RecPed(3, Ind2), RecPed(2, Ind2))
+          do Ind1 = 1, Ind2 - 1
+            Nrm(Ind1, Ind2) = 0.50d0 * (Nrm(Ind1, Par1) + Nrm(Ind1, Par2))
+            ! Fill the other triangle @todo consider symmetric, but make sure algorithm works with just one triangle
+            Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
+          end do
+          Nrm(Ind2, Ind2) = 1.0d0 + 0.5d0 * Nrm(Par2, Par1)
         end do
       end function
 
