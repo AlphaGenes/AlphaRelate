@@ -2728,7 +2728,7 @@ module AlphaRelateModule
         Info = .true.
         InfoInt = 0
 
-        ! @todo make the code bellow as InvertSpdMatrix routine
+        ! @todo make the code bellow as InvertSpdMatrix routine, perhaps in module AlphaMatrixModule
 
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
