@@ -55,6 +55,10 @@ program AlphaRelate
   call Data%Read(Spec=Spec)
 
   if (Spec%PedInbreeding) then
+    call Data%RecPed%Write(File=trim(Spec%OutputBasename)//trim(Spec%PedigreeFile)//"_Recoded.txt")
+  end if
+
+  if (Spec%PedInbreeding) then
     write(STDOUT, "(a)") ""
     write(STDOUT, "(a)") " Calculating pedigree inbreeding ..."
     call Data%CalcPedInbreeding

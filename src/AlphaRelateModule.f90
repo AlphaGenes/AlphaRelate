@@ -1984,7 +1984,6 @@ module AlphaRelateModule
           ! Sort and recode pedigree
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
           write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
-          call This%RecPed%Write(File=trim(Spec%PedigreeFile)//"_Recoded.txt")
 
           ! Free some memory
           call PedObj%DestroyPedigree
@@ -2000,7 +1999,7 @@ module AlphaRelateModule
               IdMatchNotFound = .false.
               do Ind = 1, This%PedNrmSubset%nInd
                 if (This%PedNrmSubset%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for a pedigree NRM subset identification: ", trim(This%PedNrmSubset%OriginalId(Ind))
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the pedigree NRM subset: ", trim(This%PedNrmSubset%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
@@ -2025,7 +2024,7 @@ module AlphaRelateModule
               IdMatchNotFound = .false.
               do Ind = 1, This%Gen%nInd
                 if (This%Gen%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for a genotype identification: ", trim(This%Gen%OriginalId(Ind))
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the genotype data: ", trim(This%Gen%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
