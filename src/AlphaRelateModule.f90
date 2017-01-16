@@ -3293,22 +3293,33 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
-        real(real64) :: GeneFlow(0:nInd, 0:nInd)          !< @return Pedigree gene flow matrix (as upper triangular matrix!!!)
+        real(real64) :: GeneFlow(0:nInd, 0:nInd)          !< @return Pedigree gene flow matrix (as lower triangular matrix!!!)
 
         ! Other
-        integer(int32) :: Ind, Par1, Par2
+        integer(int32) :: Ind1, Ind2, Par1, Par2
 
         GeneFlow = 0.0d0
-        do Ind = 1, nInd
-          Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
-          Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
-          if (Par1 .gt. 0) then
-            GeneFlow(1:Par1, Ind) = 0.5d0 * GeneFlow(1:Par1, Par1)
-          end if
-          if (Par2 .gt. 0) then
-            GeneFlow(1:Par2, Ind) = GeneFlow(1:Par2, Ind) + 0.5d0 * GeneFlow(1:Par2, Par2)
-          end if
-          GeneFlow(Ind, Ind) = 1.0d0
+        ! @todo which algorithm if faster and more importantly which storage (upper/lower) should we go with?
+        ! Fills upper triangle
+        ! do Ind = 1, nInd
+        !   Par1 = min(RecPed(2, Ind), RecPed(3, Ind))
+        !   Par2 = max(RecPed(3, Ind), RecPed(2, Ind))
+        !   if (Par1 .gt. 0) then
+        !     GeneFlow(1:Par1, Ind) = 0.5d0 * GeneFlow(1:Par1, Par1)
+        !   end if
+        !   if (Par2 .gt. 0) then
+        !     GeneFlow(1:Par2, Ind) = GeneFlow(1:Par2, Ind) + 0.5d0 * GeneFlow(1:Par2, Par2)
+        !   end if
+        !   GeneFlow(Ind, Ind) = 1.0d0
+        ! end do
+        ! Fills lower triangle
+        do Ind2 = 1, nInd
+          GeneFlow(Ind2, Ind2) = 1.0d0
+          do Ind1 = Ind2 + 1, nInd
+            Par1 = min(RecPed(2, Ind1), RecPed(3, Ind1))
+            Par2 = max(RecPed(3, Ind1), RecPed(2, Ind1))
+            GeneFlow(Ind1, Ind2) = 0.5d0 * (GeneFlow(Par1, Ind2) + GeneFlow(Par2, Ind2))
+          end do
         end do
       end function
 
