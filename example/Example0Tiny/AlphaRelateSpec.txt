@@ -1,0 +1,22 @@
+PedigreeFile       ,Pedigree.txt
+PedInbreeding      ,Yes
+PedNrm             ,Yes
+
+GenotypeFile       ,Genotype.txt
+NumberOfLoci       ,2
+GenNrm             ,Yes
+GenNrmType         ,VanRaden
+
+Stop
+
+PedigreeFile       ,Pedigree.txt
+PedInbreeding      ,Yes
+PedNrm             ,Yes
+PedNrmSetFile      ,PedNrmSelect.txt
+PedNrmInv          ,Yes
+OutputBasename     ,ProjectX_
+
+GenotypeFile       ,Genotype.txt
+NumberOfLoci       ,2
+GenNrm             ,Yes
+GenNrmType         ,VanRaden

@@ -23,6 +23,7 @@
 !> @version  0.1.0 (alpha)
 !
 !> @todo Add largish examples
+!> @todo Add A22 inverse function for PCG using the successive multiplication trick (Stranden and Mantysaari)
 !> @todo Add Single-step H matrix
 !> @todo Add metafounders
 !> @todo Add haplotype relationships
