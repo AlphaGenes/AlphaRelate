@@ -48,7 +48,7 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Inbreeding
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, Inbreeding
   public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
   ! Functions
   public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
@@ -64,6 +64,21 @@ module AlphaRelateModule
       procedure :: MatchId => MatchIdIndSet
       procedure :: Write   => WriteIndSet
       procedure :: Read    => ReadIndSet
+  end type
+
+  !> @brief Year of birth/generation holder
+  type Yob
+    ! @todo this should go into the type individual
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32), allocatable, dimension(:)          :: Yob
+    contains
+      procedure :: Init    => InitYob
+      procedure :: Destroy => DestroyYob
+      procedure :: MatchId => MatchIdYob
+      procedure :: Write   => WriteYob
+      procedure :: Read    => ReadYob
   end type
 
   !> @brief Inbreeding holder
@@ -169,12 +184,12 @@ module AlphaRelateModule
 
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
-    character(len=FILELENGTH) :: SpecFile, PedigreeFile, GenotypeFile, HaplotypeFile
+    character(len=FILELENGTH) :: SpecFile, PedigreeFile, YobFile, GenotypeFile, HaplotypeFile
     character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile, LocusWeightFile!, PedNrmOldFile
     character(len=FILELENGTH) :: OutputBasename
     character(len=SPECOPTIONLENGTH) :: OutputFormat, GenNrmType
 
-    logical :: PedigreeGiven, GenotypeGiven, HaplotypeGiven
+    logical :: PedigreeGiven, YobGiven, GenotypeGiven, HaplotypeGiven
     logical :: PedNrmSubsetGiven, PedNrmOldGiven, AlleleFreqGiven, AlleleFreqFixed, LocusWeightGiven
 
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
@@ -195,6 +210,7 @@ module AlphaRelateModule
   type AlphaRelateData
     ! Pedigree stuff
     type(RecodedPedigreeArray) :: RecPed
+    type(Yob)                  :: Yob
     type(IndSet)               :: PedNrmSubset
     type(Inbreeding)           :: PedInbreeding
     type(Nrm)                  :: PedNrm
@@ -404,6 +420,179 @@ module AlphaRelateModule
 
     !###########################################################################
 
+    ! Yob type methods
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Year of birth/generation constructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 22, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InitYob(This, nInd, OriginalId, OriginalIdSuperset, Skip, YobInput)
+        implicit none
+
+        ! Arguments
+        class(Yob), intent(out) :: This                                        !< @return Yob holder
+        integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
+        character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
+        integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
+        integer(int32), intent(in), optional :: YobInput(nInd)                 !< Year of birth/generation (note that this should not have 0th margin)
+
+        ! Other
+        integer(int32) :: Ind, Start
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        This%nInd = nInd
+
+        if (allocated(This%OriginalId)) then
+          deallocate(This%OriginalId)
+        end if
+        allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
+        if (present(OriginalId)) then
+          This%OriginalId(1:nInd) = OriginalId
+        else
+          This%OriginalId(1:nInd) = EMPTYID
+        end if
+
+        if (allocated(This%Id)) then
+          deallocate(This%Id)
+        end if
+        allocate(This%Id(0:nInd))
+        This%Id(0) = 0
+        if (present(OriginalIdSuperset)) then
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        else
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
+        end if
+
+        if (allocated(This%Yob)) then
+          deallocate(This%Yob)
+        end if
+        allocate(This%Yob(0:nInd))
+        This%Yob(0) = 0
+        if (present(YobInput)) then
+          This%Yob(1:nInd) = YobInput
+        else
+          This%Yob(1:nInd) = 0
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Year of birth/generation destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 22, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyYob(This)
+        implicit none
+        class(Yob), intent(inout) :: This !< @return Yob holder
+        This%nInd = 0
+        if (allocated(This%OriginalId)) then
+         deallocate(This%OriginalId)
+        end if
+        if (allocated(This%Id)) then
+         deallocate(This%Id)
+        end if
+        if (allocated(This%Yob)) then
+         deallocate(This%Yob)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Find location of a set of original Id in the superset of original Id
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 22, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine MatchIdYob(This, OriginalIdSuperset, Skip)
+        implicit none
+
+        ! Arguments
+        class(Yob), intent(inout) :: This                            !< @return Yob holder
+        character(len=IDLENGTH), intent(in) :: OriginalIdSuperset(:) !< The superset of individual ids
+        integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
+
+        ! Other
+        integer(int32) :: n, Start
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        This%Id(0) = 0
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write year of birth/generation to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   January 22, 2017
+      !-------------------------------------------------------------------------
+      subroutine WriteYob(This, File) ! not pure due to IO
+        implicit none
+        class(Yob), intent(in) :: This                 !< Yob holder
+        character(len=*), intent(in), optional :: File !< File that will hold Original Id and year of birth/generation
+
+        integer(int32) :: Unit, Ind
+        character(len=:), allocatable :: Fmt
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+        Fmt = "(a"//Int2Char(IDLENGTH)//", i0)"
+        do Ind = 1, This%nInd
+          write(Unit, Fmt) This%OriginalId(Ind), This%Yob(Ind)
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read year of birth/generation from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   December 22, 2016
+      !-------------------------------------------------------------------------
+      subroutine ReadYob(This, File) ! not pure due to IO
+        implicit none
+        class(Yob), intent(out) :: This      !< @return Yob holder
+        character(len=*), intent(in) :: File !< File that holds Original Id and year of birth/generation
+
+        integer(int32) :: nInd, Ind, Unit
+
+        nInd = CountLines(File)
+        call This%Init(nInd=nInd)
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do Ind = 1, nInd
+          read(Unit, *) This%OriginalId(Ind), This%Yob(Ind)
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
     ! Inbreeding type methods
 
       !#########################################################################
@@ -419,7 +608,7 @@ module AlphaRelateModule
         ! Arguments
         class(Inbreeding), intent(out) :: This                                 !< @return Inbreeding holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
-        character(len=IDLENGTH), intent(in), optional :: OriginalId(:)         !< Original Id of individuals in the      set (note that this should not have 0th margin)
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
         real(real64), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients (note that this should not have 0th margin)
@@ -1451,6 +1640,7 @@ module AlphaRelateModule
         ! Defaults
         This%SpecFile         = "None"
         This%PedigreeFile     = "None"
+        This%YobFile          = "None"
         This%PedNrmSubsetFile = "None"
         ! This%PedNrmOldFile    = "None"
         This%GenotypeFile     = "None"
@@ -1463,6 +1653,7 @@ module AlphaRelateModule
         This%OutputFormat     = "f"
 
         This%PedigreeGiven     = .false.
+        This%YobGiven          = .false.
         This%PedNrmSubsetGiven = .false.
         This%PedNrmOldGiven    = .false.
         This%GenotypeGiven     = .false.
@@ -1571,6 +1762,22 @@ module AlphaRelateModule
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for PedigreeFile, i.e., PedigreeFile, Pedigree.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("yearofbirthfile")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "none") then
+                    write(STDOUT, "(a)") " Not using year of birth/generation file"
+                  else
+                    This%YobGiven = .true.
+                    write(This%YobFile, *) trim(adjustl(Second(1)))
+                    This%YobFile = adjustl(This%YobFile)
+                    write(STDOUT, "(2a)") " Using year of birth/generation file: ", trim(This%YobFile)
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a file for YearOfBirthFile, i.e., YearOfBirthFile, YearOfBirth.txt"
                   write(STDERR, "(a)") ""
                   stop 1
                 end if
@@ -1989,10 +2196,42 @@ module AlphaRelateModule
           ! Free some memory
           call PedObj%DestroyPedigree
 
+          ! Read in the year of birth/generation
+          if (Spec%YobGiven) then
+            ! @todo need to align all this code bellow against the Individual type
+            block
+              type(Yob) :: YobTmp
+              integer(int32) :: Ind
+              logical :: IdMatchNotFound
+              call YobTmp%Read(File=Spec%YobFile)
+              write(STDOUT, "(a1, i8, a)") " ", YobTmp%nInd," individuals in the year of birth/generation file"
+              call YobTmp%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
+              ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
+              IdMatchNotFound = .false.
+              do Ind = 1, YobTmp%nInd
+                if (YobTmp%Id(Ind) == 0) then
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the year of birth/generation file: ", trim(YobTmp%OriginalId(Ind))
+                  IdMatchNotFound = .true.
+                end if
+              end do
+              if (IdMatchNotFound) then
+                write(STDERR, "(a)")  ""
+                stop 1
+              end if
+              ! @end todo
+              call This%Yob%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId(1:This%RecPed%nInd))
+              do Ind = 1, YobTmp%nInd
+                if (YobTmp%Id(Ind) > 0) then
+                  This%Yob%Yob(YobTmp%Id(Ind)) = YobTmp%Yob(Ind)
+                end if
+              end do
+            end block
+          end if
+
           ! Handle subset
           if (Spec%PedNrmSubsetGiven) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
-            write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset"
+            write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset file"
             call This%PedNrmSubset%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
             block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               integer(int32) :: Ind
@@ -2000,7 +2239,7 @@ module AlphaRelateModule
               IdMatchNotFound = .false.
               do Ind = 1, This%PedNrmSubset%nInd
                 if (This%PedNrmSubset%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the pedigree NRM subset: ", trim(This%PedNrmSubset%OriginalId(Ind))
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the pedigree NRM subset file: ", trim(This%PedNrmSubset%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
@@ -2015,7 +2254,7 @@ module AlphaRelateModule
         if (Spec%GenotypeGiven) then
 
           call This%Gen%Read(File=Spec%GenotypeFile, nLoc=Spec%nLoc)
-          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals with genotypes"
+          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
 
           if (Spec%PedigreeGiven) then
             call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
@@ -2025,7 +2264,7 @@ module AlphaRelateModule
               IdMatchNotFound = .false.
               do Ind = 1, This%Gen%nInd
                 if (This%Gen%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the genotype data: ", trim(This%Gen%OriginalId(Ind))
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the genotype file: ", trim(This%Gen%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
@@ -2037,6 +2276,8 @@ module AlphaRelateModule
           end if
 
         end if
+
+        ! @todo read in haplotypes here
 
         if (Spec%GenotypeGiven .or. Spec%HaplotypeGiven) then
           if (Spec%AlleleFreqGiven) then
@@ -2113,6 +2354,15 @@ module AlphaRelateModule
           else
             write(STDOUT, "(a)") "Recoded pedigree"
             call This%RecPed%Write
+          end if
+        end if
+
+        if (allocated(This%Yob%OriginalId)) then
+          if (present(Basename)) then
+            call This%Yob%Write(File=trim(Basename)//"YearOfBirth.txt")
+          else
+            write(STDOUT, "(a)") "Year of birth/generation"
+            call This%Yob%Write
           end if
         end if
 
@@ -2322,7 +2572,14 @@ module AlphaRelateModule
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
         !This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
-        This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
+        if (.not. allocated(This%Yob%OriginalId)) then
+          This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+                                                          nInd=This%PedInbreeding%nInd)
+        else
+          This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+                                                          nInd=This%PedInbreeding%nInd, &
+                                                          Yob=This%Yob%Yob)
+        end if
       end subroutine
 
       !#########################################################################

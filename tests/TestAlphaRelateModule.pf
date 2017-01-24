@@ -15,6 +15,8 @@ module TestAlphaRelateModule
   CHARACTER(len=100), PARAMETER :: TESTPEDNRMFILE = "TestPedNrm.txt"
   CHARACTER(len=100), PARAMETER :: TESTPEDNRMSUBSETFILE = "TestPedNrmSubset.txt"
 
+  CHARACTER(len=100), PARAMETER :: TESTYOBFILE = "TestYob.txt"
+
   CHARACTER(len=100), PARAMETER :: TESTGENFILE = "TestGenotype.txt"
 
   CHARACTER(len=100), PARAMETER :: TESTAFFILE = "TestAlleleFreq.txt"
@@ -110,6 +112,32 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTPEDFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateTinyYobFileExpanded
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTYOBFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A  5"
+        write(Unit, "(a)") "B  5"
+        write(Unit, "(a)") "C 10"
+        write(Unit, "(a)") "D 10"
+        write(Unit, "(a)") "E 15"
+        write(Unit, "(a)") "F 20"
+        write(Unit, "(a)") "G 20"
+        write(Unit, "(a)") "H 25"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteYobFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTYOBFILE, status="old")
         close(Unit, status="delete")
       end subroutine
 
@@ -516,6 +544,122 @@ module TestAlphaRelateModule
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdGenotypeArray broken 4b")
+        end do
+        deallocate(Id1)
+        deallocate(Id2)
+        deallocate(IdExp)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! Yob type tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestReadWriteYob
+        implicit none
+        type(Yob) :: Data, Data2
+        integer(int32) :: Ind, Unit
+
+        call CreateTinyYobFileExpanded
+        call Data%Read(File=TESTYOBFILE)
+        Data2 = Data
+        call Data%Write(File=TESTYOBFILE)
+        call Data2%Read(File=TESTYOBFILE)
+
+        @AssertEqual(Data%nInd, Data2%nInd, "Year of birth/generation nInd were not assigned correctly")
+        ! write(STDOUT, "(i8, 2a16)") "Ind", "Expected", "Observed"
+        do Ind = 0, Data%nInd
+          ! write(STDOUT, "(i8, 2a16)") Ind, Data%OriginalId(Ind), Data2%OriginalId(Ind)
+          @AssertEqual(Data%OriginalId(Ind), Data2%OriginalId(Ind), "Year of birth/generation original id was not written/read correctly")
+        end do
+        ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
+        do Ind = 0, Data%nInd
+          ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%Yob(Ind), Data2%Yob(Ind)
+          @AssertEqual(Data%Yob(Ind), Data2%Yob(Ind), "Year of birth/generation value was not written/read correctly")
+        end do
+
+        call Data%Destroy
+        call Data2%Destroy
+        call DeleteYobFile
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMatchYob
+        implicit none
+        type(Yob) :: x
+        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+        integer(int32) :: i
+        integer(int32), allocatable, dimension(:) :: IdExp
+
+        allocate(Id1(4))
+        allocate(Id2(6))
+        allocate(IdExp(4))
+        Id1 = ["D", "C", "A", "X"]
+        Id2 = ["A", "B", "C", "D", "E", "F"]
+        call x%Init(nInd=4, OriginalId=Id1)
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 1")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 1b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [3, 2, 0, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 2")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 2b")
+        end do
+
+        deallocate(Id2)
+        allocate(Id2(0:6))
+        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [5, 4, 2, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 3")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 3b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 4")
+        end do
+        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 4b")
         end do
         deallocate(Id1)
         deallocate(Id2)
@@ -1092,6 +1236,42 @@ module TestAlphaRelateModule
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
         ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
         ! inbreeding(Ped)
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCalcPedInbreedingWithYob
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind
+        integer(int32), allocatable, dimension(:) :: Yob
+        real(real64), allocatable, dimension(:) :: ExpPedInbreeding
+
+        call CreateTinyPedigreeFileExpanded
+        call CreateTinyYobFileExpanded
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        Spec%YobGiven = .true.
+        Spec%YobFile = TESTYOBFILE
+        call Data%Read(Spec=Spec)
+
+        allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
+
+        call Data%CalcPedInbreeding
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.125, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000]
+
+        ! write(STDOUT, "(3a9, 2a16)") " ", " ", "     Year", "Expected", "Calculated"
+        do Ind = 0, Data%RecPed%nInd
+          ! write(STDOUT, "(i8, 1x, a9, i9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%Yob%Yob(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly with iterative recursive algorithm - tiny example")
+        end do
+        deallocate(ExpPedInbreeding)
+        call Data%Destroy
+        call DeletePedigreeFile
+        call DeleteYobFile
       end subroutine
 
       !#########################################################################
