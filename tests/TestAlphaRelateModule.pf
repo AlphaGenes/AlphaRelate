@@ -1261,8 +1261,10 @@ module TestAlphaRelateModule
         allocate(ExpPedInbreeding(0:Data%RecPed%nInd))
 
         call Data%CalcPedInbreeding
-        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.125, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000]
-
+        ! With Yob     taken into account            0    A    B      G  dum    C    D      E      F      H
+        ! ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.125, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000]
+        ! With Yob not taken into account          0    A    B      G  dum    C    D      E      F      H
+        ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.000, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000]
         ! write(STDOUT, "(3a9, 2a16)") " ", " ", "     Year", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
           ! write(STDOUT, "(i8, 1x, a9, i9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%Yob%Yob(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)

@@ -27,6 +27,10 @@
 !> @todo Add Single-step H matrix
 !> @todo Add metafounders
 !> @todo Add haplotype relationships
+!> @todo Yob option in PedInbreedingRecursive doesn't do much on incomplete pedigrees
+!!       because PedigreeModule inserts dummy parents, hence nobody has missing parent,
+!!       while all dummies have unknown year of birth/generation info (0) that never
+!!       gets any "inbreeding contributions"
 !
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
@@ -2221,9 +2225,7 @@ module AlphaRelateModule
               ! @end todo
               call This%Yob%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId(1:This%RecPed%nInd))
               do Ind = 1, YobTmp%nInd
-                if (YobTmp%Id(Ind) > 0) then
-                  This%Yob%Yob(YobTmp%Id(Ind)) = YobTmp%Yob(Ind)
-                end if
+                This%Yob%Yob(YobTmp%Id(Ind)) = YobTmp%Yob(Ind)
               end do
             end block
           end if
@@ -2571,15 +2573,15 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
-        !This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
-        if (.not. allocated(This%Yob%OriginalId)) then
-          This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
-                                                          nInd=This%PedInbreeding%nInd)
-        else
-          This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
-                                                          nInd=This%PedInbreeding%nInd, &
-                                                          Yob=This%Yob%Yob)
-        end if
+        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
+        ! if (.not. allocated(This%Yob%OriginalId)) then
+        !   This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+        !                                                   nInd=This%PedInbreeding%nInd)
+        ! else
+        !   This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+        !                                                   nInd=This%PedInbreeding%nInd, &
+        !                                                   Yob=This%Yob%Yob)
+        ! end if
       end subroutine
 
       !#########################################################################
@@ -3365,18 +3367,21 @@ module AlphaRelateModule
           block
             integer(int32) :: YobId(0:nInd), nYob, Iter
             integer(int32), allocatable, dimension(:) :: nByYob, YobTable
-            real(real64) :: AvgAll, AvgAllOld
+            real(real64) :: fOld(0:nInd), Norm
             real(real64), allocatable, dimension(:) :: AvgByYob, AvgByYobNew
             YobId = UniqueRank(Yob)
+            ! do Ind = 1, nInd
+            !   print*, Ind, RecPed(:, Ind), Yob(Ind), YobId(Ind)
+            ! enddo
             YobTable = Unique(Yob)
             YobTable = YobTable(Rank(YobTable))
             nYob = size(YobTable)
             allocate(nByYob(nYob))
             allocate(AvgByYob(nYob))
             allocate(AvgByYobNew(nYob))
-            AvgByYobNew = -1.0d0
-            AvgAllOld = -1.0d0
+            AvgByYobNew = 0.0d0
             Iter = 0
+            fOld = -1.0d0
             do
               Iter = Iter + 1
               f = -1.0d0
@@ -3387,12 +3392,9 @@ module AlphaRelateModule
                 ! Compute inbreeding coefficients
                 if (RecPed(2, Ind) .eq. 0 .or. RecPed(3, Ind) .eq. 0) then
                   f(Ind) = AvgByYob(YobId(Ind))
-                  ! Aguilar and Misztal used genetic groups here, but not clear how we assign Yob to them
+                  ! Aguilar and Misztal used genetic groups here to index AvgByYob, but not clear how we assign Yob to them
                 else
                   f(Ind) = 0.5d0 * PedNrmRecursive(Ind1=RecPed(2, Ind), Ind2=RecPed(3, Ind))
-                end if
-                ! Collate
-                if (RecPed(2, Ind) .gt. 0 .and. RecPed(3, Ind) .gt. 0) then
                   AvgByYobNew(YobId(Ind)) = AvgByYobNew(YobId(Ind)) + f(Ind)
                   nByYob(YobId(Ind)) = nByYob(YobId(Ind)) + 1
                 end if
@@ -3401,22 +3403,22 @@ module AlphaRelateModule
               where (nByYob .gt. 0)
                 AvgByYobNew = AvgByYobNew / dble(nByYob)
               end where
+              Norm = norm2(fOld - f)
               ! block
               !   integer :: i
-              !   write(STDOUT, "(a, i0)") "Average inbreeding by year of birth @ iteration ", Iter
-              !   !                            1234567890    1234567890
-              !   write(STDOUT, "(3a10)") "", "      Year", "Inbreeding"
+              !   write(STDOUT, "(a, i0, a, f11.7, a)") "Average inbreeding by year of birth @ iteration ", Iter, " (norm = ", Norm, ")"
+              !   !                            12345678901    12345678901    12345678901
+              !   write(STDOUT, "(4a11)") "", "       Year", "          n", " Inbreeding"
               !   do i = 1, nYob
-              !     write(STDOUT, "(2i10, f10.7)") i, YobTable(i), AvgByYobNew(i)
+              !     write(STDOUT, "(3i11, f11.7)") i, YobTable(i), nByYob(i), AvgByYobNew(i)
               !   end do
               !   write(STDOUT, "(a)") ""
               ! end block
               ! Check convergence
-              AvgAll = sum(f) / nInd
-              if (abs(AvgAllOld - AvgAll) .lt. 1.0e-6) then
+              if (Norm .lt. 1.0E-10) then
                 exit
               else
-                AvgAllOld = AvgAll
+                fOld = f
               end if
             end do
           end block
