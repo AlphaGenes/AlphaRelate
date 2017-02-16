@@ -30,8 +30,8 @@
 !> @todo Yob option in PedInbreedingRecursive doesn't do much on incomplete pedigrees
 !!       because PedigreeModule inserts dummy parents, hence nobody has missing parent,
 !!       while all dummies have unknown year of birth/generation info (0) that never
-!!       gets any "inbreeding contributions"
-!
+!!       gets any "inbreeding contributions". Also the PedInbreedingRecursive implementation
+!!       is much slower compared to PedInbreedingMeuwissenLuo - did I implemented it in a wrong way?
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
@@ -53,7 +53,7 @@ module AlphaRelateModule
   private
   ! Types
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, Inbreeding
-  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray
+  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray, HaplotypeIbdArray
   ! Functions
   public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
 
@@ -162,6 +162,22 @@ module AlphaRelateModule
       ! procedure :: MakeHaplotypeReal
       ! procedure :: CenterHaplotypeReal
       ! procedure :: CenterAndScaleHaplotypeReal
+  end type
+
+  !> @brief HaplotypeIbd data set holder
+  type HaplotypeIbdArray
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32)                                     :: nLoc
+    integer(int32), allocatable, dimension(:)          :: Haplotype
+    contains
+      ! procedure :: Init                       => InitHaplotypeIbdArray
+      ! procedure :: Destroy                    => DestroyHaplotypeIbdArray
+      ! procedure :: MatchId                    => MatchIdHaplotypeIbdArray
+      ! procedure :: Write                      => WriteHaplotypeIbdArray
+      ! procedure :: Read                       => ReadHaplotypeIbdArray
   end type
 
   ! @brief Allele frequencies
@@ -528,7 +544,7 @@ module AlphaRelateModule
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
         ! Other
-        integer(int32) :: n, Start
+        integer(int32) :: Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -701,7 +717,7 @@ module AlphaRelateModule
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
         ! Other
-        integer(int32) :: n, Start
+        integer(int32) :: Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -882,7 +898,7 @@ module AlphaRelateModule
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
         ! Other
-        integer(int32) :: n, Start
+        integer(int32) :: Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -1365,7 +1381,7 @@ module AlphaRelateModule
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
         ! Other
-        integer(int32) :: n, Start
+        integer(int32) :: Start
 
         if (present(Skip)) then
           Start = Skip + 1
@@ -1491,6 +1507,7 @@ module AlphaRelateModule
       end subroutine
 
       !#########################################################################
+
       !-------------------------------------------------------------------------
       !> @brief  Make genotypes real (build real64 array of genotypes)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -1934,7 +1951,7 @@ module AlphaRelateModule
                   else
                     This%PedNrmSubsetGiven = .true.
                     write(This%PedNrmSubsetFile, *) trim(adjustl(Second(1)))
-                    This%PedNrmSubsetFile = adjustl(This%OutputFormat)
+                    This%PedNrmSubsetFile = adjustl(This%PedNrmSubsetFile)
                     write(STDOUT, "(2a)") " Using pedigree NRM set file: ", trim(This%PedNrmSubsetFile)
                   end if
                 else
@@ -2191,13 +2208,16 @@ module AlphaRelateModule
 
         if (Spec%PedigreeGiven) then
           ! Read in the pedigree
+print*,"Before holder"
           PedObj = PedigreeHolder(Spec%PedigreeFile)
 
           ! Sort and recode pedigree
+print*,"Before sorting"
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
           write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
 
           ! Free some memory
+print*,"Before freeing memory"
           call PedObj%DestroyPedigree
 
           ! Read in the year of birth/generation
@@ -2231,6 +2251,7 @@ module AlphaRelateModule
           end if
 
           ! Handle subset
+print*,"Before subset stuff"
           if (Spec%PedNrmSubsetGiven) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
             write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset file"
@@ -2505,6 +2526,10 @@ module AlphaRelateModule
           call This%RecPed%Destroy
         end if
 
+        if (allocated(This%Yob%OriginalId)) then
+          call This%Yob%Destroy
+        end if
+
         if (allocated(This%PedInbreeding%OriginalId)) then
           call This%PedInbreeding%Destroy
         end if
@@ -2610,6 +2635,7 @@ module AlphaRelateModule
             x = 0.0d0
             ! @todo: this could be run in parallel (is it worth it?; x must be made private!!!)
             do Ind = 1, This%PedNrm%nInd
+              write(STDOUT, "(2a)") This%PedNrm%OriginalId(Ind), Int2Char(Ind)//"/"//Int2Char(This%PedNrm%nInd)
               xPos = This%PedNrmSubset%Id(Ind)
               x(xPos) = 1.0d0
               NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
@@ -2777,7 +2803,7 @@ module AlphaRelateModule
             if (Spec%LocusWeightGiven) then
               call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
             end if
-            ! Compute ~Z'Z
+            ! Compute Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
@@ -2800,7 +2826,7 @@ module AlphaRelateModule
             if (Spec%LocusWeightGiven) then
               call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
             end if
-            ! Compute ~Z'Z
+            ! Compute Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
             ! Average over loci
             This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
@@ -2842,7 +2868,7 @@ module AlphaRelateModule
               if (Spec%LocusWeightGiven) then
                 call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
               end if
-              ! Compute ~Z'Z
+              ! Compute Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
               ! Modify diagonal
               do Ind = 1, This%GenNrm%nInd
@@ -2866,7 +2892,7 @@ module AlphaRelateModule
               if (Spec%LocusWeightGiven) then
                 call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
               end if
-              ! Compute ~Z'Z
+              ! Compute Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
               ! Average over loci
               This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)

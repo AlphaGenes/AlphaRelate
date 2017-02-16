@@ -53,10 +53,9 @@ program AlphaRelate
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " Processing data ..."
   call Data%Read(Spec=Spec)
-
-  if (Spec%PedInbreeding) then
-    call Data%RecPed%Write(File=trim(Spec%OutputBasename)//trim(Spec%PedigreeFile)//"_Recoded.txt")
-  end if
+print*,"Data read in"
+  call Data%RecPed%Write(File=trim(Spec%OutputBasename)//trim(Spec%PedigreeFile)//"_Recoded.txt")
+print*,"Data read out"
 
   if (Spec%PedInbreeding) then
     write(STDOUT, "(a)") ""
