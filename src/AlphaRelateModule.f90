@@ -2208,16 +2208,13 @@ module AlphaRelateModule
 
         if (Spec%PedigreeGiven) then
           ! Read in the pedigree
-print*,"Before holder"
           PedObj = PedigreeHolder(Spec%PedigreeFile)
 
           ! Sort and recode pedigree
-print*,"Before sorting"
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
           write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
 
           ! Free some memory
-print*,"Before freeing memory"
           call PedObj%DestroyPedigree
 
           ! Read in the year of birth/generation
@@ -2251,7 +2248,6 @@ print*,"Before freeing memory"
           end if
 
           ! Handle subset
-print*,"Before subset stuff"
           if (Spec%PedNrmSubsetGiven) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
             write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset file"
@@ -2635,7 +2631,7 @@ print*,"Before subset stuff"
             x = 0.0d0
             ! @todo: this could be run in parallel (is it worth it?; x must be made private!!!)
             do Ind = 1, This%PedNrm%nInd
-              write(STDOUT, "(2a)") This%PedNrm%OriginalId(Ind), Int2Char(Ind)//"/"//Int2Char(This%PedNrm%nInd)
+              ! write(STDOUT, "(2a)") This%PedNrm%OriginalId(Ind), Int2Char(Ind)//"/"//Int2Char(This%PedNrm%nInd)
               xPos = This%PedNrmSubset%Id(Ind)
               x(xPos) = 1.0d0
               NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
