@@ -1705,7 +1705,7 @@ module AlphaRelateModule
         ! This%FudgeHapNrmDiag    = .false.
         ! This%BlendHapWithPedNrm = .false.
 
-        This%nLoc             = 0
+        This%nLoc = 0
 
         This%AlleleFreqFixedValue        = 0.5d0
         This%FudgeGenNrmDiagValue        = 0.0d0
@@ -2143,6 +2143,13 @@ module AlphaRelateModule
         if ((This%GenInbreeding .or. This%GenNrm .or. This%GenNrmInv)&
             .and. .not. This%GenotypeGiven) then
           write(STDERR, "(a)") " ERROR: Must provide genotype file to calculate genotype inbreeding, NRM, or NRM inverse"
+          write(STDERR, "(a)") ""
+          stop 1
+        end if
+
+        if ((This%GenInbreeding .or. This%GenNrm .or. This%GenNrmInv)&
+            .and. This%nLoc .eq. 0) then
+          write(STDERR, "(a)") " ERROR: Must specify number of loci in the genotype file"
           write(STDERR, "(a)") ""
           stop 1
         end if
