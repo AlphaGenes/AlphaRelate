@@ -188,6 +188,18 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+      subroutine CreateTinyGenotypeFileWithFixedMarker
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTGENFILE, action="write", status="unknown")
+        write(Unit, "(a)") "B 0 2"
+        write(Unit, "(a)") "D 1 2"
+        write(Unit, "(a)") "E 2 2"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
       subroutine DeleteGenotypeFile
         implicit none
         integer(int32) :: Unit
@@ -1968,8 +1980,8 @@ module TestAlphaRelateModule
         Spec%GenNrmType = "vanraden1"
         call Data%Read(Spec=Spec)
         call Data%CalcGenNrm(Spec=Spec)
-        !                                   0      B     D      E
-        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.00, 0.00,    0.00] ! 0
+        !                                   0       B      D       E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.00,  0.00,   0.00] ! 0
         ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  20.00, -4.00, -16.00] ! B
         ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  -4.00,  8.00,  -4.00] ! D
         ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -16.00, -4.00,  20.00] ! E
@@ -1991,7 +2003,7 @@ module TestAlphaRelateModule
         Spec%GenNrmType = "vanraden2"
         call Data%Read(Spec=Spec)
         call Data%CalcGenNrm(Spec=Spec)
-        !                                   0      B     D      E
+        !                                   0        B      D       E
         ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.000,  0.00,  0.000] ! 0
         ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,   1.125, -0.25, -0.875] ! B
         ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  -0.250,  0.50, -0.250] ! D
@@ -2013,7 +2025,7 @@ module TestAlphaRelateModule
         Spec%GenNrmType = "yang"
         call Data%Read(Spec=Spec)
         call Data%CalcGenNrm(Spec=Spec)
-        !                                   0      B     D      E
+        !                                   0        B      D       E
         ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,   0.000,  0.00,  0.000] ! 0
         ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,   1.000, -0.25, -0.875] ! B
         ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  -0.250,  0.75, -0.250] ! D
@@ -2050,6 +2062,116 @@ module TestAlphaRelateModule
           do Ind2 = 0, Data%Gen%nInd
             ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
             @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        deallocate(ExpGenNrm)
+        call Data%Destroy
+        call DeleteGenotypeFile
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCalcGenNrmWithFixedMarker
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind1, Ind2!, Ind
+        real(real64), allocatable, dimension(:, :) :: ExpGenNrm
+
+        call CreateTinyGenotypeFileWithFixedMarker
+        call Spec%Init
+        Spec%GenotypeGiven = .true.
+        Spec%GenotypeFile = TESTGENFILE
+        allocate(ExpGenNrm(0:3, 0:3))
+
+        Spec%nLoc = 2
+        Spec%GenNrmType = "vanraden1"
+        call Data%Read(Spec=Spec)
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0      B     D      E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.00, 0.00,  0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  2.00, 0.00, -2.00] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  0.00, 0.00,  0.00] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -2.00, 0.00,  2.00] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny two marker example with a fixed marker")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "vanraden2"
+        call Data%Read(Spec=Spec)
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0      B     D      E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.00, 0.00,  0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  2.00, 0.00, -2.00] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  0.00, 0.00,  0.00] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -2.00, 0.00,  2.00] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny two marker example with a fixed marker")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "yang"
+        call Data%Read(Spec=Spec)
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                   0      B     D      E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.00, 0.00,  0.00] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  2.00, 0.00, -2.00] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  0.00, 0.00,  0.00] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -2.00, 0.00,  2.00] ! E
+        ! call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny two marker example with a fixed marker")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        Spec%GenNrmType = "nejati-javaremi"
+        call Data%Read(Spec=Spec)
+        call Data%CalcGenNrm(Spec=Spec)
+        !                                  0    B    D    E
+        ExpGenNrm(0:Data%Gen%nInd, 0) = [0.0, 0.0, 0.0, 0.0] ! 0
+        ExpGenNrm(0:Data%Gen%nInd, 1) = [0.0, 2.0, 1.5, 1.0] ! B
+        ExpGenNrm(0:Data%Gen%nInd, 2) = [0.0, 1.5, 1.5, 1.5] ! D
+        ExpGenNrm(0:Data%Gen%nInd, 3) = [0.0, 1.0, 1.5, 2.0] ! E
+        call Data%Write
+        do Ind1 = 0, Data%Gen%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%Gen%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example with a fixed marker")
           end do
           ! write(STDOUT, "(a)") ""
         end do

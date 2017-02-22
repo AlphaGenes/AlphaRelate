@@ -1610,6 +1610,8 @@ module AlphaRelateModule
               else
                 This%GenotypeReal(Loc, Ind) = 0.0d0
               end if
+            else ! this locus is fixed so we simply set to zero
+              This%GenotypeReal(Loc, Ind) = 0.0d0
             end if
           end do
         end do
@@ -2793,6 +2795,7 @@ module AlphaRelateModule
 
         select case (trim(Spec%GenNrmType))
           case ("vanraden1")
+            ! Cov(a|Z) = [Observed covariance between individuals] / [Expected variance]
             ! Setup
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
@@ -2808,7 +2811,7 @@ module AlphaRelateModule
             end if
             ! Compute Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-            ! Average over loci
+            ! Divide by expected variance (not accounting for non-segregating loci as we do not tinker with the data in those cases)
             This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
             ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
             !                                                 nInd=This%Gen%nInd,&
@@ -2816,6 +2819,7 @@ module AlphaRelateModule
             !                                                 AlleleFreq=nLoc=This%AlleleFreq%Value)
 
           case ("vanraden2")
+            ! Cov(a|Z) = Average ([Observed covariance between individuals at a locus] / [Expected variance at a locus])
             ! Setup
             if (.not. allocated(This%Gen%GenotypeReal)) then
               call This%Gen%MakeGenotypeReal
@@ -2823,7 +2827,7 @@ module AlphaRelateModule
             if (.not. Spec%AlleleFreqGiven) then
               call This%CalcAlleleFreq
             end if
-            ! Center and scale
+            ! Center and scale (scaling by locus specific expected standard deviation)
             call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
             ! Weight
             if (Spec%LocusWeightGiven) then
@@ -2831,13 +2835,16 @@ module AlphaRelateModule
             end if
             ! Compute Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-            ! Average over loci
-            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
+            ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
+            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
 
           case ("yang")
+            ! Cov(a|Z) = Average ([Observed covariance between individuals at a locus] / [Expected variance at a locus])
+            ! With modification for diagonal to account for the fact that Var(a) = 1 + F
             block
               integer(int32) :: Ind, Loc
-              real(real64) :: Diag(This%Gen%nInd), T2AFLoc(This%Gen%nLoc), Het(This%Gen%nLoc), Tmp
+              real(real64) :: Diag(This%Gen%nInd), TwiceAlleleFreq(This%Gen%nLoc), OnePlusTwiceAlleleFreq(This%Gen%nLoc)
+              real(real64) :: TwiceAlleleFreqSquared(This%Gen%nLoc), ExpVar(This%Gen%nLoc), Weight(This%Gen%nLoc)
               ! Setup
               if (.not. allocated(This%Gen%GenotypeReal)) then
                 call This%Gen%MakeGenotypeReal
@@ -2847,25 +2854,27 @@ module AlphaRelateModule
               end if
               ! Prepare diagonal (need to do it before GenotypeReal gets centered and scaled!!!)
               Diag = 0.0d0
-              T2AFLoc = 2.0d0 * This%AlleleFreq%Value
-              Het = T2AFLoc * (1.0d0 - This%AlleleFreq%Value)
+              TwiceAlleleFreq = 2.0d0 * This%AlleleFreq%Value
+              OnePlusTwiceAlleleFreq = 1.0d0 + TwiceAlleleFreq
+              TwiceAlleleFreqSquared = TwiceAlleleFreq * This%AlleleFreq%Value
+              ExpVar = TwiceAlleleFreq * (1.0d0 - This%AlleleFreq%Value)
+              if (Spec%LocusWeightGiven) then
+                Weight = This%LocusWeight%Value
+              else
+                Weight = 1.0d0
+              end if
               do Ind = 1, This%GenNrm%nInd
                 do Loc = 1, This%Gen%nLoc
-                  if (Het(Loc) > tiny(Het(Loc))) then ! to avoid dividing by zero
-                    if (Spec%LocusWeightGiven) then
-                      Tmp = This%LocusWeight%Value(Loc)
-                    else
-                      Tmp = 1.0d0
-                    end if
+                  if (ExpVar(Loc) > tiny(ExpVar(Loc))) then ! to avoid dividing by zero
                     Diag(Ind) = Diag(Ind) + &
-                      Tmp * (1.0d0 + &
+                      Weight(Loc) * (1.0d0 + &
                       ((This%Gen%GenotypeReal(Loc, Ind) * This%Gen%GenotypeReal(Loc, Ind)) - &
-                       ((1.0d0 + T2AFLoc(Loc)) * This%Gen%GenotypeReal(Loc, Ind)) + &
-                       (T2AFLoc(Loc) * This%AlleleFreq%Value(Loc))) / Het(Loc))
+                       (OnePlusTwiceAlleleFreq(Loc) * This%Gen%GenotypeReal(Loc, Ind)) + &
+                       (TwiceAlleleFreqSquared(Loc))) / ExpVar(Loc))
                   end if
                 end do
               end do
-              ! Center and scale
+              ! Center and scale (scaling by locus specific expected standard deviation)
               call This%Gen%CenterAndScaleGenotypeReal(AlleleFreq=This%AlleleFreq%Value)
               ! Weight
               if (Spec%LocusWeightGiven) then
@@ -2877,11 +2886,12 @@ module AlphaRelateModule
               do Ind = 1, This%GenNrm%nInd
                 This%GenNrm%Nrm(Ind, Ind) = Diag(Ind)
               end do
-              ! Average over loci
-              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
+              ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
+              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
             end block
 
           case ("nejati-javaremi")
+            ! Simple sharing of alternative alleles
             block
               real(real64) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
               ! Setup
@@ -2897,16 +2907,16 @@ module AlphaRelateModule
               end if
               ! Compute Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-              ! Average over loci
+              ! Average over loci (not accounting for non-segregating loci as we do not tinker with the data in those cases)
               This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
-              ! Modify scale from [-1,1] to [0,2]
+              ! Modify scale from [-1, 1] to [0, 2]
               if (Spec%LocusWeightGiven) then
                 Tmp = sum(This%LocusWeight%Value) / dble(This%Gen%nLoc)
               else
                 Tmp = 1.0d0
               end if
               This%GenNrm%Nrm = This%GenNrm%Nrm + Tmp
-              ! Make sure the "0th" margin is 0.0
+              ! Make sure the "0th" margin is 0.0 (we add Tmp to the whole matrix above)
               This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
               This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
             end block
