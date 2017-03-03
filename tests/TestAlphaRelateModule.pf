@@ -633,6 +633,135 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
+    ! Haplotype IBD array type tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestWriteReadHaplotypeIbdArray
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data, Data2
+        integer(int32) :: Ind, Hap, Loc
+
+        call CreateTinyHaplotypeIbdFile
+        call Spec%Init
+        Spec%HaplotypeIbdGiven = .true.
+        Spec%HaplotypeIbdFile = TESTHAPIBDFILE
+        Spec%nLoc = 2
+        call Data%Read(Spec=Spec)
+        call Data%Write
+        call Data%HapIbd%Write(File=TESTHAPIBDFILE)
+
+        Data2 = Data
+        call Data2%HapIbd%Read(File=TESTHAPIBDFILE, nLoc=Spec%nLoc)
+
+        @AssertEqual(Data%HapIbd%nInd, Data2%HapIbd%nInd, "Haplotype IBD array nInd were not assigned correctly")
+        @AssertEqual(Data%HapIbd%nLoc, Data2%HapIbd%nLoc, "Haplotype IBD array nLoc were not assigned correctly")
+        do Ind = 0, Data%HapIbd%nInd
+          ! write(STDOUT, "(a8, 2a16)") " ", "Observed", "Expected"
+          ! write(STDOUT, "(i8, 2a16)") Ind, Data%HapIbd%OriginalId(Ind), Data2%HapIbd%OriginalId(Ind)
+          @AssertEqual(Data%HapIbd%OriginalId(Ind), Data2%HapIbd%OriginalId(Ind),   "Haplotype IBD array original Id were not written/read correctly")
+          ! write(STDOUT, "(a8, 2a16)") " ", "Observed", "Expected"
+          ! write(STDOUT, "(i8, 2a16)") Ind, Data%HapIbd%Id(Ind), Data2%HapIbd%Id(Ind)
+          @AssertEqual(Data%HapIbd%Id(Ind),         Data2%HapIbd%Id(Ind),           "Haplotype IBD array          Id were not assigned     correctly")
+          ! write(STDOUT, "(a8, 4a16)") " ", "Haplotype", "Locus", "Observed", "Expected"
+          do Hap = 1, 2
+            do Loc = 1, Spec%nLoc
+              ! write(STDOUT, "(5i8)") Ind, Hap, Loc, Data%HapIbd%Haplotype(Loc, Hap, Ind), Data2%HapIbd%Haplotype(Loc, Hap, Ind)
+              @AssertEqual(Data%HapIbd%Haplotype(Loc, Hap, Ind), Data2%HapIbd%Haplotype(Loc, Hap, Ind), "Haplotype IBD array alleles were not written/read correctly")
+            end do
+          end do
+        end do
+
+        call Data%Destroy
+        call Data2%Destroy
+        call DeleteHaplotypeIbdFile
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMatchIdHaplotypeIbdArray
+        implicit none
+        type(HaplotypeIbdArray) :: x
+        character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
+        integer(int32) :: i
+        integer(int32), allocatable, dimension(:) :: IdExp
+
+        allocate(Id1(4))
+        allocate(Id2(6))
+        allocate(IdExp(4))
+        Id1 = ["D", "C", "A", "X"]
+        Id2 = ["A", "B", "C", "D", "E", "F"]
+        call x%Init(nInd=4, nLoc=1, OriginalId=Id1)
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 1")
+        end do
+        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 1b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [3, 2, 0, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 2")
+        end do
+        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 2b")
+        end do
+
+        deallocate(Id2)
+        allocate(Id2(0:6))
+        Id2 = ["0", "A", "B", "C", "D", "E", "F"]
+        call x%MatchId(OriginalIdSuperset=Id2)
+        IdExp = [5, 4, 2, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 3")
+        end do
+        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 3b")
+        end do
+
+        call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
+        IdExp = [4, 3, 1, 0]
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 4")
+        end do
+        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
+        do i = 1, 4
+          ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 4b")
+        end do
+        deallocate(Id1)
+        deallocate(Id2)
+        deallocate(IdExp)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
     ! Yob type tests
 
       !#########################################################################

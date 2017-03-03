@@ -1835,7 +1835,7 @@ module AlphaRelateModule
 
         integer(int32) :: nInd, Ind, Hap, Unit
 
-        nInd = CountLines(File)
+        nInd = CountLines(File) / 2
         call This%Init(nInd=nInd, nLoc=nLoc)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, This%nInd
@@ -2656,21 +2656,18 @@ module AlphaRelateModule
         end if
 
         if (Spec%HaplotypeIbdGiven) then
-
-! @todo
-
           call This%HapIbd%Read(File=Spec%HaplotypeIbdFile, nLoc=Spec%nLoc)
-          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
+          write(STDOUT, "(a1, i8, a)") " ", This%HapIbd%nInd," individuals in the haplotype IBD file"
 
           if (Spec%PedigreeGiven) then
-            call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
+            call This%HapIbd%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
             block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               integer(int32) :: Ind
               logical :: IdMatchNotFound
               IdMatchNotFound = .false.
-              do Ind = 1, This%Gen%nInd
-                if (This%Gen%Id(Ind) == 0) then
-                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the genotype file: ", trim(This%Gen%OriginalId(Ind))
+              do Ind = 1, This%HapIbd%nInd
+                if (This%HapIbd%Id(Ind) == 0) then
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the haplotype IBD file: ", trim(This%HapIbd%OriginalId(Ind))
                   IdMatchNotFound = .true.
                 end if
               end do
