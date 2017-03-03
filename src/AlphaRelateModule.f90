@@ -260,16 +260,19 @@ module AlphaRelateModule
     type(Nrm)                  :: HapIbdNrmInv
 
     contains
-      procedure :: Read              => ReadAlphaRelateData
-      procedure :: Destroy           => DestroyAlphaRelateData
-      procedure :: Write             => WriteAlphaRelateData
-      procedure :: CalcPedInbreeding => CalcPedInbreedingAlphaRelateData
-      procedure :: CalcPedNrm        => CalcPedNrmAlphaRelateData
-      procedure :: CalcPedNrmInv     => CalcPedNrmInvAlphaRelateData
-      procedure :: CalcAlleleFreq    => CalcAlleleFreqAlphaRelateData
-      procedure :: CalcGenInbreeding => CalcGenInbreedingAlphaRelateData
-      procedure :: CalcGenNrm        => CalcGenNrmAlphaRelateData
-      procedure :: CalcGenNrmInv     => CalcGenNrmInvAlphaRelateData
+      procedure :: Read                 => ReadAlphaRelateData
+      procedure :: Destroy              => DestroyAlphaRelateData
+      procedure :: Write                => WriteAlphaRelateData
+      procedure :: CalcPedInbreeding    => CalcPedInbreedingAlphaRelateData
+      procedure :: CalcPedNrm           => CalcPedNrmAlphaRelateData
+      procedure :: CalcPedNrmInv        => CalcPedNrmInvAlphaRelateData
+      procedure :: CalcAlleleFreq       => CalcAlleleFreqAlphaRelateData
+      procedure :: CalcGenNrm           => CalcGenNrmAlphaRelateData
+      procedure :: CalcGenNrmInv        => CalcGenNrmInvAlphaRelateData
+      procedure :: CalcGenInbreeding    => CalcGenInbreedingAlphaRelateData
+      procedure :: CalcHapIbdNrm        => CalcHapIbdNrmAlphaRelateData
+      procedure :: CalcHapIbdNrmInv     => CalcHapIbdNrmInvAlphaRelateData
+      procedure :: CalcHapIbdInbreeding => CalcHapIbdInbreedingAlphaRelateData
   end type
 
   contains
@@ -2654,6 +2657,8 @@ module AlphaRelateModule
 
         if (Spec%HaplotypeIbdGiven) then
 
+! @todo
+
           call This%HapIbd%Read(File=Spec%HaplotypeIbdFile, nLoc=Spec%nLoc)
           write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
 
@@ -2838,7 +2843,7 @@ module AlphaRelateModule
 
         if (allocated(This%GenNrm%OriginalId)) then
           if (present(Basename)) then
-            call This%PedNrm%Write(File=trim(Basename)//"GenNrm.txt")
+            call This%GenNrm%Write(File=trim(Basename)//"GenNrm.txt")
           else
             write(STDOUT, "(a)") "Genotype NRM"
             call This%GenNrm%Write
@@ -2857,16 +2862,45 @@ module AlphaRelateModule
         ! Haplotype stuff
 
         ! @todo Write Haplotypes
-        ! if (allocated(This%Hap%OriginalId)) then
-        !   if (present(Basename)) then
-        !     call This%Hap%Write(File=trim(Basename)//"Haplotype.txt")
-        !   else
-        !     write(STDOUT, "(a)") "Haplotype"
-        !     call This%Hap%Write
-        !   end if
-        ! end if
-
         ! @todo Write Haplotypes results
+
+        ! Haplotype IBD stuff
+
+        if (allocated(This%HapIbd%OriginalId)) then
+          if (present(Basename)) then
+            call This%HapIbd%Write(File=trim(Basename)//"HaplotypeIbd.txt")
+          else
+            write(STDOUT, "(a)") "Haplotype IBD"
+            call This%HapIbd%Write
+          end if
+        end if
+
+        if (allocated(This%HapIbdInbreeding%OriginalId)) then
+          if (present(Basename)) then
+            call This%HapIbdInbreeding%Write(File=trim(Basename)//"HapIbdInbreeding.txt")
+          else
+            write(STDOUT, "(a)") "Haplotype IBD inbreeding"
+            call This%HapIbdInbreeding%Write
+          end if
+        end if
+
+        if (allocated(This%GenNrm%OriginalId)) then
+          if (present(Basename)) then
+            call This%HapIbdNrm%Write(File=trim(Basename)//"HapIbdNrm.txt")
+          else
+            write(STDOUT, "(a)") "Haplotype IBD NRM"
+            call This%HapIbdNrm%Write
+          end if
+        end if
+
+        if (allocated(This%HapIbdNrmInv%OriginalId)) then
+          if (present(Basename)) then
+            call This%HapIbdNrmInv%Write(File=trim(Basename)//"HapIbdNrmInv.txt")
+          else
+            write(STDOUT, "(a)") "Haplotype IBD NRM inverse"
+            call This%HapIbdNrmInv%Write
+          end if
+        end if
       end subroutine
 
       !#########################################################################
@@ -2938,14 +2972,25 @@ module AlphaRelateModule
 
         ! Haplotype stuff
 
-        ! if (allocated(This%Hap%OriginalId)) then
-        !   call This%Hap%Destroy
-        ! end if
-
         ! @todo
-        ! type(Inbreeding)           :: HapInbreeding
-        ! type(Nrm)                  :: HapNrm
-        ! type(Nrm)                  :: HapNrmInv
+
+        ! Haplotype IBD stuff
+
+        if (allocated(This%HapIbd%OriginalId)) then
+          call This%HapIbd%Destroy
+        end if
+
+        if (allocated(This%HapIbdInbreeding%OriginalId)) then
+          call This%HapIbdInbreeding%Destroy
+        end if
+
+        if (allocated(This%HapIbdNrm%OriginalId)) then
+          call This%HapIbdNrm%Destroy
+        end if
+
+        if (allocated(This%HapIbdNrmInv%OriginalId)) then
+          call This%HapIbdNrmInv%Destroy
+        end if
       end subroutine
 
       !#########################################################################
@@ -3345,6 +3390,7 @@ module AlphaRelateModule
 
         integer(int32) :: Ind
 
+! @todo: no need to do whole matrix just for inbreeding
         if (.not. allocated(This%GenNrm%Nrm)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
@@ -3402,6 +3448,123 @@ module AlphaRelateModule
             ! Fill the other (lower) triangle @todo consider symmetric
             do Ind = 1, This%GenNrmInv%nInd
               This%GenNrmInv%Nrm((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Nrm(Ind, (Ind + 1):This%GenNrmInv%nInd)
+            end do
+          else
+            Info = .false.
+          end if
+        else
+          Info = .false.
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate haplotype IBD NRM on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 3, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcHapIbdNrmAlphaRelateData(This, Spec)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+
+        call This%HapIbdNrm%Init(nInd=This%HapIbd%nInd)
+        This%HapIbdNrm%OriginalId = This%HapIbd%OriginalId
+        This%HapIbdNrm%Id = This%HapIbd%Id
+
+! @todo
+
+        if (Spec%FudgeHapIbdNrmDiag) then
+          block
+            integer(int32) :: Ind
+            do Ind = 1, This%HapIbdNrm%nInd
+              This%HapIbdNrm%Nrm(Ind, Ind) = This%HapIbdNrm%Nrm(Ind, Ind) + Spec%FudgeHapIbdNrmDiagValue
+            end do
+          end block
+        end if
+
+        if (Spec%BlendHapIbdNrmWithPedNrm) then
+          if (.not. allocated(This%PedNrm%Nrm)) then
+            call This%CalcPedNrm(Spec=Spec)
+          end if
+          This%HapIbdNrm%Nrm = Spec%BlendHapIbdNrmWithPedNrmFactor(1) * This%HapIbdNrm%Nrm + &
+                               Spec%BlendHapIbdNrmWithPedNrmFactor(2) * This%PedNrm%Nrm(This%HapIbdNrm%Id, This%HapIbdNrm%Id)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate haplotype IBD inbreeding on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 3, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcHapIbdInbreedingAlphaRelateData(This, Spec)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%HapIbdInbreeding(0) = -1.0!!!
+        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
+
+        integer(int32) :: Ind
+
+! @todo: no need to do whole matrix just for inbreeding
+        if (.not. allocated(This%HapIbdNrm%Nrm)) then
+          call This%CalcHapIbdNrm(Spec=Spec)
+        end if
+
+        call This%HapIbdInbreeding%Init(nInd=This%HapIbdNrm%nInd)
+        This%HapIbdInbreeding%OriginalId = This%HapIbdNrm%OriginalId
+        This%HapIbdInbreeding%Id = This%HapIbdNrm%Id
+        do Ind = 1, This%HapIbdInbreeding%nInd
+          This%HapIbdInbreeding%Inb(Ind) = This%HapIbdNrm%Nrm(Ind, Ind) - 1.0d0
+        end do
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Calculate haplotype IBD NRM inverse on AlphaRelateData
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 3, 2016
+      !-------------------------------------------------------------------------
+      pure subroutine CalcHapIbdNrmInvAlphaRelateData(This, Spec, Info)
+        implicit none
+        class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
+        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
+        logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
+
+        integer(int32) :: Ind
+        integer :: InfoInt
+
+        if (.not. allocated(This%HapIbdNrm%Nrm)) then
+          call This%CalcHapIbdNrm(Spec=Spec)
+        end if
+        call This%HapIbdNrmInv%Init(nInd=This%HapIbdNrm%nInd)
+        This%HapIbdNrmInv%OriginalId = This%HapIbdNrm%OriginalId
+        This%HapIbdNrmInv%Id = This%HapIbdNrm%Id
+        This%HapIbdNrmInv%Nrm = This%HapIbdNrm%Nrm
+
+        Info = .true.
+        InfoInt = 0
+
+        ! @todo make the code bellow as InvertSpdMatrix routine, perhaps in module AlphaMatrixModule
+
+        ! Cholesky factorization of a symmetric positive definite matrix
+        ! https://software.intel.com/en-us/node/468690
+        ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+        ! call potrf(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
+        call potrf(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
+
+        if (InfoInt == 0) then
+          ! Inverse based on the Cholesky factor obtained with potrf()
+          ! https://software.intel.com/en-us/node/468824
+          ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+          ! call potri(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
+          call potri(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
+          if (InfoInt == 0) then
+            ! Fill the other (lower) triangle @todo consider symmetric
+            do Ind = 1, This%HapIbdNrmInv%nInd
+              This%HapIbdNrmInv%Nrm((Ind + 1):This%HapIbdNrmInv%nInd, Ind) = This%HapIbdNrmInv%Nrm(Ind, (Ind + 1):This%HapIbdNrmInv%nInd)
             end do
           else
             Info = .false.

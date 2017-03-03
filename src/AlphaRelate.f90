@@ -111,6 +111,33 @@ program AlphaRelate
     end if
   end if
 
+  if (Spec%HapIbdNrm) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating haplotype IBD NRM ..."
+    call Data%CalcHapIbdNrm(Spec=Spec)
+    call Data%HapIbdNrm%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%HapIbdNrmIja)
+  end if
+
+  if (Spec%HapIbdInbreeding) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating haplotype IBD inbreeding ..."
+    call Data%CalcHapIbdInbreeding(Spec=Spec)
+    call Data%HapIbdInbreeding%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdInbreeding.txt", OutputFormat=Spec%OutputFormat)
+  end if
+
+  if (Spec%HapIbdNrmInv) then
+    write(STDOUT, "(a)") ""
+    write(STDOUT, "(a)") " Calculating haplotype IBD NRM inverse ..."
+    call Data%CalcHapIbdNrmInv(Spec=Spec, Info=InversionSucceded)
+    if (InversionSucceded) then
+      call Data%HapIbdNrmInv%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdNrmInv.txt", OutputFormat=Spec%OutputFormat)
+    else
+      write(STDERR, "(a)") " ERROR: Inversion of haplotype IBD NRM failed"
+      write(STDERR, "(a)") " "
+      stop 1
+    end if
+  end if
+
   call cpu_time(EndTime)
   call AlphaRelateTitle
   call PrintElapsedTime(StartTime, EndTime)
