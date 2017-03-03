@@ -19,6 +19,10 @@ module TestAlphaRelateModule
 
   CHARACTER(len=100), PARAMETER :: TESTGENFILE = "TestGenotype.txt"
 
+  CHARACTER(len=100), PARAMETER :: TESTHAPFILE = "TestHaplotype.txt"
+
+  CHARACTER(len=100), PARAMETER :: TESTHAPIBDFILE = "TestHaplotypeIbd.txt"
+
   CHARACTER(len=100), PARAMETER :: TESTAFFILE = "TestAlleleFreq.txt"
   CHARACTER(len=100), PARAMETER :: TESTLWFILE = "TestLocusWeight.txt"
 
@@ -168,9 +172,12 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTGENFILE, action="write", status="unknown")
+        ! write(Unit, "(a)") "A 1 1"
         write(Unit, "(a)") "B 0 1"
+        ! write(Unit, "(a)") "C 1 0"
         write(Unit, "(a)") "D 1 2"
         write(Unit, "(a)") "E 2 1"
+        ! write(Unit, "(a)") "F 1 1"
         close(Unit)
       end subroutine
 
@@ -204,6 +211,66 @@ module TestAlphaRelateModule
         implicit none
         integer(int32) :: Unit
         open(newunit=Unit, file=TESTGENFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateTinyHaplotypeFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTHAPFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1 1"
+        write(Unit, "(a)") "A 0 0"
+        write(Unit, "(a)") "B 0 0"
+        write(Unit, "(a)") "B 0 1"
+        write(Unit, "(a)") "C 1 0"
+        write(Unit, "(a)") "C 0 0"
+        write(Unit, "(a)") "D 0 1"
+        write(Unit, "(a)") "D 1 1"
+        write(Unit, "(a)") "E 1 0"
+        write(Unit, "(a)") "E 1 1"
+        write(Unit, "(a)") "F 1 1"
+        write(Unit, "(a)") "F 0 0"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteHaplotypeFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTHAPFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateTinyHaplotypeIbdFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTHAPIBDFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1 1"
+        write(Unit, "(a)") "A 2 2"
+        write(Unit, "(a)") "B 3 3"
+        write(Unit, "(a)") "B 4 4"
+        write(Unit, "(a)") "C 1 2"
+        write(Unit, "(a)") "C 3 3"
+        write(Unit, "(a)") "D 5 5"
+        write(Unit, "(a)") "D 1 1"
+        write(Unit, "(a)") "E 1 2"
+        write(Unit, "(a)") "E 1 1"
+        write(Unit, "(a)") "F 1 1"
+        write(Unit, "(a)") "F 3 3"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteHaplotypeIbdFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTHAPIBDFILE, status="old")
         close(Unit, status="delete")
       end subroutine
 
@@ -2162,7 +2229,7 @@ module TestAlphaRelateModule
         ExpGenNrm(0:Data%Gen%nInd, 1) = [0.0, 2.0, 1.5, 1.0] ! B
         ExpGenNrm(0:Data%Gen%nInd, 2) = [0.0, 1.5, 1.5, 1.5] ! D
         ExpGenNrm(0:Data%Gen%nInd, 3) = [0.0, 1.0, 1.5, 2.0] ! E
-        call Data%Write
+        ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)

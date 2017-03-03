@@ -13,4 +13,5 @@ DoxygenDoc
 *.o
 *.mod
 *.i90
+.Rhistory
 pftest_alltests

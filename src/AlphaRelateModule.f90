@@ -42,7 +42,7 @@ module AlphaRelateModule
                             Match
   use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
   use GenotypeModule, only : Genotype
-  use HaplotypeModule, only : Haplotype
+  ! use HaplotypeModule, only : Haplotype
   use OrderPackModule, only : UniqueRank => UniInv, Unique => UniSta, Rank => MrgRnk
   use Blas95
   use Lapack95
@@ -53,7 +53,7 @@ module AlphaRelateModule
   private
   ! Types
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, Inbreeding
-  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeArray, HaplotypeIbdArray
+  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeIbdArray !HaplotypeArray
   ! Functions
   public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
 
@@ -83,6 +83,89 @@ module AlphaRelateModule
       procedure :: MatchId => MatchIdYob
       procedure :: Write   => WriteYob
       procedure :: Read    => ReadYob
+  end type
+
+  ! @brief Allele frequencies
+  type AlleleFreq
+    integer(int32)                          :: nLoc
+    real(real64), allocatable, dimension(:) :: Value
+    contains
+      procedure :: Init    => InitAlleleFreq
+      procedure :: Destroy => DestroyAlleleFreq
+      procedure :: Write   => WriteAlleleFreq
+      procedure :: Read    => ReadAlleleFreq
+  end type
+
+  ! @brief Locus weights
+  type LocusWeight
+    integer(int32)                          :: nLoc
+    real(real64), allocatable, dimension(:) :: Value
+    contains
+      procedure :: Init    => InitLocusWeight
+      procedure :: Destroy => DestroyLocusWeight
+      procedure :: Write   => WriteLocusWeight
+      procedure :: Read    => ReadLocusWeight
+  end type
+
+  !> @brief Genotype data set holder
+  type GenotypeArray
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32)                                     :: nLoc
+    type(Genotype), allocatable, dimension(:)          :: Genotype
+    real(real64), allocatable, dimension(:, :)         :: GenotypeReal
+    contains
+      procedure :: Init                       => InitGenotypeArray
+      procedure :: Destroy                    => DestroyGenotypeArray
+      procedure :: MatchId                    => MatchIdGenotypeArray
+      procedure :: Write                      => WriteGenotypeArray
+      procedure :: Read                       => ReadGenotypeArray
+      procedure :: WriteReal                  => WriteGenotypeArrayReal
+      procedure :: ReadReal                   => ReadGenotypeArrayReal
+      procedure :: MakeGenotypeReal
+      procedure :: CenterGenotypeReal
+      procedure :: CenterAndScaleGenotypeReal
+      procedure :: WeightGenotypeReal
+  end type
+
+  !> @brief Haplotype data set holder
+  ! type HaplotypeArray
+  !   ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+  !   integer(int32)                                     :: nInd
+  !   character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+  !   integer(int32), allocatable, dimension(:)          :: Id
+  !   integer(int32)                                     :: nLoc
+  !   type(Haplotype), allocatable, dimension(:)         :: Haplotype
+  !   real(real64), allocatable, dimension(:, :)         :: HaplotypeReal
+  !   contains
+  !     ! procedure :: Init                       => InitHaplotypeArray
+  !     ! procedure :: Destroy                    => DestroyHaplotypeArray
+  !     ! procedure :: MatchId                    => MatchIdHaplotypeArray
+  !     ! procedure :: Write                      => WriteHaplotypeArray
+  !     ! procedure :: Read                       => ReadHaplotypeArray
+  !     ! procedure :: WriteReal                  => WriteHaplotypeArrayReal
+  !     ! procedure :: ReadReal                   => ReadHaplotypeArrayReal
+  !     ! procedure :: MakeHaplotypeReal
+  !     ! procedure :: CenterHaplotypeReal
+  !     ! procedure :: CenterAndScaleHaplotypeReal
+  ! end type
+
+  !> @brief HaplotypeIbd data set holder
+  type HaplotypeIbdArray
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    integer(int32)                                     :: nInd
+    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
+    integer(int32), allocatable, dimension(:)          :: Id
+    integer(int32)                                     :: nLoc
+    integer(int32), allocatable, dimension(:, :, :)    :: Haplotype
+    contains
+      procedure :: Init    => InitHaplotypeIbdArray
+      procedure :: Destroy => DestroyHaplotypeIbdArray
+      procedure :: MatchId => MatchIdHaplotypeIbdArray
+      procedure :: Write   => WriteHaplotypeIbdArray
+      procedure :: Read    => ReadHaplotypeIbdArray
   end type
 
   !> @brief Inbreeding holder
@@ -119,108 +202,30 @@ module AlphaRelateModule
       procedure :: Read    => ReadNrm
   end type
 
-  !> @brief Genotype data set holder
-  type GenotypeArray
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
-    integer(int32)                                     :: nInd
-    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-    integer(int32), allocatable, dimension(:)          :: Id
-    integer(int32)                                     :: nLoc
-    type(Genotype), allocatable, dimension(:)          :: Genotype
-    real(real64), allocatable, dimension(:, :)         :: GenotypeReal
-    contains
-      procedure :: Init                       => InitGenotypeArray
-      procedure :: Destroy                    => DestroyGenotypeArray
-      procedure :: MatchId                    => MatchIdGenotypeArray
-      procedure :: Write                      => WriteGenotypeArray
-      procedure :: Read                       => ReadGenotypeArray
-      procedure :: WriteReal                  => WriteGenotypeArrayReal
-      procedure :: ReadReal                   => ReadGenotypeArrayReal
-      procedure :: MakeGenotypeReal
-      procedure :: CenterGenotypeReal
-      procedure :: CenterAndScaleGenotypeReal
-      procedure :: WeightGenotypeReal
-  end type
-
-  !> @brief Haplotype data set holder
-  type HaplotypeArray
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
-    integer(int32)                                     :: nInd
-    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-    integer(int32), allocatable, dimension(:)          :: Id
-    integer(int32)                                     :: nLoc
-    type(Haplotype), allocatable, dimension(:)         :: Haplotype
-    real(real64), allocatable, dimension(:, :)         :: HaplotypeReal
-    contains
-      ! procedure :: Init                       => InitHaplotypeArray
-      ! procedure :: Destroy                    => DestroyHaplotypeArray
-      ! procedure :: MatchId                    => MatchIdHaplotypeArray
-      ! procedure :: Write                      => WriteHaplotypeArray
-      ! procedure :: Read                       => ReadHaplotypeArray
-      ! procedure :: WriteReal                  => WriteHaplotypeArrayReal
-      ! procedure :: ReadReal                   => ReadHaplotypeArrayReal
-      ! procedure :: MakeHaplotypeReal
-      ! procedure :: CenterHaplotypeReal
-      ! procedure :: CenterAndScaleHaplotypeReal
-  end type
-
-  !> @brief HaplotypeIbd data set holder
-  type HaplotypeIbdArray
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
-    integer(int32)                                     :: nInd
-    character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
-    integer(int32), allocatable, dimension(:)          :: Id
-    integer(int32)                                     :: nLoc
-    integer(int32), allocatable, dimension(:)          :: Haplotype
-    contains
-      ! procedure :: Init                       => InitHaplotypeIbdArray
-      ! procedure :: Destroy                    => DestroyHaplotypeIbdArray
-      ! procedure :: MatchId                    => MatchIdHaplotypeIbdArray
-      ! procedure :: Write                      => WriteHaplotypeIbdArray
-      ! procedure :: Read                       => ReadHaplotypeIbdArray
-  end type
-
-  ! @brief Allele frequencies
-  type AlleleFreq
-    integer(int32)                          :: nLoc
-    real(real64), allocatable, dimension(:) :: Value
-    contains
-      procedure :: Init    => InitAlleleFreq
-      procedure :: Destroy => DestroyAlleleFreq
-      procedure :: Write   => WriteAlleleFreq
-      procedure :: Read    => ReadAlleleFreq
-  end type
-
-  ! @brief Locus weights
-  type LocusWeight
-    integer(int32)                          :: nLoc
-    real(real64), allocatable, dimension(:) :: Value
-    contains
-      procedure :: Init    => InitLocusWeight
-      procedure :: Destroy => DestroyLocusWeight
-      procedure :: Write   => WriteLocusWeight
-      procedure :: Read    => ReadLocusWeight
-  end type
-
   !> @brief AlphaRelate specifications
   type AlphaRelateSpec
-    character(len=FILELENGTH) :: SpecFile, PedigreeFile, YobFile, GenotypeFile, HaplotypeFile
+    character(len=FILELENGTH) :: SpecFile, PedigreeFile, YobFile, GenotypeFile, HaplotypeIbdFile!, HaplotypeFile
     character(len=FILELENGTH) :: PedNrmSubsetFile, AlleleFreqFile, LocusWeightFile!, PedNrmOldFile
     character(len=FILELENGTH) :: OutputBasename
     character(len=SPECOPTIONLENGTH) :: OutputFormat, GenNrmType
 
-    logical :: PedigreeGiven, YobGiven, GenotypeGiven, HaplotypeGiven
+    logical :: PedigreeGiven, YobGiven, GenotypeGiven, HaplotypeIbdGiven!, HaplotypeGiven
     logical :: PedNrmSubsetGiven, PedNrmOldGiven, AlleleFreqGiven, AlleleFreqFixed, LocusWeightGiven
 
     logical :: PedInbreeding, PedNrm, PedNrmIja, PedNrmInv, PedNrmInvIja
     logical :: GenInbreeding, GenNrm, GenNrmIja, GenNrmInv, GenNrmInvIja
+    logical :: FudgeGenNrmDiag, BlendGenNrmWithPedNrm
     ! logical :: HapInbreeding, HapNrm, HapNrmIja, HapNrmInv, HapNrmInvIja
-    logical :: FudgeGenNrmDiag, BlendGenNrmWithPedNrm!, FudgeHapNrmDiag, BlendHapNrmWithPedNrm
+    ! logical :: FudgeHapNrmDiag, BlendHapNrmWithPedNrm
+    logical :: HapIbdInbreeding, HapIbdNrm, HapIbdNrmIja, HapIbdNrmInv, HapIbdNrmInvIja
+    logical :: FudgeHapIbdNrmDiag, BlendHapIbdNrmWithPedNrm
 
     integer(int32) :: nLoc
 
     real(real64) :: AlleleFreqFixedValue
-    real(real64) :: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)!, FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
+    real(real64) :: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)
+    ! real(real64) :: FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
+    real(real64) :: FudgeHapIbdNrmDiagValue, BlendHapIbdNrmWithPedNrmFactor(2)
     contains
       procedure :: Init => InitAlphaRelateSpec
       procedure :: Read => ReadAlphaRelateSpec
@@ -244,10 +249,15 @@ module AlphaRelateModule
     type(Nrm)                  :: GenNrm
     type(Nrm)                  :: GenNrmInv
     ! Haplotype stuff
-    type(HaplotypeArray)       :: Hap
+    ! type(HaplotypeArray)       :: Hap
     ! type(Inbreeding)           :: HapInbreeding
     ! type(Nrm)                  :: HapNrm
     ! type(Nrm)                  :: HapNrmInv
+    ! Haplotype IBD stuff
+    type(HaplotypeIbdArray)    :: HapIbd
+    type(Inbreeding)           :: HapIbdInbreeding
+    type(Nrm)                  :: HapIbdNrm
+    type(Nrm)                  :: HapIbdNrmInv
 
     contains
       procedure :: Read              => ReadAlphaRelateData
@@ -1645,6 +1655,198 @@ module AlphaRelateModule
 
     !###########################################################################
 
+    ! HaplotypeIbdArray type methods
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  HaplotypeIbdArray constructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   February 23, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InitHaplotypeIbdArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, Input)
+        implicit none
+
+        ! Arguments
+        class(HaplotypeIbdArray), intent(out) :: This                          !< @return HaplotypeIbdArray holder
+        integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
+        integer(int32), intent(in) :: nLoc                                     !< Number of loci in the set
+        character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
+        character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
+        integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
+        integer(int32), intent(in), optional :: Input(nLoc, nInd * 2)          !< Haplotypes as an array of integers (note that this should not have 0th margin)
+
+        ! Other
+        integer(int32) :: Ind, Start, nInput, Hap
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        ! Init numbers
+        This%nInd = nInd
+        This%nLoc = nLoc
+
+        ! Init OriginalId
+        if (allocated(This%OriginalId)) then
+          deallocate(This%OriginalId)
+        end if
+        allocate(This%OriginalId(0:nInd))
+        This%OriginalId(0) = EMPTYID
+        if (present(OriginalId)) then
+          This%OriginalId(1:nInd) = OriginalId
+        else
+          This%OriginalId(1:nInd) = EMPTYID
+        end if
+
+        ! Init Id
+        if (allocated(This%Id)) then
+          deallocate(This%Id)
+        end if
+        allocate(This%Id(0:nInd))
+        This%Id(0) = 0
+        if (present(OriginalIdSuperset)) then
+          This%Id(1:nInd) = Match(Set=This%OriginalId(1:nInd),& ! to handle "0th margin"
+                                  TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+        else
+          This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
+        end if
+
+        ! Init Haplotype
+        if (allocated(This%Haplotype)) then
+          deallocate(This%Haplotype)
+        end if
+        allocate(This%Haplotype(nLoc, 2, 0:nInd))
+        if (present(Input)) then
+          This%Haplotype(:, :, 0) = 0
+          nInput = 0
+          do Ind = 1, nInd
+            do Hap = 1, 2
+              nInput = nInput + 1
+              This%Haplotype(:, Hap, Ind) = Input(:, nInput)
+            end do
+          end do
+        else
+          This%Haplotype = 0
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  HaplotypeIbdArray destructor
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   February 23, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine DestroyHaplotypeIbdArray(This)
+        implicit none
+        class(HaplotypeIbdArray), intent(inout) :: This !< @return HaplotypeIbdArray holder
+        This%nInd = 0
+        This%nLoc = 0
+        if (allocated(This%OriginalId)) then
+         deallocate(This%OriginalId)
+        end if
+        if (allocated(This%Id)) then
+         deallocate(This%Id)
+        end if
+        if (allocated(This%Haplotype)) then
+         deallocate(This%Haplotype)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Find location of a set of original Id in the superset of original Id
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   February 23, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine MatchIdHaplotypeIbdArray(This, OriginalIdSuperset, Skip)
+        implicit none
+
+        ! Arguments
+        class(HaplotypeIbdArray), intent(inout) :: This              !< @return HaplotypeIbdArray holder
+        character(len=IDLENGTH), intent(in) :: OriginalIdSuperset(:) !< The superset of individual ids
+        integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
+
+        ! Other
+        integer(int32) :: Start
+
+        if (present(Skip)) then
+          Start = Skip + 1
+        else
+          Start = 1
+        end if
+
+        This%Id(0) = 0
+        This%Id(1:This%nInd) = Match(Set=This%OriginalId(1:This%nInd),& ! to handle "0th margin"
+                                     TargetSet=OriginalIdSuperset(Start:size(OriginalIdSuperset))) ! to handle potential "0th margin"
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Write HaplotypeIbdArray genotypes to a file or stdout
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   February 23, 2017
+      !-------------------------------------------------------------------------
+      subroutine WriteHaplotypeIbdArray(This, File) ! not pure due to IO
+        implicit none
+        class(HaplotypeIbdArray), intent(in) :: This   !< HaplotypeIbdArray Holder
+        character(len=*), intent(in), optional :: File !< File that will hold IBD haplotypes
+
+        integer(int32) :: Unit, Ind, Hap
+        character(len=:), allocatable :: Fmt
+
+        if (present(File)) then
+          open(newunit=Unit, file=trim(File), action="write", status="unknown")
+        else
+          Unit = STDOUT
+        end if
+
+        Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(This%nLoc)//"i2)"
+        do Ind = 1, This%nInd
+          do Hap = 1, 2
+            write(Unit, Fmt) This%OriginalId(Ind), This%Haplotype(:, Hap, Ind)
+          end do
+        end do
+        if (present(File)) then
+          close(Unit)
+        end if
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Read HaplotypeIbdArray from a file
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   February 23, 2017
+      !-------------------------------------------------------------------------
+      subroutine ReadHaplotypeIbdArray(This, File, nLoc) ! not pure due to IO
+        implicit none
+        class(HaplotypeIbdArray), intent(out) :: This !< @return HaplotypeIbdArray holder
+        character(len=*), intent(in) :: File          !< File that holds IBD haplotypes
+        integer(int32), intent(in) :: nLoc            !< Number of loci to read in
+
+        integer(int32) :: nInd, Ind, Hap, Unit
+
+        nInd = CountLines(File)
+        call This%Init(nInd=nInd, nLoc=nLoc)
+        open(newunit=Unit, file=trim(File), action="read", status="old")
+        do Ind = 1, This%nInd
+          do Hap = 1, 2
+            read(Unit, *) This%OriginalId(Ind), This%Haplotype(:, Hap, Ind)
+          end do
+        end do
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
     ! AlphaRelateSpec type methods
 
       !#########################################################################
@@ -1667,7 +1869,8 @@ module AlphaRelateModule
         This%PedNrmSubsetFile = "None"
         ! This%PedNrmOldFile    = "None"
         This%GenotypeFile     = "None"
-        This%HaplotypeFile    = "None"
+        ! This%HaplotypeFile    = "None"
+        This%HaplotypeIbdFile = "None"
         This%AlleleFreqFile   = "None"
         This%LocusWeightFile  = "None"
         This%OutputBasename   = ""
@@ -1680,7 +1883,8 @@ module AlphaRelateModule
         This%PedNrmSubsetGiven = .false.
         This%PedNrmOldGiven    = .false.
         This%GenotypeGiven     = .false.
-        This%HaplotypeGiven    = .false.
+        ! This%HaplotypeGiven    = .false.
+        This%HaplotypeIbdGiven = .false.
         This%AlleleFreqGiven   = .false.
         This%AlleleFreqFixed   = .false.
         This%LocusWeightGiven  = .false.
@@ -1699,21 +1903,31 @@ module AlphaRelateModule
         This%FudgeGenNrmDiag       = .false.
         This%BlendGenNrmWithPedNrm = .false.
 
-        ! This%HapInbreeding      = .false.
-        ! This%HapNrm             = .false.
-        ! This%HapNrmIja          = .false.
-        ! This%HapNrmInv          = .false.
-        ! This%HapNrmInvIja       = .false.
-        ! This%FudgeHapNrmDiag    = .false.
-        ! This%BlendHapWithPedNrm = .false.
+        ! This%HapInbreeding         = .false.
+        ! This%HapNrm                = .false.
+        ! This%HapNrmIja             = .false.
+        ! This%HapNrmInv             = .false.
+        ! This%HapNrmInvIja          = .false.
+        ! This%FudgeHapNrmDiag       = .false.
+        ! This%BlendHapNrmWithPedNrm = .false.
+
+        This%HapIbdInbreeding         = .false.
+        This%HapIbdNrm                = .false.
+        This%HapIbdNrmIja             = .false.
+        This%HapIbdNrmInv             = .false.
+        This%HapIbdNrmInvIja          = .false.
+        This%FudgeHapIbdNrmDiag       = .false.
+        This%BlendHapIbdNrmWithPedNrm = .false.
 
         This%nLoc = 0
 
-        This%AlleleFreqFixedValue        = 0.5d0
-        This%FudgeGenNrmDiagValue        = 0.0d0
-        This%BlendGenNrmWithPedNrmFactor = [1.0d0, 0.0d0]
-        ! This%FudgeHapNrmDiagValue        = 0.0d0
-        ! This%BlendHapNrmWithPedNrmFactor = [1.0d0, 0.0d0]
+        This%AlleleFreqFixedValue           = 0.5d0
+        This%FudgeGenNrmDiagValue           = 0.0d0
+        This%BlendGenNrmWithPedNrmFactor    = [1.0d0, 0.0d0]
+        ! This%FudgeHapNrmDiagValue           = 0.0d0
+        ! This%BlendHapNrmWithPedNrmFactor    = [1.0d0, 0.0d0]
+        This%FudgeHapIbdNrmDiagValue        = 0.0d0
+        This%BlendHapIbdNrmWithPedNrmFactor = [1.0d0, 0.0d0]
       end subroutine
 
       !#########################################################################
@@ -1836,6 +2050,22 @@ module AlphaRelateModule
               !     write(STDERR, "(a)") ""
               !     stop 1
               !   end if
+
+              case ("haplotypeibdfile")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "none") then
+                    write(STDOUT, "(a)") " Not using haplotype IBD file"
+                  else
+                    This%HaplotypeIbdGiven = .true.
+                    write(This%HaplotypeIbdFile, *) trim(adjustl(Second(1)))
+                    This%HaplotypeIbdFile = adjustl(This%HaplotypeIbdFile)
+                    write(STDOUT, "(2a)") " Using haplotype IBD file: ", trim(This%HaplotypeIbdFile)
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a file for HaplotypeIbdFile, i.e., HaplotypeIbdFile, HaplotypeIbd.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               case ("locusweightfile")
                 if (allocated(Second)) then
@@ -2073,35 +2303,129 @@ module AlphaRelateModule
                   stop 1
                 end if
 
-              ! case ("fudgehapnrmdiag")
-              !   if (allocated(Second)) then
-              !     This%FudgeHapNrmDiag = .true.
-              !     This%FudgeHapNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !     write(STDOUT, "(2a)") " Fudge haplotype NRM diagonal: ", Real2Char(This%FudgeHapNrmDiagValue, "(f6.4)")
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a value for FudgeHapNrmDiag, i.e., FudgeHapNrmDiag, 0.001"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
+              case ("gennrminv")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "yes") then
+                    This%GenNrmInv = .true.
+                    write(STDOUT, "(a)") " Calculate genotype NRM inverse: Yes"
+                    if (size(Second) > 1) then
+                      if (ToLower(trim(adjustl(Second(2)))) == "ija") then
+                        This%GenNrmInvIja = .true.
+                        write(STDOUT, "(a)") " Write genotype NRM inverse format: ija"
+                      end if
+                    else
+                      write(STDOUT, "(a)") " Write genotype NRM inverse format: matrix"
+                    end if
+                  else
+                    write(STDOUT, "(a)") " Calculate genotype NRM inverse: No"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for GenNrmInv, i.e., GenNrmInv, Yes or GenNrmInv, Yes, Ija"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
-              ! case ("blendhapnrmwithpednrm")
-              !   if (allocated(Second)) then
-              !     if (size(Second) == 2) then
-              !       This%PedNrm = .true.
-              !       This%BlendHapNrmWithPedNrm = .true.
-              !       This%BlendHapNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-              !       This%BlendHapNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
-              !       write(STDOUT, "(a, 2f)") " Blend haplotype NRM with pedigree NRM: ", This%BlendHapNrmWithPedNrmFactor
-              !     else
-              !       write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapNrmWithPedNrm, i.e., BlendHapNrmWithPedNrm, 0.95, 0.05"
-              !       write(STDERR, "(a)") ""
-              !       stop 1
-              !     end if
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapNrmWithPedNrm, i.e., BlendHapNrmWithPedNrm, 0.95, 0.05"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
+              case ("geninbreeding")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "yes") then
+                    This%GenInbreeding = .true.
+                    write(STDOUT, "(a)") " Calculate genotype inbreeding: Yes"
+                  else
+                    write(STDOUT, "(a)") " Calculate genotype inbreeding: No"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No for GenInbreeding, i.e., GenInbreeding, Yes"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("hapibdnrm")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "yes") then
+                    This%HapIbdNrm = .true.
+                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM: Yes"
+                    if (size(Second) > 1) then
+                      if (ToLower(trim(adjustl(Second(2)))) == "ija") then
+                        This%HapIbdNrmIja = .true.
+                        write(STDOUT, "(a)") " Write haplotype IBD NRM format: ija"
+                      end if
+                    else
+                      write(STDOUT, "(a)") " Write haplotype IBD NRM format: matrix"
+                    end if
+                  else
+                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM: No"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Ija] for HapIbdNrm, i.e., HapIbdNrm, Yes or hapIbdNrm, Yes, Ija"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("fudgehapibdnrmdiag")
+                if (allocated(Second)) then
+                  This%FudgeHapIbdNrmDiag = .true.
+                  This%FudgeHapIbdNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+                  write(STDOUT, "(2a)") " Fudge haplotype IBD NRM diagonal: ", Real2Char(This%FudgeHapIbdNrmDiagValue, "(f6.4)")
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for FudgeHapIbdNrmDiag, i.e., FudgeHapIbdNrmDiag, 0.001"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("blendhapibdnrmwithpednrm")
+                if (allocated(Second)) then
+                  if (size(Second) == 2) then
+                    This%PedNrm = .true.
+                    This%BlendHapIbdNrmWithPedNrm = .true.
+                    This%BlendHapIbdNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
+                    This%BlendHapIbdNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
+                    write(STDOUT, "(a, 2f)") " Blend haplotype IBD NRM with pedigree NRM: ", This%BlendHapIbdNrmWithPedNrmFactor
+                  else
+                    write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapIbdNrmWithPedNrm, i.e., BlendHapIbdNrmWithPedNrm, 0.95, 0.05"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapIbdNrmWithPedNrm, i.e., BlendHapIbdNrmWithPedNrm, 0.95, 0.05"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("hapibdnrminv")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "yes") then
+                    This%HapIbdNrmInv = .true.
+                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: Yes"
+                    if (size(Second) > 1) then
+                      if (ToLower(trim(adjustl(Second(2)))) == "ija") then
+                        This%HapIbdNrmInvIja = .true.
+                        write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: ija"
+                      end if
+                    else
+                      write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: matrix"
+                    end if
+                  else
+                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: No"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for HapIbdNrmInv, i.e., HapIbdNrmInv, Yes or HapIbdNrmInv, Yes, Ija"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+
+              case ("hapibdinbreeding")
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) == "yes") then
+                    This%HapIbdInbreeding = .true.
+                    write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: Yes"
+                  else
+                    write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: No"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes/No for HapIbdInbreeding, i.e., HapIbdInbreeding, Yes"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
 
               ! if (This%HFullMat .or. This%HIJA) then
               !   This%MakeH = .true.
@@ -2156,12 +2480,19 @@ module AlphaRelateModule
           stop 1
         end if
 
-        ! if ((This%HapInbreeding .or. This%HapNrm .or. This%HapNrmInv)&
-        !     .and. .not. This%HaplotypeGiven) then
-        !   write(STDERR, "(a)") " ERROR: Must provide haplotype file to calculate haplotype inbreeding, NRM, or NRM inverse"
-        !   write(STDERR, "(a)") ""
-        !   stop 1
-        ! end if
+        if ((This%HapIbdInbreeding .or. This%HapIbdNrm .or. This%HapIbdNrmInv)&
+            .and. .not. This%HaplotypeIbdGiven) then
+          write(STDERR, "(a)") " ERROR: Must provide haplotype IBD file to calculate haplotype IBD inbreeding, NRM, or NRM inverse"
+          write(STDERR, "(a)") ""
+          stop 1
+        end if
+
+        if ((This%HapIbdInbreeding .or. This%HapIbdNrm .or. This%HapIbdNrmInv)&
+            .and. This%nLoc .eq. 0) then
+          write(STDERR, "(a)") " ERROR: Must specify number of loci in the haplotype IBD file"
+          write(STDERR, "(a)") ""
+          stop 1
+        end if
 
         if (This%BlendGenNrmWithPedNrm .and. .not. This%PedigreeGiven) then
           write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend genotype NRM with pedigree NRM"
@@ -2169,11 +2500,11 @@ module AlphaRelateModule
           stop 1
         end if
 
-        ! if (This%BlendHapNrm .and. .not. This%PedigreeGiven) then
-        !   write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype NRM with pedigree NRM"
-        !   write(STDERR, "(a)") ""
-        !   stop 1
-        ! end if
+        if (This%BlendHapIbdNrmWithPedNrm .and. .not. This%PedigreeGiven) then
+          write(STDERR, "(a)") " ERROR: Must provide pedigree file to blend haplotype IBD NRM with pedigree NRM"
+          write(STDERR, "(a)") ""
+          stop 1
+        end if
 
         ! if ((This%MakeG .or. This%MakeInvG .or. This%MakeH .or. This%MakeInvH) .and. .not. This%GenotypeGiven) then
         !   write(STDOUT, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
@@ -2307,7 +2638,7 @@ module AlphaRelateModule
 
         ! @todo read in haplotypes here
 
-        if (Spec%GenotypeGiven .or. Spec%HaplotypeGiven) then
+        if (Spec%GenotypeGiven) then ! .or. Spec%HaplotypeGiven) then
           if (Spec%AlleleFreqGiven) then
             if (Spec%AlleleFreqFixed) then
               call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
@@ -2319,6 +2650,32 @@ module AlphaRelateModule
           if (Spec%LocusWeightGiven) then
             call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile), nLoc=This%Gen%nLoc)
           end if
+        end if
+
+        if (Spec%HaplotypeIbdGiven) then
+
+          call This%HapIbd%Read(File=Spec%HaplotypeIbdFile, nLoc=Spec%nLoc)
+          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
+
+          if (Spec%PedigreeGiven) then
+            call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
+            block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
+              integer(int32) :: Ind
+              logical :: IdMatchNotFound
+              IdMatchNotFound = .false.
+              do Ind = 1, This%Gen%nInd
+                if (This%Gen%Id(Ind) == 0) then
+                  write(STDERR, "(2a)") " ERROR: No match found in pedigree for an individual in the genotype file: ", trim(This%Gen%OriginalId(Ind))
+                  IdMatchNotFound = .true.
+                end if
+              end do
+              if (IdMatchNotFound) then
+                write(STDERR, "(a)")  ""
+                stop 1
+              end if
+            end block
+          end if
+
         end if
 
         ! if (Spec%PedigreeGiven .and. Spec%GenotypeGiven) then
