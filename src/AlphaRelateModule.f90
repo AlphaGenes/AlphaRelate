@@ -2038,22 +2038,6 @@ module AlphaRelateModule
                   stop 1
                 end if
 
-              ! case ("haplotypefile")
-              !   if (allocated(Second)) then
-              !     if (ToLower(trim(adjustl(Second(1)))) == "none") then
-              !       write(STDOUT, "(a)") " Not using haplotype file"
-              !     else
-              !       This%HaplotypeGiven = .true.
-              !       write(This%HaplotypeFile, *) trim(adjustl(Second(1)))
-              !       This%HaplotypeFile = adjustl(This%HaplotypeFile)
-              !       write(STDOUT, "(2a)") " Using haplotype file: ", trim(This%HaplotypeFile)
-              !     end if
-              !   else
-              !     write(STDERR, "(a)") " ERROR: Must specify a file for HaplotypeFile, i.e., HaplotypeFile, Haplotype.txt"
-              !     write(STDERR, "(a)") ""
-              !     stop 1
-              !   end if
-
               case ("haplotypeibdfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
@@ -2641,20 +2625,6 @@ module AlphaRelateModule
 
         ! @todo read in haplotypes here
 
-        if (Spec%GenotypeGiven) then ! .or. Spec%HaplotypeGiven) then
-          if (Spec%AlleleFreqGiven) then
-            if (Spec%AlleleFreqFixed) then
-              call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
-              This%AlleleFreq%Value = Spec%AlleleFreqFixedValue
-            else
-              call This%AlleleFreq%Read(File=trim(Spec%AlleleFreqFile), nLoc=This%Gen%nLoc)
-            end if
-          end if
-          if (Spec%LocusWeightGiven) then
-            call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile), nLoc=This%Gen%nLoc)
-          end if
-        end if
-
         if (Spec%HaplotypeIbdGiven) then
           call This%HapIbd%Read(File=Spec%HaplotypeIbdFile, nLoc=Spec%nLoc)
           write(STDOUT, "(a1, i8, a)") " ", This%HapIbd%nInd," individuals in the haplotype IBD file"
@@ -2678,6 +2648,19 @@ module AlphaRelateModule
             end block
           end if
 
+        end if
+
+        if (Spec%AlleleFreqGiven) then
+          if (Spec%AlleleFreqFixed) then
+            call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+            This%AlleleFreq%Value = Spec%AlleleFreqFixedValue
+          else
+            call This%AlleleFreq%Read(File=trim(Spec%AlleleFreqFile), nLoc=This%Gen%nLoc)
+          end if
+        end if
+
+        if (Spec%LocusWeightGiven) then
+          call This%LocusWeight%Read(File=trim(Spec%LocusWeightFile), nLoc=This%Gen%nLoc)
         end if
 
         ! if (Spec%PedigreeGiven .and. Spec%GenotypeGiven) then
@@ -3290,7 +3273,7 @@ module AlphaRelateModule
             end block
 
           case ("nejati-javaremi")
-            ! Simple sharing of alternative alleles
+            ! Simple sharing of alternative alleles (calculated via matrix multiplication)
             block
               real(real64) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
               ! Setup
@@ -3306,7 +3289,7 @@ module AlphaRelateModule
               end if
               ! Compute Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
-              ! Average over loci (not accounting for non-segregating loci as we do not tinker with the data in those cases)
+              ! Average over loci (not accounting for non-segregating loci as in other methods, as we do not tinker with the data for those loci)
               This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
               ! Modify scale from [-1, 1] to [0, 2]
               if (Spec%LocusWeightGiven) then
@@ -3387,7 +3370,7 @@ module AlphaRelateModule
 
         integer(int32) :: Ind
 
-! @todo: no need to do whole matrix just for inbreeding
+        ! @todo: no need to do whole matrix just to use diagonals for inbreeding
         if (.not. allocated(This%GenNrm%Nrm)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
@@ -3466,11 +3449,35 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
+        integer(int32) :: Ind1, Ind2
+        integer(int32) :: Hap11(This%HapIbd%nLoc), Hap12(This%HapIbd%nLoc)
+        integer(int32) :: Hap21(This%HapIbd%nLoc), Hap22(This%HapIbd%nLoc)
+
         call This%HapIbdNrm%Init(nInd=This%HapIbd%nInd)
         This%HapIbdNrm%OriginalId = This%HapIbd%OriginalId
         This%HapIbdNrm%Id = This%HapIbd%Id
 
-! @todo
+        ! Proportion of matching alleles between haplotypes
+        do Ind1 = 1, This%HapIbd%nInd
+          Hap11 = This%HapIbd%Haplotype(:, 1, Ind1)
+          Hap12 = This%HapIbd%Haplotype(:, 2, Ind1)
+          do Ind2 = 1, This%HapIbd%nInd
+            Hap21 = This%HapIbd%Haplotype(:, 1, Ind2)
+            Hap22 = This%HapIbd%Haplotype(:, 2, Ind2)
+            This%HapIbdNrm%Nrm(Ind1, Ind2) = (count(Hap11 .eq. Hap21) + &
+                                              count(Hap11 .eq. Hap22) + &
+                                              count(Hap12 .eq. Hap21) + &
+                                              count(Hap12 .eq. Hap22)) / (2.0d0 * This%HapIbd%nLoc)
+          end do
+        end do
+
+! @todo Weights: how do we apply them?
+! @todo LocusPositions
+        ! A note: We could simply walk along two chromosomes and increment proportion
+        !         of matching, but taking position of loci into account so that
+        !         we acknowledge the distance between the loci. Between the matching
+        !         regions we should take half distance to the previous non-matching
+        !         locus. Does all this somewhat takes linkage/LD into account?
 
         if (Spec%FudgeHapIbdNrmDiag) then
           block

@@ -650,7 +650,6 @@ module TestAlphaRelateModule
         Spec%HaplotypeIbdFile = TESTHAPIBDFILE
         Spec%nLoc = 2
         call Data%Read(Spec=Spec)
-        call Data%Write
         call Data%HapIbd%Write(File=TESTHAPIBDFILE)
 
         Data2 = Data
@@ -2738,6 +2737,265 @@ module TestAlphaRelateModule
         call Data%Destroy
         call DeleteGenotypeFile
       end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCalcHapIbdNrm
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind1, Ind2!, Ind
+        real(real64), allocatable, dimension(:, :) :: ExpHapIbdNrm
+
+        call CreateTinyHaplotypeIbdFile
+        call Spec%Init
+        Spec%HaplotypeIbdGiven = .true.
+        Spec%HaplotypeIbdFile = TESTHAPIBDFILE
+        Spec%nLoc = 2
+        allocate(ExpHapIbdNrm(0:6, 0:6))
+
+        call Data%Read(Spec=Spec)
+        call Data%CalcHapIbdNrm(Spec=Spec)
+        !                                         0     A     B     C     D     E     F
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 0) = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00] ! 0
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 1) = [0.00, 1.00, 0.00, 0.50, 0.50, 1.00, 0.50] ! A
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 2) = [0.00, 0.00, 1.00, 0.50, 0.00, 0.00, 0.50] ! B
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 3) = [0.00, 0.50, 0.50, 1.00, 0.25, 0.75, 0.75] ! C
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 4) = [0.00, 0.50, 0.00, 0.25, 1.00, 0.75, 0.50] ! D
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 5) = [0.00, 1.00, 0.00, 0.75, 0.75, 1.50, 0.75] ! E
+        ExpHapIbdNrm(0:Data%HapIbd%nInd, 6) = [0.00, 0.50, 0.50, 0.75, 0.50, 0.75, 1.00] ! F
+        ! call Data%Write
+        do Ind1 = 0, Data%HapIbd%nInd
+          ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
+          ! write(STDOUT, "(a)") ""
+          ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+          do Ind2 = 0, Data%HapIbd%nInd
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
+            @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+          end do
+          ! write(STDOUT, "(a)") ""
+        end do
+
+        deallocate(ExpHapIbdNrm)
+        call Data%Destroy
+        call DeleteHaplotypeIbdFile
+      end subroutine
+
+      !#########################################################################
+
+!@todo
+      ! @test
+      ! subroutine TestCalcHapIbdNrmWithWeights
+      !   implicit none
+      !   type(AlphaRelateSpec) :: Spec
+      !   type(AlphaRelateData) :: Data
+      !   integer(int32) :: Ind1, Ind2!, Ind
+      !   real(real64), allocatable, dimension(:, :) :: ExpHapIbdNrm
+
+      !   call CreateTinyHaplotypeIbdFile
+      !   call CreateLocusWeightFile
+      !   call Spec%Init
+      !   Spec%HaplotypeIbdGiven = .true.
+      !   Spec%HaplotypeIbdFile = TESTHAPIBDFILE
+      !   Spec%LocusWeightGiven = .true.
+      !   Spec%LocusWeightFile = TESTLWFILE
+      !   Spec%nLoc = 2
+      !   allocate(ExpHapIbdNrm(0:6, 0:6))
+
+      !   call Data%Read(Spec=Spec)
+
+      !   ! Make constant weights
+      !   Data%LocusWeight%Value = [1.0, 1.0]
+      !   call Data%CalcHapIbdNrm(Spec=Spec)
+      !   ! call Data%Write
+      !   do Ind1 = 0, Data%HapIbd%nInd
+      !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(a)") ""
+      !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+      !     do Ind2 = 0, Data%HapIbd%nInd
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
+      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+      !     end do
+      !     ! write(STDOUT, "(a)") ""
+      !   end do
+
+      !   ! Make variable weights
+      !   Data%LocusWeight%Value = [1.0, 0.5]
+      !   call Data%CalcHapIbdNrm(Spec=Spec)
+      !   !                                   0       B      D       E
+      !   ExpHapIbdNrm(0:Data%HapIbd%nInd, 0) = [0.00,   0.00,  0.00,   0.00] ! 0
+      !   ExpHapIbdNrm(0:Data%HapIbd%nInd, 1) = [0.00,  20.00, -4.00, -16.00] ! B
+      !   ExpHapIbdNrm(0:Data%HapIbd%nInd, 2) = [0.00,  -4.00,  8.00,  -4.00] ! D
+      !   ExpHapIbdNrm(0:Data%HapIbd%nInd, 3) = [0.00, -16.00, -4.00,  20.00] ! E
+      !   ExpHapIbdNrm = ExpHapIbdNrm / 17.0d0
+      !   ! call Data%Write
+      !   do Ind1 = 0, Data%HapIbd%nInd
+      !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(a)") ""
+      !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+      !     do Ind2 = 0, Data%HapIbd%nInd
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
+      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+      !     end do
+      !     ! write(STDOUT, "(a)") ""
+      !   end do
+
+      !   deallocate(ExpHapIbdNrm)
+      !   call Data%Destroy
+      !   call DeleteHaplotypeIbdFile
+      ! end subroutine
+
+      !#########################################################################
+
+!@todo
+      ! @test
+      ! subroutine TestCalcGenNrmWithFudgeDiagAndBlend
+      !   implicit none
+      !   type(AlphaRelateSpec) :: Spec
+      !   type(AlphaRelateData) :: Data
+      !   integer(int32) :: Ind1, Ind2!, Ind
+      !   real(real64), allocatable, dimension(:, :) :: ExpGenNrm
+
+      !   call CreateTinyPedigreeFile
+      !   call CreateTinyGenotypeFile
+      !   call Spec%Init
+      !   Spec%PedigreeGiven = .true.
+      !   Spec%PedigreeFile = TESTPEDFILE
+      !   Spec%GenotypeGiven = .true.
+      !   Spec%GenotypeFile = TESTGENFILE
+      !   Spec%nLoc = 1
+      !   Spec%GenNrmType = "vanraden1"
+      !   Spec%FudgeGenNrmDiag = .true.
+      !   Spec%FudgeGenNrmDiagValue = 0.01d0
+      !   Spec%BlendGenNrmWithPedNrm = .true.
+      !   Spec%BlendGenNrmWithPedNrmFactor = [0.8d0, 0.2d0]
+      !   call Data%Read(Spec=Spec)
+
+      !   call Data%CalcGenNrm(Spec=Spec)
+      !   allocate(ExpGenNrm(0:3, 0:3))
+      !   ! GNRM                              0      B     D      E
+      !   ExpGenNrm(0:Data%Gen%nInd, 0) = [0.00,  0.00, 0.00,  0.00] ! 0
+      !   ExpGenNrm(0:Data%Gen%nInd, 1) = [0.00,  2.00, 0.00, -2.00] ! B
+      !   ExpGenNrm(0:Data%Gen%nInd, 2) = [0.00,  0.00, 0.00,  0.00] ! D
+      !   ExpGenNrm(0:Data%Gen%nInd, 3) = [0.00, -2.00, 0.00,  2.00] ! E
+      !   ! Fudge diag
+      !   ExpGenNrm(1, 1) = ExpGenNrm(1, 1) + Spec%FudgeGenNrmDiagValue
+      !   ExpGenNrm(2, 2) = ExpGenNrm(2, 2) + Spec%FudgeGenNrmDiagValue
+      !   ExpGenNrm(3, 3) = ExpGenNrm(3, 3) + Spec%FudgeGenNrmDiagValue
+      !   ! Blend with PNRM                                                                                                                             B      D      E
+      !   ExpGenNrm(1:Data%Gen%nInd, 1) = Spec%BlendGenNrmWithPedNrmFactor(1) * ExpGenNrm(1:Data%Gen%nInd, 1) + Spec%BlendGenNrmWithPedNrmFactor(2) * [1.00d0, 0.000d0, 0.250d0] ! B
+      !   ExpGenNrm(1:Data%Gen%nInd, 2) = Spec%BlendGenNrmWithPedNrmFactor(1) * ExpGenNrm(1:Data%Gen%nInd, 2) + Spec%BlendGenNrmWithPedNrmFactor(2) * [0.00d0, 1.000d0, 0.625d0] ! D
+      !   ExpGenNrm(1:Data%Gen%nInd, 3) = Spec%BlendGenNrmWithPedNrmFactor(1) * ExpGenNrm(1:Data%Gen%nInd, 3) + Spec%BlendGenNrmWithPedNrmFactor(2) * [0.25d0, 0.625d0, 1.125d0] ! E
+
+      !   ! call Data%Write
+      !   do Ind1 = 0, Data%Gen%nInd
+      !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
+      !     ! write(STDOUT, "(a)") ""
+      !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+      !     do Ind2 = 0, Data%Gen%nInd
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
+      !       @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Fudged and blended Genotype NRM not calculated correctly")
+      !     end do
+      !     ! write(STDOUT, "(a)") ""
+      !   end do
+
+      !   deallocate(ExpGenNrm)
+      !   call Data%Destroy
+      !   call DeleteGenotypeFile
+      !   call DeletePedigreeFile
+      ! end subroutine
+
+      !#########################################################################
+
+!@todo
+      ! @test
+      ! subroutine TestCalcGenNrmInv
+      !   implicit none
+      !   type(AlphaRelateSpec) :: Spec
+      !   type(AlphaRelateData) :: Data
+      !   integer(int32) :: Ind1, Ind2!, Ind
+      !   real(real64), allocatable, dimension(:, :) :: ExpGenNrmInv
+      !   logical :: InversionSucceded
+
+      !   call CreateTinyGenotypeFile
+      !   call Spec%Init
+      !   Spec%GenotypeGiven = .true.
+      !   Spec%GenotypeFile = TESTGENFILE
+      !   Spec%nLoc = 1
+      !   Spec%GenNrmType = "vanraden1"
+      !   Spec%FudgeGenNrmDiag = .true.
+      !   Spec%FudgeGenNrmDiagValue = 0.01d0
+      !   call Data%Read(Spec=Spec)
+
+      !   call Data%CalcGenNrmInv(Spec=Spec, Info=InversionSucceded)
+      !   allocate(ExpGenNrmInv(0:3, 0:3))
+      !   !                                     0        B        D         E
+      !   ExpGenNrmInv(0:Data%Gen%nInd, 0) = [0.0,     0.0,     0.0,      0.0] ! 0
+      !   ExpGenNrmInv(0:Data%Gen%nInd, 1) = [0.0, 20100.0,     0.0,  20000.0] ! B
+      !   ExpGenNrmInv(0:Data%Gen%nInd, 2) = [0.0,     0.0, 40100.0,      0.0] ! D
+      !   ExpGenNrmInv(0:Data%Gen%nInd, 3) = [0.0, 20000.0,     0.00, 20100.0] ! E
+      !   ExpGenNrmInv = ExpGenNrmInv / 401.0
+
+      !   ! call Data%Write
+      !   do Ind1 = 0, Data%Gen%nInd
+      !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrmInv%Nrm(0:Data%Gen%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrmInv(0:Data%Gen%nInd, Ind1)
+      !     ! write(STDOUT, "(a)") ""
+      !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+      !     do Ind2 = 0, Data%Gen%nInd
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Nrm(Ind2, Ind1)
+      !       @AssertEqual(ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM inverse not calculated correctly")
+      !     end do
+      !     ! write(STDOUT, "(a)") ""
+      !   end do
+
+      !   deallocate(ExpGenNrmInv)
+      !   call Data%Destroy
+      !   call DeleteGenotypeFile
+      ! end subroutine
+
+      !#########################################################################
+
+!@todo
+      ! @test
+      ! subroutine TestCalcGenInbreeding
+      !   implicit none
+      !   type(AlphaRelateSpec) :: Spec
+      !   type(AlphaRelateData) :: Data
+      !   integer(int32) :: Ind
+      !   real(real64), allocatable, dimension(:) :: ExpGenInbreeding
+
+      !   call CreateTinyGenotypeFile
+      !   call Spec%Init
+      !   Spec%GenotypeGiven = .true.
+      !   Spec%GenotypeFile = TESTGENFILE
+      !   Spec%nLoc = 1
+      !   Spec%GenNrmType = "vanraden1"
+      !   call Data%Read(Spec=Spec)
+      !   call Data%CalcGenInbreeding(Spec=Spec)
+      !   allocate(ExpGenInbreeding(0:3))
+      !   !                                        0     B      D     E
+      !   ExpGenInbreeding(0:Data%Gen%nInd) = [-1.00, 1.00, -1.00, 1.00]
+      !   ! call Data%Write
+      !   ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+      !   do Ind = 0, Data%GenInbreeding%nInd
+      !     ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%GenInbreeding%OriginalId(Ind), ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind)
+      !     @AssertEqual(ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind), 0.000001d0, "Genotype inbreeding is not calculated correctly - tiny example")
+      !   end do
+      !   deallocate(ExpGenInbreeding)
+      !   call Data%Destroy
+      !   call DeleteGenotypeFile
+      ! end subroutine
 
       !#########################################################################
 
