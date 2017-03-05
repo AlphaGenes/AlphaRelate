@@ -2964,35 +2964,34 @@ module TestAlphaRelateModule
       !#########################################################################
 
 !@todo
-      ! @test
-      ! subroutine TestCalcGenInbreeding
-      !   implicit none
-      !   type(AlphaRelateSpec) :: Spec
-      !   type(AlphaRelateData) :: Data
-      !   integer(int32) :: Ind
-      !   real(real64), allocatable, dimension(:) :: ExpGenInbreeding
+      @test
+      subroutine TestCalcHapIbdInbreeding
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        integer(int32) :: Ind
+        real(real64), allocatable, dimension(:) :: ExpHapIbdInbreeding
 
-      !   call CreateTinyGenotypeFile
-      !   call Spec%Init
-      !   Spec%GenotypeGiven = .true.
-      !   Spec%GenotypeFile = TESTGENFILE
-      !   Spec%nLoc = 1
-      !   Spec%GenNrmType = "vanraden1"
-      !   call Data%Read(Spec=Spec)
-      !   call Data%CalcGenInbreeding(Spec=Spec)
-      !   allocate(ExpGenInbreeding(0:3))
-      !   !                                        0     B      D     E
-      !   ExpGenInbreeding(0:Data%Gen%nInd) = [-1.00, 1.00, -1.00, 1.00]
-      !   ! call Data%Write
-      !   ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
-      !   do Ind = 0, Data%GenInbreeding%nInd
-      !     ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%GenInbreeding%OriginalId(Ind), ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind)
-      !     @AssertEqual(ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind), 0.000001d0, "Genotype inbreeding is not calculated correctly - tiny example")
-      !   end do
-      !   deallocate(ExpGenInbreeding)
-      !   call Data%Destroy
-      !   call DeleteGenotypeFile
-      ! end subroutine
+        call CreateTinyHaplotypeIbdFile
+        call Spec%Init
+        Spec%HaplotypeIbdGiven = .true.
+        Spec%HaplotypeIbdFile = TESTHAPIBDFILE
+        Spec%nLoc = 2
+        call Data%Read(Spec=Spec)
+        call Data%CalcHapIbdInbreeding(Spec=Spec)
+        allocate(ExpHapIbdInbreeding(0:6))
+        !                                              0     A     B     C     D     E     F
+        ExpHapIbdInbreeding(0:Data%HapIbd%nInd) = [-1.00, 0.00, 0.00, 0.00, 0.00, 0.50, 0.00]
+        ! call Data%Write
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
+        do Ind = 0, Data%HapIbdInbreeding%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%HapIbdInbreeding%OriginalId(Ind), ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Inb(Ind)
+          @AssertEqual(ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Inb(Ind), 0.000001d0, "Haplotype IBD inbreeding is not calculated correctly - tiny example")
+        end do
+        deallocate(ExpHapIbdInbreeding)
+        call Data%Destroy
+        call DeleteHaplotypeIbdFile
+      end subroutine
 
       !#########################################################################
 
