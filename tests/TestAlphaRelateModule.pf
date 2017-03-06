@@ -2963,7 +2963,6 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
-!@todo
       @test
       subroutine TestCalcHapIbdInbreeding
         implicit none
