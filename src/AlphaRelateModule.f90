@@ -81,7 +81,7 @@ module AlphaRelateModule
   private
   ! Types
   public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, Inbreeding
-  public :: Nrm, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeIbdArray !HaplotypeArray
+  public :: RelMat, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeIbdArray !HaplotypeArray
   ! Functions
   public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
 
@@ -211,24 +211,24 @@ module AlphaRelateModule
       procedure :: Read    => ReadInbreeding
   end type
 
-  !> @brief Numerator relationship (or its inverse) holder
-  type Nrm
+  !> @brief Numerator relationship matrix (or its inverse) holder
+  type RelMat
     ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:, :)         :: Nrm
+    real(real64), allocatable, dimension(:, :)         :: Value
     ! @todo use packed storage?
     ! - see https://software.intel.com/en-us/node/468672
     ! - see https://software.intel.com/en-us/node/471382#C62A5095-C2EE-4AAD-AAA6-589230521A55
     ! @todo: create dense and sparse version?
     contains
-      procedure :: Init       => InitNrm
-      procedure :: Destroy    => DestroyNrm
-      procedure :: MatchId    => MatchIdNrm
-      procedure :: Write      => WriteNrm
-      procedure :: Read       => ReadNrm
-      procedure :: Inbreeding => InbreedingNrm
+      procedure :: Init       => InitRelMat
+      procedure :: Destroy    => DestroyRelMat
+      procedure :: MatchId    => MatchIdRelMat
+      procedure :: Write      => WriteRelMat
+      procedure :: Read       => ReadRelMat
+      procedure :: Inbreeding => InbreedingRelMat
   end type
 
   !> @brief AlphaRelate specifications
@@ -267,26 +267,26 @@ module AlphaRelateModule
     type(Yob)                  :: Yob
     type(IndSet)               :: PedNrmSubset
     type(Inbreeding)           :: PedInbreeding
-    type(Nrm)                  :: PedNrm
-    type(Nrm)                  :: PedNrmInv
+    type(RelMat)               :: PedNrm
+    type(RelMat)               :: PedNrmInv
     ! Genome stuff
     type(AlleleFreq)           :: AlleleFreq
     type(LocusWeight)          :: LocusWeight
     ! Genotype stuff
     type(GenotypeArray)        :: Gen
     type(Inbreeding)           :: GenInbreeding
-    type(Nrm)                  :: GenNrm
-    type(Nrm)                  :: GenNrmInv
+    type(RelMat)               :: GenNrm
+    type(RelMat)               :: GenNrmInv
     ! Haplotype stuff
     ! type(HaplotypeArray)       :: Hap
     ! type(Inbreeding)           :: HapInbreeding
-    ! type(Nrm)                  :: HapNrm
-    ! type(Nrm)                  :: HapNrmInv
+    ! type(RelMat)               :: HapNrm
+    ! type(RelMat)               :: HapNrmInv
     ! Haplotype IBD stuff
     type(HaplotypeIbdArray)    :: HapIbd
     type(Inbreeding)           :: HapIbdInbreeding
-    type(Nrm)                  :: HapIbdNrm
-    type(Nrm)                  :: HapIbdNrmInv
+    type(RelMat)               :: HapIbdNrm
+    type(RelMat)               :: HapIbdNrmInv
 
     contains
       procedure :: Read                 => ReadAlphaRelateData
@@ -835,25 +835,25 @@ module AlphaRelateModule
 
     !###########################################################################
 
-    ! Nrm type methods
+    ! RelMat type methods
 
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Nrm constructor
+      !> @brief  RelMat constructor
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitNrm(This, nInd, OriginalId, OriginalIdSuperset, Skip, NrmInput)
+      pure subroutine InitRelMat(This, nInd, OriginalId, OriginalIdSuperset, Skip, Input)
         implicit none
 
         ! Arguments
-        class(Nrm), intent(out) :: This                                        !< @return Nrm holder
+        class(RelMat), intent(out) :: This                                     !< @return RelMat holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: NrmInput(nInd, nInd)             !< Relationship coefficients (note that this should not have 0th margin)
+        real(real64), intent(in), optional :: Input(nInd, nInd)             !< Relationship coefficients (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -889,29 +889,29 @@ module AlphaRelateModule
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
-        if (allocated(This%Nrm)) then
-          deallocate(This%Nrm)
+        if (allocated(This%Value)) then
+          deallocate(This%Value)
         end if
-        allocate(This%Nrm(0:nInd, 0:nInd))
-        This%Nrm(0:nInd, 0) = 0.0d0
-        This%Nrm(0, 0:nInd) = 0.0d0
-        if (present(NrmInput)) then
-          This%Nrm(1:nInd, 1:nInd) = NrmInput
+        allocate(This%Value(0:nInd, 0:nInd))
+        This%Value(0:nInd, 0) = 0.0d0
+        This%Value(0, 0:nInd) = 0.0d0
+        if (present(Input)) then
+          This%Value(1:nInd, 1:nInd) = Input
         else
-          This%Nrm(1:nInd, 1:nInd) = 0.0d0
+          This%Value(1:nInd, 1:nInd) = 0.0d0
         end if
       end subroutine
 
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Nrm destructor
+      !> @brief  RelMat destructor
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine DestroyNrm(This)
+      pure subroutine DestroyRelMat(This)
         implicit none
-        class(Nrm), intent(inout) :: This !< @return Nrm holder
+        class(RelMat), intent(inout) :: This !< @return RelMat holder
         This%nInd = 0
         if (allocated(This%OriginalId)) then
          deallocate(This%OriginalId)
@@ -919,8 +919,8 @@ module AlphaRelateModule
         if (allocated(This%Id)) then
          deallocate(This%Id)
         end if
-        if (allocated(This%Nrm)) then
-         deallocate(This%Nrm)
+        if (allocated(This%Value)) then
+         deallocate(This%Value)
         end if
       end subroutine
 
@@ -931,11 +931,11 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine MatchIdNrm(This, OriginalIdSuperset, Skip)
+      pure subroutine MatchIdRelMat(This, OriginalIdSuperset, Skip)
         implicit none
 
         ! Arguments
-        class(Nrm), intent(inout) :: This                            !< @return Nrm holder
+        class(RelMat), intent(inout) :: This                         !< @return RelMat holder
         character(len=IDLENGTH), intent(in) :: OriginalIdSuperset(:) !< The superset of individual ids
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
@@ -956,14 +956,14 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Write Nrm to a file or stdout
+      !> @brief  Write RelMat to a file or stdout
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteNrm(This, File, Ija, OutputFormat) ! not pure due to IO
+      subroutine WriteRelMat(This, File, Ija, OutputFormat) ! not pure due to IO
         implicit none
-        class(Nrm), intent(in) :: This                         !< Nrm Holder
-        character(len=*), intent(in), optional :: File         !< File that will hold Original Id and NRM
+        class(RelMat), intent(in) :: This                      !< RelMat Holder
+        character(len=*), intent(in), optional :: File         !< File that will hold Original Id and RelMat
         logical, intent(in), optional :: Ija                   !< Write in sparse ija format
         character(len=*), intent(in), optional :: OutputFormat !< Format for relationship values, default is "f"
 
@@ -1008,15 +1008,15 @@ module AlphaRelateModule
           Fmt = "(2i"//Int2Char(IDINTLENGTH)//", "//OutputFormatInternal//")"
           do Ind1 = 1, This%nInd
             do Ind2 = Ind1, This%nInd
-              if (abs(This%Nrm(Ind2, Ind1)) .gt. 0.d0) then
-                write(Unit, Fmt) Ind2, Ind1, This%Nrm(Ind2, Ind1)
+              if (abs(This%Value(Ind2, Ind1)) .gt. 0.d0) then
+                write(Unit, Fmt) Ind2, Ind1, This%Value(Ind2, Ind1)
               end if
             end do
           end do
         else
           Fmt = "(a"//Int2Char(IDLENGTH)//", "//Int2Char(This%nInd)//OutputFormatInternal//")"
           do Ind1 = 1, This%nInd
-            write(Unit, Fmt) This%OriginalId(Ind1), This%Nrm(1:This%nInd, Ind1)
+            write(Unit, Fmt) This%OriginalId(Ind1), This%Value(1:This%nInd, Ind1)
           end do
         end if
         if (present(File)) then
@@ -1027,14 +1027,14 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Read Nrm from a file
+      !> @brief  Read RelMat from a file
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadNrm(This, File, Ija) ! not pure due to IO
+      subroutine ReadRelMat(This, File, Ija) ! not pure due to IO
         implicit none
-        class(Nrm), intent(out) :: This      !< @return Nrm holder
-        character(len=*), intent(in) :: File !< File that holds Original Id and NRM
+        class(RelMat), intent(out) :: This   !< @return RelMat holder
+        character(len=*), intent(in) :: File !< File that holds Original Id and RelMat
         logical, intent(in) :: Ija           !< Read from a sparse ija format?
 
         integer(int32) :: nInd, Line, nLine, Unit, Unit2, Ind1, Ind2
@@ -1055,14 +1055,14 @@ module AlphaRelateModule
           close(Unit2)
           ! Triplets
           do Line = 1, (nLine - 1)
-            read(Unit, *) Ind2, Ind1, This%Nrm(Ind2, Ind1)
-            This%Nrm(Ind1,Ind2) = This%Nrm(Ind2, Ind1)
+            read(Unit, *) Ind2, Ind1, This%Value(Ind2, Ind1)
+            This%Value(Ind1,Ind2) = This%Value(Ind2, Ind1)
           end do
         else
           nInd = nLine
           call This%Init(nInd=nInd)
           do Ind1 = 1, nInd
-            read(Unit, *) This%OriginalId(Ind1), This%Nrm(1:nInd, Ind1)
+            read(Unit, *) This%OriginalId(Ind1), This%Value(1:nInd, Ind1)
           end do
         end if
         close(Unit)
@@ -1071,19 +1071,19 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Extract inbreeding from the Nrm
+      !> @brief  Extract inbreeding from the RelMat
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   March 15, 2017
       !-------------------------------------------------------------------------
-      subroutine InbreedingNrm(This, Inb)
+      subroutine InbreedingRelMat(This, Inb)
         implicit none
-        class(Nrm), intent(in)        :: This !< Nrm holder
+        class(RelMat), intent(in)     :: This !< RelMat holder
         type(Inbreeding), intent(out) :: Inb  !< @return Inbreeding holder
         integer(int32) :: Ind
         call Inb%Init(nInd=This%nInd)
         Inb%OriginalId = This%OriginalId
         do Ind = 1, Inb%nInd
-          Inb%Inb(Ind) = This%Nrm(Ind, Ind) - 1.0d0
+          Inb%Inb(Ind) = This%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
@@ -3075,7 +3075,7 @@ module AlphaRelateModule
               x(xPos) = 1.0d0
               NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
                                          Inbreeding=This%PedInbreeding%Inb, Vector=x)
-              This%PedNrm%Nrm(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
+              This%PedNrm%Value(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
               x(xPos) = 0.0d0
             end do
             deallocate(NrmCol)
@@ -3084,7 +3084,7 @@ module AlphaRelateModule
         else if (Spec%PedNrmOldGiven) then
           ! @todo: this needs work
           ! @todo: Put this into a block
-          ! type(Nrm) :: OldNrm
+          ! type(RelMat) :: OldNrm
           ! integer(int32) :: Ind, MinOldId, MaxOldId
           ! logical :: OldIdUnknown
           ! @todo: read this already in the Data function!!!
@@ -3120,20 +3120,20 @@ module AlphaRelateModule
           ! This%PedNrm%OriginalId(0) = EMPTYID
           ! This%PedNrm%OriginalId(1:This%PedNrm%nInd) = This%RecPed%OriginalId((MaxOldId + 1):This%RecPed%nInd)
           !
-          ! if (allocated(This%PedNrm%Nrm)) then
-          !   deallocate(This%PedNrm%Nrm)
+          ! if (allocated(This%PedNrm%Value)) then
+          !   deallocate(This%PedNrm%Value)
           ! end if
-          ! allocate(This%PedNrm%Nrm(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
+          ! allocate(This%PedNrm%Value(0:This%PedNrm%nInd, 0:This%PedNrm%nInd))
           !
-          ! This%PedNrm%Nrm = PedNrmWithOldNrm(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
+          ! This%PedNrm%Value = PedNrmWithOldNrm(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
           !                                      nNew=This%PedNrm%nInd,&
-          !                                      OldNrm=OldNrm%Nrm, nOld=OldNrm%nInd,&
+          !                                      OldNrm=OldNrm%Value, nOld=OldNrm%nInd,&
           !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
         else
           ! Standard method for all individuals
           call This%PedNrm%Init(nInd=This%RecPed%nInd)
           This%PedNrm%OriginalId = This%RecPed%OriginalId
-          This%PedNrm%Nrm = PedNrm(RecPed=This%RecPed%Id, nInd=This%PedNrm%nInd)
+          This%PedNrm%Value = PedNrm(RecPed=This%RecPed%Id, nInd=This%PedNrm%nInd)
         end if
       end subroutine
 
@@ -3152,8 +3152,8 @@ module AlphaRelateModule
         end if
         call This%PedNrmInv%Init(nInd=This%RecPed%nInd)
         This%PedNrmInv%OriginalId = This%RecPed%OriginalId
-        This%PedNrmInv%Nrm = PedNrmInv(RecPed=This%RecPed%Id, nInd=This%PedNrmInv%nInd,&
-                                       Inbreeding=This%PedInbreeding%Inb)
+        This%PedNrmInv%Value = PedNrmInv(RecPed=This%RecPed%Id, nInd=This%PedNrmInv%nInd,&
+                                         Inbreeding=This%PedInbreeding%Inb)
       end subroutine
 
       !#########################################################################
@@ -3240,10 +3240,10 @@ module AlphaRelateModule
               call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
             end if
             ! Compute Z'Z
-            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
             ! Divide by expected variance (not accounting for non-segregating loci as we do not tinker with the data in those cases)
-            This%GenNrm%Nrm = This%GenNrm%Nrm / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
-            ! This%GenNrm%Nrm = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
+            This%GenNrm%Value = This%GenNrm%Value / (2.0d0 * sum(This%AlleleFreq%Value * (1.0d0 - This%AlleleFreq%Value)))
+            ! This%GenNrm%Value = GenNrmVanRaden1LoopOnGenotype(Genotype=This%Gen%Genotype,&
             !                                                 nInd=This%Gen%nInd,&
             !                                                 nLoc=This%Gen%nLoc,&
             !                                                 AlleleFreq=nLoc=This%AlleleFreq%Value)
@@ -3264,9 +3264,9 @@ module AlphaRelateModule
               call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
             end if
             ! Compute Z'Z
-            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+            call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
             ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
-            This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
+            This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
 
           case ("yang")
             ! Cov(a|Z) = Average ([Observed covariance between individuals at a locus] / [Expected variance at a locus])
@@ -3311,13 +3311,13 @@ module AlphaRelateModule
                 call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
               end if
               ! Compute Z'Z
-              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
               ! Modify diagonal
               do Ind = 1, This%GenNrm%nInd
-                This%GenNrm%Nrm(Ind, Ind) = Diag(Ind)
+                This%GenNrm%Value(Ind, Ind) = Diag(Ind)
               end do
               ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
-              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
+              This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
             end block
 
           case ("nejati-javaremi")
@@ -3336,19 +3336,19 @@ module AlphaRelateModule
                 call This%Gen%WeightGenotypeReal(Weight=sqrt(This%LocusWeight%Value)) ! sqrt, because we do (Zsqrt(W))'(sqrt(W)Z) later
               end if
               ! Compute Z'Z
-              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Nrm, TransA="T")
+              call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
               ! Average over loci (not accounting for non-segregating loci as in other methods, as we do not tinker with the data for those loci)
-              This%GenNrm%Nrm = This%GenNrm%Nrm / dble(This%Gen%nLoc)
+              This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc)
               ! Modify scale from [-1, 1] to [0, 2]
               if (Spec%LocusWeightGiven) then
                 Tmp = sum(This%LocusWeight%Value) / dble(This%Gen%nLoc)
               else
                 Tmp = 1.0d0
               end if
-              This%GenNrm%Nrm = This%GenNrm%Nrm + Tmp
+              This%GenNrm%Value = This%GenNrm%Value + Tmp
               ! Make sure the "0th" margin is 0.0 (we add Tmp to the whole matrix above)
-              This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
-              This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
+              This%GenNrm%Value(0:This%GenNrm%nInd, 0) = 0.0d0
+              This%GenNrm%Value(0, 0:This%GenNrm%nInd) = 0.0d0
             end block
 
           case ("gorjanc1")
@@ -3367,17 +3367,17 @@ module AlphaRelateModule
           block
             integer(int32) :: Ind
             do Ind = 1, This%GenNrm%nInd
-              This%GenNrm%Nrm(Ind, Ind) = This%GenNrm%Nrm(Ind, Ind) + Spec%FudgeGenNrmDiagValue
+              This%GenNrm%Value(Ind, Ind) = This%GenNrm%Value(Ind, Ind) + Spec%FudgeGenNrmDiagValue
             end do
           end block
         end if
 
         if (Spec%BlendGenNrmWithPedNrm) then
-          if (.not. allocated(This%PedNrm%Nrm)) then
+          if (.not. allocated(This%PedNrm%Value)) then
             call This%CalcPedNrm(Spec=Spec)
           end if
-          This%GenNrm%Nrm = Spec%BlendGenNrmWithPedNrmFactor(1) * This%GenNrm%Nrm + &
-                            Spec%BlendGenNrmWithPedNrmFactor(2) * This%PedNrm%Nrm(This%GenNrm%Id, This%GenNrm%Id)
+          This%GenNrm%Value = Spec%BlendGenNrmWithPedNrmFactor(1) * This%GenNrm%Value + &
+                              Spec%BlendGenNrmWithPedNrmFactor(2) * This%PedNrm%Value(This%GenNrm%Id, This%GenNrm%Id)
         end if
       end subroutine
 
@@ -3429,8 +3429,9 @@ module AlphaRelateModule
 
         integer(int32) :: Ind
 
-        ! @todo: no need to do whole matrix just to use diagonals for inbreeding
-        if (.not. allocated(This%GenNrm%Nrm)) then
+! TODO: use Inbreeding()!!!
+! @todo: no need to do whole matrix just to use diagonals for inbreeding
+        if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
 
@@ -3438,7 +3439,7 @@ module AlphaRelateModule
         This%GenInbreeding%OriginalId = This%GenNrm%OriginalId
         This%GenInbreeding%Id = This%GenNrm%Id
         do Ind = 1, This%GenInbreeding%nInd
-          This%GenInbreeding%Inb(Ind) = This%GenNrm%Nrm(Ind, Ind) - 1.0d0
+          This%GenInbreeding%Inb(Ind) = This%GenNrm%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
@@ -3458,13 +3459,13 @@ module AlphaRelateModule
         integer(int32) :: Ind
         integer :: InfoInt
 
-        if (.not. allocated(This%GenNrm%Nrm)) then
+        if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
         call This%GenNrmInv%Init(nInd=This%GenNrm%nInd)
         This%GenNrmInv%OriginalId = This%GenNrm%OriginalId
         This%GenNrmInv%Id = This%GenNrm%Id
-        This%GenNrmInv%Nrm = This%GenNrm%Nrm
+        This%GenNrmInv%Value = This%GenNrm%Value
 
         Info = .true.
         InfoInt = 0
@@ -3474,19 +3475,19 @@ module AlphaRelateModule
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
         ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-        ! call potrf(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
-        call potrf(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
+        ! call potrf(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
+        call potrf(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
 
         if (InfoInt == 0) then
           ! Inverse based on the Cholesky factor obtained with potrf()
           ! https://software.intel.com/en-us/node/468824
           ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-          ! call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
-          call potri(A=This%GenNrmInv%Nrm(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
+          ! call potri(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
+          call potri(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
           if (InfoInt == 0) then
             ! Fill the other (lower) triangle @todo consider symmetric
             do Ind = 1, This%GenNrmInv%nInd
-              This%GenNrmInv%Nrm((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Nrm(Ind, (Ind + 1):This%GenNrmInv%nInd)
+              This%GenNrmInv%Value((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Value(Ind, (Ind + 1):This%GenNrmInv%nInd)
             end do
           else
             Info = .false.
@@ -3523,10 +3524,10 @@ module AlphaRelateModule
           do Ind2 = 1, This%HapIbd%nInd
             Hap21 = This%HapIbd%Haplotype(:, 1, Ind2)
             Hap22 = This%HapIbd%Haplotype(:, 2, Ind2)
-            This%HapIbdNrm%Nrm(Ind1, Ind2) = (count(Hap11 .eq. Hap21) + &
-                                              count(Hap11 .eq. Hap22) + &
-                                              count(Hap12 .eq. Hap21) + &
-                                              count(Hap12 .eq. Hap22)) / (2.0d0 * This%HapIbd%nLoc)
+            This%HapIbdNrm%Value(Ind1, Ind2) = (count(Hap11 .eq. Hap21) + &
+                                                count(Hap11 .eq. Hap22) + &
+                                                count(Hap12 .eq. Hap21) + &
+                                                count(Hap12 .eq. Hap22)) / (2.0d0 * This%HapIbd%nLoc)
           end do
         end do
 
@@ -3542,17 +3543,17 @@ module AlphaRelateModule
           block
             integer(int32) :: Ind
             do Ind = 1, This%HapIbdNrm%nInd
-              This%HapIbdNrm%Nrm(Ind, Ind) = This%HapIbdNrm%Nrm(Ind, Ind) + Spec%FudgeHapIbdNrmDiagValue
+              This%HapIbdNrm%Value(Ind, Ind) = This%HapIbdNrm%Value(Ind, Ind) + Spec%FudgeHapIbdNrmDiagValue
             end do
           end block
         end if
 
         if (Spec%BlendHapIbdNrmWithPedNrm) then
-          if (.not. allocated(This%PedNrm%Nrm)) then
+          if (.not. allocated(This%PedNrm%Value)) then
             call This%CalcPedNrm(Spec=Spec)
           end if
-          This%HapIbdNrm%Nrm = Spec%BlendHapIbdNrmWithPedNrmFactor(1) * This%HapIbdNrm%Nrm + &
-                               Spec%BlendHapIbdNrmWithPedNrmFactor(2) * This%PedNrm%Nrm(This%HapIbdNrm%Id, This%HapIbdNrm%Id)
+          This%HapIbdNrm%Value = Spec%BlendHapIbdNrmWithPedNrmFactor(1) * This%HapIbdNrm%Value + &
+                                 Spec%BlendHapIbdNrmWithPedNrmFactor(2) * This%PedNrm%Value(This%HapIbdNrm%Id, This%HapIbdNrm%Id)
         end if
       end subroutine
 
@@ -3570,8 +3571,9 @@ module AlphaRelateModule
 
         integer(int32) :: Ind
 
+!TODO: use inbreeding!!!!
 ! @todo: no need to do whole matrix just for inbreeding
-        if (.not. allocated(This%HapIbdNrm%Nrm)) then
+        if (.not. allocated(This%HapIbdNrm%Value)) then
           call This%CalcHapIbdNrm(Spec=Spec)
         end if
 
@@ -3579,11 +3581,13 @@ module AlphaRelateModule
         This%HapIbdInbreeding%OriginalId = This%HapIbdNrm%OriginalId
         This%HapIbdInbreeding%Id = This%HapIbdNrm%Id
         do Ind = 1, This%HapIbdInbreeding%nInd
-          This%HapIbdInbreeding%Inb(Ind) = This%HapIbdNrm%Nrm(Ind, Ind) - 1.0d0
+          This%HapIbdInbreeding%Inb(Ind) = This%HapIbdNrm%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
       !#########################################################################
+
+!TODO: Make Inverse() method for RelMat!!!!
 
       !-------------------------------------------------------------------------
       !> @brief  Calculate haplotype IBD NRM inverse on AlphaRelateData
@@ -3599,13 +3603,13 @@ module AlphaRelateModule
         integer(int32) :: Ind
         integer :: InfoInt
 
-        if (.not. allocated(This%HapIbdNrm%Nrm)) then
+        if (.not. allocated(This%HapIbdNrm%Value)) then
           call This%CalcHapIbdNrm(Spec=Spec)
         end if
         call This%HapIbdNrmInv%Init(nInd=This%HapIbdNrm%nInd)
         This%HapIbdNrmInv%OriginalId = This%HapIbdNrm%OriginalId
         This%HapIbdNrmInv%Id = This%HapIbdNrm%Id
-        This%HapIbdNrmInv%Nrm = This%HapIbdNrm%Nrm
+        This%HapIbdNrmInv%Value = This%HapIbdNrm%Value
 
         Info = .true.
         InfoInt = 0
@@ -3615,19 +3619,19 @@ module AlphaRelateModule
         ! Cholesky factorization of a symmetric positive definite matrix
         ! https://software.intel.com/en-us/node/468690
         ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-        ! call potrf(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
-        call potrf(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
+        ! call potrf(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
+        call potrf(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
 
         if (InfoInt == 0) then
           ! Inverse based on the Cholesky factor obtained with potrf()
           ! https://software.intel.com/en-us/node/468824
           ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-          ! call potri(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
-          call potri(A=This%HapIbdNrmInv%Nrm(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
+          ! call potri(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
+          call potri(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
           if (InfoInt == 0) then
             ! Fill the other (lower) triangle @todo consider symmetric
             do Ind = 1, This%HapIbdNrmInv%nInd
-              This%HapIbdNrmInv%Nrm((Ind + 1):This%HapIbdNrmInv%nInd, Ind) = This%HapIbdNrmInv%Nrm(Ind, (Ind + 1):This%HapIbdNrmInv%nInd)
+              This%HapIbdNrmInv%Value((Ind + 1):This%HapIbdNrmInv%nInd, Ind) = This%HapIbdNrmInv%Value(Ind, (Ind + 1):This%HapIbdNrmInv%nInd)
             end do
           else
             Info = .false.

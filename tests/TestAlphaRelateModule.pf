@@ -1030,14 +1030,14 @@ module TestAlphaRelateModule
           @AssertEqual(Data%PedNrm%nInd, Data2%PedNrm%nInd, "Pedigree NRM nInd were not assigned correctly with Ija="//Log2Char(Ija(i)))
           ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1=0, Data%RecPed%nInd)
           do Ind1 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed",  Data2%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
-            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",   Data%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
+            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data2%RecPed%OriginalId(Ind1))), "observed",  Data2%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
+            ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))),  "expected",   Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
             ! write(STDOUT, "(a)") ""
             @AssertEqual(Data%RecPed%OriginalId(Ind1), Data2%RecPed%OriginalId(Ind1), "Pedigree NRM original Id were not written/read correctly with Ija="//Log2Char(Ija(i)))
             ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Observed", "Expected"
             do Ind2 = 0, Data%RecPed%nInd
-              ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Nrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1)
-              @AssertEqual(Data%PedNrm%Nrm(Ind2, Ind1), Data2%PedNrm%Nrm(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
+              ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2,Data2%PedNrm%Value(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
+              @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), Data2%PedNrm%Value(Ind2, Ind1), "Pedigree NRM values were not written/read correctly with Ija="//Log2Char(Ija(i)))
             end do
           end do
         end do
@@ -1056,7 +1056,7 @@ module TestAlphaRelateModule
       @test
       subroutine TestMatchIdNrm
         implicit none
-        type(Nrm) :: x
+        type(RelMat) :: x
         character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
         integer(int32) :: i
         integer(int32), allocatable, dimension(:) :: IdExp
@@ -1601,12 +1601,12 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
         do Ind1 = 0, Data%RecPed%nInd
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ",       ExpPedNrm(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpPedNrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpPedNrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example")
           end do
         end do
         deallocate(ExpPedNrm)
@@ -1658,12 +1658,12 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
         do Ind1 = 0, Data%RecPed%nInd
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ",       ExpPedNrm(0:Data%RecPed%nInd, Ind1)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrm%Nrm(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpPedNrm(Ind2, Ind1), Data%PedNrm%Nrm(Ind2, Ind1), 0.000001d0, "Pedigree NRM is not calculated correctly - tiny example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpPedNrm(Ind2, Ind1), Data%PedNrm%Value(Ind2, Ind1), 0.000001d0, "Pedigree NRM is not calculated correctly - tiny example")
           end do
         end do
         deallocate(ExpPedNrm)
@@ -1826,13 +1826,13 @@ module TestAlphaRelateModule
 
         ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%PedNrm%nInd)
         do Ind1 = 0, Data%PedNrm%nInd
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Nrm(0:Data%PedNrm%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "calculated", Data%PedNrm%Value(0:Data%PedNrm%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%PedNrm%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%PedNrm%OriginalId(Ind1))), "expected  ",         ExpPedNrm(0:Data%PedNrm%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
           do Ind2 = 0, Data%PedNrm%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Nrm(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
-            @AssertEqual(Data%PedNrm%Nrm(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM with subset is not calculated correctly")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1)
+            @AssertEqual(Data%PedNrm%Value(Ind2, Ind1), ExpPedNrm(Ind2, Ind1), "Pedigree NRM with subset is not calculated correctly")
           end do
         end do
         deallocate(ExpPedNrm)
@@ -1941,13 +1941,13 @@ module TestAlphaRelateModule
         ExpPedNrmInv(0:Data%RecPed%nInd, 7) = [0.0,  0.0, -1.0666667,  0.0,  0.0,  0.0, -1.0666667,  2.133333]
         ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
         do Ind1 = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, 2a11,"//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrmInv%Nrm(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11,"//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrmInv%Value(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11,"//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ",         ExpPedNrmInv(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
           do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrmInv%Nrm(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1)
-            @AssertEqual(Data%PedNrmInv%Nrm(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1), 0.000001d0, "Pedigree NRM inverse is not calculated correctly - tiny example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrmInv%Value(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1)
+            @AssertEqual(Data%PedNrmInv%Value(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1), 0.000001d0, "Pedigree NRM inverse is not calculated correctly - tiny example")
           end do
         end do
         deallocate(ExpPedNrmInv)
@@ -1998,13 +1998,13 @@ module TestAlphaRelateModule
         ExpPedNrmInv(0:Data%RecPed%nInd,20) = [0.0,  0.0,  0.0,  0.0000000,  0.0,  0.0,  0.0000000,  0.000000,  0.000000,  0.000000,  0.000000,  0.000000,  0.0000000,  0.0,  0.0,  0.000000, -1.939394,  0.000000, -1.939394,  0.000000,  3.878788]
         ! write(STDOUT, "(a9, 2a11,"//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
         do Ind1 = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrmInv%Nrm(0:Data%RecPed%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", Data%PedNrmInv%Value(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ",         ExpPedNrmInv(0:Data%RecPed%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Calculated", "Expected"
           do Ind2 = 0, Data%RecPed%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrmInv%Nrm(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1)
-            @AssertEqual(Data%PedNrmInv%Nrm(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1), 0.000001d0, "Pedigree NRM inverse is not calculated correctly - tiny example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, Data%PedNrmInv%Value(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1)
+            @AssertEqual(Data%PedNrmInv%Value(Ind2, Ind1), ExpPedNrmInv(Ind2, Ind1), 0.000001d0, "Pedigree NRM inverse is not calculated correctly - tiny example")
           end do
         end do
         deallocate(ExpPedNrmInv)
@@ -2119,13 +2119,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny one marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny one marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2141,13 +2141,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny one marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny one marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2163,13 +2163,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny one marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny one marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2185,13 +2185,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny one marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny one marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2213,13 +2213,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2235,13 +2235,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2257,13 +2257,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2279,13 +2279,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2323,13 +2323,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny two marker example with a fixed marker")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 is not calculated correctly - tiny two marker example with a fixed marker")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2345,13 +2345,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny two marker example with a fixed marker")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 is not calculated correctly - tiny two marker example with a fixed marker")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2367,13 +2367,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny two marker example with a fixed marker")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang is not calculated correctly - tiny two marker example with a fixed marker")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2389,13 +2389,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example with a fixed marker")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi is not calculated correctly - tiny two marker example with a fixed marker")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2440,13 +2440,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with constant weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with constant weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2464,13 +2464,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with variable weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 1 with variable weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2489,13 +2489,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with constant weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with constant weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2512,13 +2512,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with variable weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Vanraden 2 with variable weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2537,13 +2537,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with constant weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with constant weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2560,13 +2560,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with variable weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Yang with variable weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2585,13 +2585,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with constant weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with constant weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2608,13 +2608,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with variable weights is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM Nejati-Javaremi with variable weights is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2669,13 +2669,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Fudged and blended Genotype NRM not calculated correctly")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Fudged and blended Genotype NRM not calculated correctly")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2719,13 +2719,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%Gen%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrmInv%Nrm(0:Data%Gen%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrmInv%Value(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrmInv(0:Data%Gen%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%Gen%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Nrm(Ind2, Ind1), 0.000001d0, "Genotype NRM inverse not calculated correctly")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Value(Ind2, Ind1)
+            @AssertEqual(ExpGenNrmInv(Ind2, Ind1), Data%GenNrmInv%Value(Ind2, Ind1), 0.000001d0, "Genotype NRM inverse not calculated correctly")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2797,13 +2797,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%HapIbd%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Value(0:Data%HapIbd%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%HapIbd%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Value(Ind2, Ind1)
+            @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Value(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
           end do
           ! write(STDOUT, "(a)") ""
         end do
@@ -2842,13 +2842,13 @@ module TestAlphaRelateModule
       !   ! call Data%Write
       !   do Ind1 = 0, Data%HapIbd%nInd
       !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
-      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Value(0:Data%HapIbd%nInd, Ind1)
       !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
       !     ! write(STDOUT, "(a)") ""
       !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
       !     do Ind2 = 0, Data%HapIbd%nInd
-      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
-      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Value(Ind2, Ind1)
+      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Value(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
       !     end do
       !     ! write(STDOUT, "(a)") ""
       !   end do
@@ -2865,13 +2865,13 @@ module TestAlphaRelateModule
       !   ! call Data%Write
       !   do Ind1 = 0, Data%HapIbd%nInd
       !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
-      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Nrm(0:Data%HapIbd%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrm%Value(0:Data%HapIbd%nInd, Ind1)
       !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrm(0:Data%HapIbd%nInd, Ind1)
       !     ! write(STDOUT, "(a)") ""
       !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
       !     do Ind2 = 0, Data%HapIbd%nInd
-      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Nrm(Ind2, Ind1)
-      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrm(Ind2, Ind1), Data%HapIbdNrm%Value(Ind2, Ind1)
+      !       @AssertEqual(ExpHapIbdNrm(Ind2, Ind1), Data%HapIbd%Value(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM is not calculated correctly - tiny two marker example")
       !     end do
       !     ! write(STDOUT, "(a)") ""
       !   end do
@@ -2926,13 +2926,13 @@ module TestAlphaRelateModule
       !   ! call Data%Write
       !   do Ind1 = 0, Data%Gen%nInd
       !     ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%Gen%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%Gen%nInd)
-      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Nrm(0:Data%Gen%nInd, Ind1)
+      !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "calculated", Data%GenNrm%Value(0:Data%Gen%nInd, Ind1)
       !     ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%Gen%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%Gen%OriginalId(Ind1))), "expected  ",       ExpGenNrm(0:Data%Gen%nInd, Ind1)
       !     ! write(STDOUT, "(a)") ""
       !     ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
       !     do Ind2 = 0, Data%Gen%nInd
-      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1)
-      !       @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Nrm(Ind2, Ind1), 0.000001d0, "Fudged and blended Genotype NRM not calculated correctly")
+      !       ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1)
+      !       @AssertEqual(ExpGenNrm(Ind2, Ind1), Data%GenNrm%Value(Ind2, Ind1), 0.000001d0, "Fudged and blended Genotype NRM not calculated correctly")
       !     end do
       !     ! write(STDOUT, "(a)") ""
       !   end do
@@ -2974,13 +2974,13 @@ module TestAlphaRelateModule
         ! call Data%Write
         do Ind1 = 0, Data%HapIbd%nInd
           ! write(STDOUT, "(a9,     2a11, "//Int2Char(Data%HapIbd%nInd+1)//"i16)") "", "", "", (Ind, Ind = 0, Data%HapIbd%nInd)
-          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrmInv%Nrm(0:Data%HapIbd%nInd, Ind1)
+          ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "calculated", Data%HapIbdNrmInv%Value(0:Data%HapIbd%nInd, Ind1)
           ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%HapIbd%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%HapIbd%OriginalId(Ind1))), "expected  ",       ExpHapIbdNrmInv(0:Data%HapIbd%nInd, Ind1)
           ! write(STDOUT, "(a)") ""
           ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
           do Ind2 = 0, Data%HapIbd%nInd
-            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrmInv(Ind2, Ind1), Data%HapIbdNrmInv%Nrm(Ind2, Ind1)
-            @AssertEqual(ExpHapIbdNrmInv(Ind2, Ind1), Data%HapIbdNrmInv%Nrm(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM inverse not calculated correctly")
+            ! write(STDOUT, "(2i8, 2f16.8)") Ind2, Ind1, ExpHapIbdNrmInv(Ind2, Ind1), Data%HapIbdNrmInv%Value(Ind2, Ind1)
+            @AssertEqual(ExpHapIbdNrmInv(Ind2, Ind1), Data%HapIbdNrmInv%Value(Ind2, Ind1), 0.000001d0, "Haplotype IBD NRM inverse not calculated correctly")
           end do
           ! write(STDOUT, "(a)") ""
         end do
