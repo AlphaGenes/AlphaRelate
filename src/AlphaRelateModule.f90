@@ -1075,13 +1075,14 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   March 15, 2017
       !-------------------------------------------------------------------------
-      subroutine InbreedingRelMat(This, Inb)
+      pure subroutine InbreedingRelMat(This, Inb)
         implicit none
         class(RelMat), intent(in)     :: This !< RelMat holder
         type(Inbreeding), intent(out) :: Inb  !< @return Inbreeding holder
         integer(int32) :: Ind
         call Inb%Init(nInd=This%nInd)
         Inb%OriginalId = This%OriginalId
+        Inb%Id = This%Id
         do Ind = 1, Inb%nInd
           Inb%Value(Ind) = This%Value(Ind, Ind) - 1.0d0
         end do
@@ -3425,22 +3426,12 @@ module AlphaRelateModule
       pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%GenInbreeding(0) = -1.0!!!
-        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
-
-        integer(int32) :: Ind
-
-! TODO: use Inbreeding()!!!
-! @todo: no need to do whole matrix just to use diagonals for inbreeding
+        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+        ! @todo: no need to do whole matrix just for inbreeding, could we be more clever here?
         if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
-
-        call This%GenInbreeding%Init(nInd=This%GenNrm%nInd)
-        This%GenInbreeding%OriginalId = This%GenNrm%OriginalId
-        This%GenInbreeding%Id = This%GenNrm%Id
-        do Ind = 1, This%GenInbreeding%nInd
-          This%GenInbreeding%Value(Ind) = This%GenNrm%Value(Ind, Ind) - 1.0d0
-        end do
+        call This%GenNrm%Inbreeding(This%GenInbreeding)
       end subroutine
 
       !#########################################################################
@@ -3568,21 +3559,11 @@ module AlphaRelateModule
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%HapIbdInbreeding(0) = -1.0!!!
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
-
-        integer(int32) :: Ind
-
-!TODO: use inbreeding!!!!
-! @todo: no need to do whole matrix just for inbreeding
+        ! @todo: no need to do whole matrix just for inbreeding, could we be more clever here?
         if (.not. allocated(This%HapIbdNrm%Value)) then
           call This%CalcHapIbdNrm(Spec=Spec)
         end if
-
-        call This%HapIbdInbreeding%Init(nInd=This%HapIbdNrm%nInd)
-        This%HapIbdInbreeding%OriginalId = This%HapIbdNrm%OriginalId
-        This%HapIbdInbreeding%Id = This%HapIbdNrm%Id
-        do Ind = 1, This%HapIbdInbreeding%nInd
-          This%HapIbdInbreeding%Value(Ind) = This%HapIbdNrm%Value(Ind, Ind) - 1.0d0
-        end do
+        call This%HapIbdNrm%Inbreeding(This%HapIbdInbreeding)
       end subroutine
 
       !#########################################################################

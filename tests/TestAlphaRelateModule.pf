@@ -1207,7 +1207,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
@@ -1253,7 +1253,7 @@ module TestAlphaRelateModule
         ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
         ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
       end subroutine
 
@@ -1336,7 +1336,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
@@ -1382,7 +1382,7 @@ module TestAlphaRelateModule
         ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
         ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
       end subroutine
 
@@ -1425,7 +1425,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
@@ -1470,7 +1470,7 @@ module TestAlphaRelateModule
         ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
         ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! inbreeding(Ped)
       end subroutine
 
@@ -1566,7 +1566,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getA(Ped)
       end subroutine
 
@@ -1622,7 +1622,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getA(Ped)
 
         call CreatePedigreeFile
@@ -1692,7 +1692,7 @@ module TestAlphaRelateModule
         ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
         ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getA(Ped)
       end subroutine
 
@@ -1791,7 +1791,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getA(Ped)
       end subroutine
 
@@ -1810,12 +1810,15 @@ module TestAlphaRelateModule
         call Spec%Init
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
-        call Data%CalcPedNrm(Spec=Spec)
+        ! call Data%Read(Spec=Spec)
+        ! call Data%CalcPedNrm(Spec=Spec)
+        ! call Data%Write
         Spec%PedNrmSubsetGiven = .true.
         Spec%PedNrmSubsetFile = TESTPEDNRMSUBSETFILE
         call Data%Read(Spec=Spec)
 
         call Data%CalcPedNrm(Spec=Spec)
+        ! call Data%Write
         ! call Data%PedNrm%Write(File="TestNrm2.txt", OutputFormat=Spec%OutputFormat)
         ! For individuals 0, B was 2nd now 1st, D was 5th now 2nd, F was 7th now 3rd
         allocate(ExpPedNrm(0:Data%PedNrm%nInd, 0:Data%PedNrm%nInd))
@@ -1849,7 +1852,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getA(Ped)
       end subroutine
 
@@ -1908,7 +1911,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getAInv(Ped)
       end subroutine
 
@@ -1963,7 +1966,7 @@ module TestAlphaRelateModule
         ! Ped[5, ] <- c("D","A","dum001")
         ! Ped[6, ] <- c("E","D","C")
         ! Ped[7, ] <- c("F","E","B")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getAInv(Ped)
 
         call CreatePedigreeFile
@@ -2033,7 +2036,7 @@ module TestAlphaRelateModule
         ! Ped[18, ] <- c("Cora2","Cora1","Fred1")
         ! Ped[19, ] <- c("Moll3","Fred1","Belle2")
         ! Ped[20, ] <- c("Dash2","Cora2","Sting")
-        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label =Ped$Id)
+        ! Ped <- pedigree(sire = Ped$Fid, dam=Ped$Mid, label=Ped$Id)
         ! getAInv(Ped)
       end subroutine
 
