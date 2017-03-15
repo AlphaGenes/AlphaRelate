@@ -1,3 +1,34 @@
+#ifdef _WIN32
+
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "\"
+#define COPY "copy"
+#define MD "md"
+#define RMDIR "RMDIR /S /Q"
+#define RM "del"
+#define RENAME "MOVE /Y"
+#define SH "BAT"
+#define EXE ".exe"
+#define NULL " >NUL"
+
+#else
+
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "/"
+#define COPY "cp"
+#define MD "mkdir"
+#define RMDIR "rm -r"
+#define RM "rm"
+#define RENAME "mv"
+#define SH "sh"
+#define EXE ""
+#define NULL ""
+
+#endif
 
 !###############################################################################
 

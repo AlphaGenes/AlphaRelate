@@ -64,7 +64,7 @@ INCLUDE(${CMAKE_MODULE_PATH}/findDoxygen.cmake)
 # RELEASE, and TESTING.  You should  review this file and make sure the flags
 # are to your liking.
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
-SET(SRCAH ../alphahouse/src/)
+SET(SRCAH ../AlphaHouse/src/)
 
 # Have the .mod files placed in the OBJ folder
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${OBJ})

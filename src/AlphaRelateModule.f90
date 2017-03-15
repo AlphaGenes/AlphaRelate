@@ -1,6 +1,34 @@
+#ifdef _WIN32
 
-#define STRINGIFY(x) #x
+#define STRINGIFY(x)#x
 #define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "\"
+#define COPY "copy"
+#define MD "md"
+#define RMDIR "RMDIR /S /Q"
+#define RM "del"
+#define RENAME "MOVE /Y"
+#define SH "BAT"
+#define EXE ".exe"
+#define NULL " >NUL"
+
+#else
+
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "/"
+#define COPY "cp"
+#define MD "mkdir"
+#define RMDIR "rm -r"
+#define RM "rm"
+#define RENAME "mv"
+#define SH "sh"
+#define EXE ""
+#define NULL ""
+
+#endif
 
 !###############################################################################
 
@@ -25,7 +53,7 @@
 !> @todo Add largish examples
 !> @todo Add A22 inverse function for PCG using the successive multiplication trick (Stranden and Mantysaari)
 !> @todo Add Single-step H matrix
-!> @todo Add metafounders
+!> @todo Add metafounders --> make it work such that one provide an existing Nrm and then computation of Nrm follows from there
 !> @todo Add haplotype relationships
 !> @todo Yob option in PedInbreedingRecursive doesn't do much on incomplete pedigrees
 !!       because PedigreeModule inserts dummy parents, hence nobody has missing parent,
@@ -195,11 +223,12 @@ module AlphaRelateModule
     ! - see https://software.intel.com/en-us/node/471382#C62A5095-C2EE-4AAD-AAA6-589230521A55
     ! @todo: create dense and sparse version?
     contains
-      procedure :: Init    => InitNrm
-      procedure :: Destroy => DestroyNrm
-      procedure :: MatchId => MatchIdNrm
-      procedure :: Write   => WriteNrm
-      procedure :: Read    => ReadNrm
+      procedure :: Init       => InitNrm
+      procedure :: Destroy    => DestroyNrm
+      procedure :: MatchId    => MatchIdNrm
+      procedure :: Write      => WriteNrm
+      procedure :: Read       => ReadNrm
+      procedure :: Inbreeding => InbreedingNrm
   end type
 
   !> @brief AlphaRelate specifications
@@ -292,7 +321,7 @@ module AlphaRelateModule
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "
       write(STDOUT, "(a)") ""
-      write(STDOUT, "(a)") "                       Commit:   "//TOSTRING(COMMIT),"                        "
+      write(STDOUT, "(a)") "                       Commit:   "//TOSTRING(COMMIT)//"                       "
       write(STDOUT, "(a)") "                       Compiled: "//__DATE__//", "//__TIME__
       write(STDOUT, "(a)") ""
     end subroutine
@@ -1037,6 +1066,25 @@ module AlphaRelateModule
           end do
         end if
         close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Extract inbreeding from the Nrm
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 15, 2017
+      !-------------------------------------------------------------------------
+      subroutine InbreedingNrm(This, Inb)
+        implicit none
+        class(Nrm), intent(in)        :: This !< Nrm holder
+        type(Inbreeding), intent(out) :: Inb  !< @return Inbreeding holder
+        integer(int32) :: Ind
+        call Inb%Init(nInd=This%nInd)
+        Inb%OriginalId = This%OriginalId
+        do Ind = 1, Inb%nInd
+          Inb%Inb(Ind) = This%Nrm(Ind, Ind) - 1.0d0
+        end do
       end subroutine
 
       !#########################################################################
@@ -3273,7 +3321,7 @@ module AlphaRelateModule
             end block
 
           case ("nejati-javaremi")
-            ! Simple sharing of alternative alleles (calculated via matrix multiplication)
+            ! Simple 2 * proprotion of shared alternative alleles (calculated via matrix multiplication)
             block
               real(real64) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
               ! Setup
@@ -3302,6 +3350,17 @@ module AlphaRelateModule
               This%GenNrm%Nrm(0:This%GenNrm%nInd, 0) = 0.0d0
               This%GenNrm%Nrm(0, 0:This%GenNrm%nInd) = 0.0d0
             end block
+
+          case ("gorjanc1")
+            ! Average 2 * proportion of shared alternative alleles (calculated via linear model accounting for variance at each locus)
+            block
+              integer(int32) :: Ind
+              do Ind = 1, This%Gen%nInd
+                ! First compute Simple 2 * proprotion of shared alternative alleles (calculated via matrix multiplication)
+                ! Then calculate mean
+              end do
+            end block
+
         end select
 
         if (Spec%FudgeGenNrmDiag) then

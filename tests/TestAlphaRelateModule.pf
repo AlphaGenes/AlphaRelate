@@ -1132,6 +1132,35 @@ module TestAlphaRelateModule
 
       !#########################################################################
 
+      @test
+      subroutine TestInbreedingNrm
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        type(Inbreeding) :: Inb
+        integer :: Ind
+
+        call CreateTinyPedigreeFile
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+        call Data%CalcPedNrm(Spec=Spec)
+        call Data%CalcPedInbreeding
+        call Data%PedNrm%Inbreeding(Inb=Inb)
+
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        do Ind = 0, Data%PedInbreeding%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Inb(Ind), Inb%Inb(Ind)
+          @AssertEqual(Data%PedInbreeding%Inb(Ind), Inb%Inb(Ind), "Inbreeding method for the Nrm object failed")
+        end do
+        call Data%Destroy
+        call Inb%Destroy
+        call DeletePedigreeFile
+      end subroutine
+
+      !#########################################################################
+
     !###########################################################################
 
     ! AlphaRelateData type tests
