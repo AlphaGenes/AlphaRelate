@@ -1149,18 +1149,18 @@ module TestAlphaRelateModule
         call Data%CalcPedInbreeding
         call Data%PedNrm%Inbreeding(Inb=Inb)
 
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Value(Ind), Inb%Value(Ind)
-          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the RelMat object failed - NRM")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Inb%Value(Ind), Data%PedInbreeding%Value(Ind)
+          @AssertEqual(Inb%Value(Ind), Data%PedInbreeding%Value(Ind), "Inbreeding method for the RelMat object failed - NRM")
         end do
 
         call Data%PedNrm%Nrm2Coancestry
         call Data%PedNrm%Inbreeding(Inb=Inb, Nrm=.false.)
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Value(Ind), Inb%Value(Ind)
-          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the RelMat object failed - (coancestry)")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Inb%Value(Ind), Data%PedInbreeding%Value(Ind)
+          @AssertEqual(Inb%Value(Ind), Data%PedInbreeding%Value(Ind), "Inbreeding method for the RelMat object failed - (coancestry)")
         end do
 
         call Data%Destroy
@@ -1171,7 +1171,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestNrm2Coancestry
+      subroutine TestNrm2CoancestryRelMat
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -1189,17 +1189,17 @@ module TestAlphaRelateModule
         Coancestry%Value = Coancestry%Value / 2.0d0
 
         call Data%PedNrm%Nrm2Coancestry
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%PedNrm%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Data%PedNrm%Value(Ind, 1), Coancestry%Value(Ind, 1)
-          @AssertEqual(Data%PedNrm%Value(Ind, 1), Coancestry%Value(Ind, 1), "Nrm2Coancestry method for the RelMat object failed")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Coancestry%Value(Ind, 1), Data%PedNrm%Value(Ind, 1)
+          @AssertEqual(Coancestry%Value(Ind, 1), Data%PedNrm%Value(Ind, 1), "Nrm2Coancestry method for the RelMat object failed")
         end do
 
         call Data%PedNrm%Coancestry2Nrm
-        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%PedNrm%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Data%PedNrm%Value(Ind, 1), Nrm%Value(Ind, 1)
-          @AssertEqual(Data%PedNrm%Value(Ind, 1), Nrm%Value(Ind, 1), "Coancestry2Nrm method for the RelMat object failed")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Nrm%Value(Ind, 1), Data%PedNrm%Value(Ind, 1)
+          @AssertEqual(Nrm%Value(Ind, 1), Data%PedNrm%Value(Ind, 1), "Coancestry2Nrm method for the RelMat object failed")
         end do
 
         call Data%Destroy
@@ -1207,6 +1207,35 @@ module TestAlphaRelateModule
         call Coancestry%Destroy
         call DeletePedigreeFile
       end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestInvertRelMat
+        implicit none
+        type(RelMat) :: Nrm, ExpNrmInv
+        integer(int32) :: Ind1, Ind2
+
+        call Nrm%Init(nInd=2)
+        Nrm%Value(1:2, 1) = [1.0d0, 0.5d0]
+        Nrm%Value(1:2, 2) = [0.5d0, 1.0d0]
+
+        call ExpNrmInv%Init(nInd=2)
+        ExpNrmInv%Value(1:2, 1) = [ 4.0d0 / 3.0d0, -2.0d0 / 3.0d0]
+        ExpNrmInv%Value(1:2, 2) = [-2.0d0 / 3.0d0,  4.0d0 / 3.0d0]
+
+        call Nrm%Invert
+        do Ind1 = 0, Nrm%nInd
+          do Ind2 = 0, Nrm%nInd
+            @AssertEqual(ExpNrmInv%Value(Ind1, Ind2), Nrm%Value(Ind1, Ind2), 0.00000001d0,  "Invert method for the RelMat object failed")
+          end do
+        end do
+
+        call Nrm%Destroy
+        call ExpNrmInv%Destroy
+      end subroutine
+
+      !#########################################################################
 
     !###########################################################################
 

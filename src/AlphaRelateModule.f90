@@ -231,6 +231,8 @@ module AlphaRelateModule
       procedure :: Inbreeding     => InbreedingRelMat
       procedure :: Nrm2Coancestry => Nrm2CoancestryRelMat
       procedure :: Coancestry2Nrm => Coancestry2NrmRelMat
+      procedure :: Invert         => InvertRelMat
+
   end type
 
   !> @brief AlphaRelate specifications
@@ -1130,6 +1132,56 @@ module AlphaRelateModule
       end subroutine
 
       !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Invert RelMat
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 15, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine InvertRelMat(This, Info)
+        implicit none
+        class(RelMat), intent(inout)   :: This !< @return RelMat holder
+        logical, intent(out), optional :: Info !< @return Success of inversion (.true.) or failure (.false.)
+
+        integer(int32) :: Ind
+        integer :: InfoInt
+        logical :: InfoInternal
+
+        InfoInt = 0
+        InfoInternal = .true.
+
+        ! @todo make the code bellow as InvertSpdMatrix subroutine, perhaps in module AlphaMatrixModule
+
+        ! Cholesky factorization of a symmetric positive definite matrix
+        ! https://software.intel.com/en-us/node/468690
+        ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+        ! call potrf(A=This%Value(1:This%nInd, 1:This%nInd), Info=InfoInt)
+        call potrf(A=This%Value(1:This%nInd, 1:This%nInd))
+
+        if (InfoInt == 0) then
+          ! Inverse based on the Cholesky factor obtained with potrf()
+          ! https://software.intel.com/en-us/node/468824
+          ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
+          ! call potri(A=This%Value(1:This%nInd, 1:This%nInd), Info=InfoInt)
+          call potri(A=This%Value(1:This%nInd, 1:This%nInd))
+          if (InfoInt == 0) then
+            ! Fill the other (lower) triangle @todo consider symmetric
+            do Ind = 1, This%nInd
+              This%Value((Ind + 1):This%nInd, Ind) = This%Value(Ind, (Ind + 1):This%nInd)
+            end do
+          else
+            InfoInternal = .false.
+          end if
+        else
+          InfoInternal = .false.
+        end if
+        if (present(Info)) then
+          Info = InfoInternal
+        end if
+      end subroutine
+
+      !#########################################################################
+
 
     !###########################################################################
 
@@ -3488,9 +3540,6 @@ module AlphaRelateModule
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
         logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
 
-        integer(int32) :: Ind
-        integer :: InfoInt
-
         if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
@@ -3499,34 +3548,7 @@ module AlphaRelateModule
         This%GenNrmInv%Id = This%GenNrm%Id
         This%GenNrmInv%Value = This%GenNrm%Value
 
-        Info = .true.
-        InfoInt = 0
-
-        ! @todo make the code bellow as InvertSpdMatrix routine, perhaps in module AlphaMatrixModule
-
-        ! Cholesky factorization of a symmetric positive definite matrix
-        ! https://software.intel.com/en-us/node/468690
-        ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-        ! call potrf(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
-        call potrf(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
-
-        if (InfoInt == 0) then
-          ! Inverse based on the Cholesky factor obtained with potrf()
-          ! https://software.intel.com/en-us/node/468824
-          ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-          ! call potri(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd), Info=InfoInt)
-          call potri(A=This%GenNrmInv%Value(1:This%GenNrmInv%nInd, 1:This%GenNrmInv%nInd))
-          if (InfoInt == 0) then
-            ! Fill the other (lower) triangle @todo consider symmetric
-            do Ind = 1, This%GenNrmInv%nInd
-              This%GenNrmInv%Value((Ind + 1):This%GenNrmInv%nInd, Ind) = This%GenNrmInv%Value(Ind, (Ind + 1):This%GenNrmInv%nInd)
-            end do
-          else
-            Info = .false.
-          end if
-        else
-          Info = .false.
-        end if
+        call This%GenNrmInv%Invert(Info)
       end subroutine
 
       !#########################################################################
@@ -3622,9 +3644,6 @@ module AlphaRelateModule
         class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
         logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
 
-        integer(int32) :: Ind
-        integer :: InfoInt
-
         if (.not. allocated(This%HapIbdNrm%Value)) then
           call This%CalcHapIbdNrm(Spec=Spec)
         end if
@@ -3633,34 +3652,7 @@ module AlphaRelateModule
         This%HapIbdNrmInv%Id = This%HapIbdNrm%Id
         This%HapIbdNrmInv%Value = This%HapIbdNrm%Value
 
-        Info = .true.
-        InfoInt = 0
-
-        ! @todo make the code bellow as InvertSpdMatrix routine, perhaps in module AlphaMatrixModule
-
-        ! Cholesky factorization of a symmetric positive definite matrix
-        ! https://software.intel.com/en-us/node/468690
-        ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-        ! call potrf(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
-        call potrf(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
-
-        if (InfoInt == 0) then
-          ! Inverse based on the Cholesky factor obtained with potrf()
-          ! https://software.intel.com/en-us/node/468824
-          ! @todo how to get InfoInt to work? I got this error #6285: There is no matching specific subroutine for this generic subroutine call
-          ! call potri(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd), Info=InfoInt)
-          call potri(A=This%HapIbdNrmInv%Value(1:This%HapIbdNrmInv%nInd, 1:This%HapIbdNrmInv%nInd))
-          if (InfoInt == 0) then
-            ! Fill the other (lower) triangle @todo consider symmetric
-            do Ind = 1, This%HapIbdNrmInv%nInd
-              This%HapIbdNrmInv%Value((Ind + 1):This%HapIbdNrmInv%nInd, Ind) = This%HapIbdNrmInv%Value(Ind, (Ind + 1):This%HapIbdNrmInv%nInd)
-            end do
-          else
-            Info = .false.
-          end if
-        else
-          Info = .false.
-        end if
+        call This%HapIbdNrmInv%Invert(Info)
       end subroutine
 
       !#########################################################################
