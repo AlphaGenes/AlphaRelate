@@ -223,12 +223,14 @@ module AlphaRelateModule
     ! - see https://software.intel.com/en-us/node/471382#C62A5095-C2EE-4AAD-AAA6-589230521A55
     ! @todo: create dense and sparse version?
     contains
-      procedure :: Init       => InitRelMat
-      procedure :: Destroy    => DestroyRelMat
-      procedure :: MatchId    => MatchIdRelMat
-      procedure :: Write      => WriteRelMat
-      procedure :: Read       => ReadRelMat
-      procedure :: Inbreeding => InbreedingRelMat
+      procedure :: Init           => InitRelMat
+      procedure :: Destroy        => DestroyRelMat
+      procedure :: MatchId        => MatchIdRelMat
+      procedure :: Write          => WriteRelMat
+      procedure :: Read           => ReadRelMat
+      procedure :: Inbreeding     => InbreedingRelMat
+      procedure :: Nrm2Coancestry => Nrm2CoancestryRelMat
+      procedure :: Coancestry2Nrm => Coancestry2NrmRelMat
   end type
 
   !> @brief AlphaRelate specifications
@@ -1075,17 +1077,56 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   March 15, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InbreedingRelMat(This, Inb)
+      pure subroutine InbreedingRelMat(This, Inb, Nrm)
         implicit none
         class(RelMat), intent(in)     :: This !< RelMat holder
         type(Inbreeding), intent(out) :: Inb  !< @return Inbreeding holder
+        logical, intent(in), optional :: Nrm  !< Is This a numerator relationship (default) or coancestry matrix?
+        logical :: NrmInternal
         integer(int32) :: Ind
+        real(real64) :: Factor
+        if (present(Nrm)) then
+          NrmInternal = Nrm
+        else
+          NrmInternal = .true.
+        end if
+        if (NrmInternal) then
+          Factor = 1.0d0
+        else
+          Factor = 2.0d0
+        end if
         call Inb%Init(nInd=This%nInd)
         Inb%OriginalId = This%OriginalId
         Inb%Id = This%Id
         do Ind = 1, Inb%nInd
-          Inb%Value(Ind) = This%Value(Ind, Ind) - 1.0d0
+          Inb%Value(Ind) = (Factor * This%Value(Ind, Ind)) - 1.0d0
         end do
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Convert Nrm to coancestry (it changes the object)
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 15, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine Nrm2CoancestryRelMat(This)
+        implicit none
+        class(RelMat), intent(inout)  :: This !< RelMat holder
+        This%Value = This%Value / 2.0d0
+      end subroutine
+
+      !#########################################################################
+
+      !-------------------------------------------------------------------------
+      !> @brief  Convert coancestry to Nrm to  (it changes the object)
+      !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+      !> @date   March 15, 2017
+      !-------------------------------------------------------------------------
+      pure subroutine Coancestry2NrmRelMat(This)
+        implicit none
+        class(RelMat), intent(inout)  :: This !< RelMat holder
+        This%Value = This%Value * 2.0d0
       end subroutine
 
       !#########################################################################

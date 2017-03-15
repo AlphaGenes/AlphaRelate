@@ -1001,12 +1001,12 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    ! Nrm type tests
+    ! RelMat type tests
 
       !#########################################################################
 
       @test
-      subroutine TestWriteReadNrm
+      subroutine TestWriteReadRelMat
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data, Data2
@@ -1054,7 +1054,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestMatchIdNrm
+      subroutine TestMatchIdRelMat
         implicit none
         type(RelMat) :: x
         character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
@@ -1072,13 +1072,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 1")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 1b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 1b")
         end do
 
         call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
@@ -1086,13 +1086,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 2")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 2b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 2b")
         end do
 
         deallocate(Id2)
@@ -1103,13 +1103,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 3")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 3b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 3b")
         end do
 
         call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
@@ -1117,13 +1117,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 4")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchIdNrm broken 4b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 4b")
         end do
         deallocate(Id1)
         deallocate(Id2)
@@ -1133,7 +1133,7 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestInbreedingNrm
+      subroutine TestInbreedingRelMat
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
@@ -1152,14 +1152,61 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
         do Ind = 0, Data%PedInbreeding%nInd
           ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Value(Ind), Inb%Value(Ind)
-          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the Nrm object failed")
+          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the RelMat object failed - NRM")
         end do
+
+        call Data%PedNrm%Nrm2Coancestry
+        call Data%PedNrm%Inbreeding(Inb=Inb, Nrm=.false.)
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        do Ind = 0, Data%PedInbreeding%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Value(Ind), Inb%Value(Ind)
+          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the RelMat object failed - (coancestry)")
+        end do
+
         call Data%Destroy
         call Inb%Destroy
         call DeletePedigreeFile
       end subroutine
 
       !#########################################################################
+
+      @test
+      subroutine TestNrm2Coancestry
+        implicit none
+        type(AlphaRelateSpec) :: Spec
+        type(AlphaRelateData) :: Data
+        type(RelMat) :: Nrm, Coancestry
+        integer(int32) :: Ind
+
+        call CreateTinyPedigreeFile
+        call Spec%Init
+        Spec%PedigreeGiven = .true.
+        Spec%PedigreeFile = TESTPEDFILE
+        call Data%Read(Spec=Spec)
+        call Data%CalcPedNrm(Spec=Spec)
+        Nrm = Data%PedNrm
+        Coancestry = Nrm
+        Coancestry%Value = Coancestry%Value / 2.0d0
+
+        call Data%PedNrm%Nrm2Coancestry
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        do Ind = 0, Data%PedNrm%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Data%PedNrm%Value(Ind, 1), Coancestry%Value(Ind, 1)
+          @AssertEqual(Data%PedNrm%Value(Ind, 1), Coancestry%Value(Ind, 1), "Nrm2Coancestry method for the RelMat object failed")
+        end do
+
+        call Data%PedNrm%Coancestry2Nrm
+        ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
+        do Ind = 0, Data%PedNrm%nInd
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedNrm%OriginalId(Ind), Data%PedNrm%Value(Ind, 1), Nrm%Value(Ind, 1)
+          @AssertEqual(Data%PedNrm%Value(Ind, 1), Nrm%Value(Ind, 1), "Coancestry2Nrm method for the RelMat object failed")
+        end do
+
+        call Data%Destroy
+        call Nrm%Destroy
+        call Coancestry%Destroy
+        call DeletePedigreeFile
+      end subroutine
 
     !###########################################################################
 
