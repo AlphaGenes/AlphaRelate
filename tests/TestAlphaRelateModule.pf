@@ -907,8 +907,8 @@ module TestAlphaRelateModule
         end do
         ! write(STDOUT, "(i8, a1, 2a16)") "Ind", " ", "Expected", "Observed"
         do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind)
-          @AssertEqual(Data%PedInbreeding%Inb(Ind), Data2%PedInbreeding%Inb(Ind), "Pedigree inbreeding value was not written/read correctly")
+          ! write(STDOUT, "(i8, a1, 2f16.8)") Ind, Data%PedInbreeding%Value(Ind), Data2%PedInbreeding%Value(Ind)
+          @AssertEqual(Data%PedInbreeding%Value(Ind), Data2%PedInbreeding%Value(Ind), "Pedigree inbreeding value was not written/read correctly")
         end do
 
         call Data%Destroy
@@ -1151,8 +1151,8 @@ module TestAlphaRelateModule
 
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Calculated", "Expected"
         do Ind = 0, Data%PedInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Inb(Ind), Inb%Inb(Ind)
-          @AssertEqual(Data%PedInbreeding%Inb(Ind), Inb%Inb(Ind), "Inbreeding method for the Nrm object failed")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%PedInbreeding%OriginalId(Ind), Data%PedInbreeding%Value(Ind), Inb%Value(Ind)
+          @AssertEqual(Data%PedInbreeding%Value(Ind), Inb%Value(Ind), "Inbreeding method for the Nrm object failed")
         end do
         call Data%Destroy
         call Inb%Destroy
@@ -1409,8 +1409,8 @@ module TestAlphaRelateModule
         ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.125, 0.125]
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
-          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly - tiny example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind), "Pedigree inbreeding is not calculated correctly - tiny example")
         end do
         deallocate(ExpPedInbreeding)
         call Data%Destroy
@@ -1441,8 +1441,8 @@ module TestAlphaRelateModule
                                                 0.375,  0.4375, 0.5, 0.5, 0.5, 0.59375, 0.59375, 0.375, 0.484375, 0.4296875]
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
-          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly - example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind), "Pedigree inbreeding is not calculated correctly - example")
         end do
         deallocate(ExpPedInbreeding)
         call Data%Destroy
@@ -1502,8 +1502,8 @@ module TestAlphaRelateModule
         ExpPedInbreeding(0:Data%RecPed%nInd) = [-1.0, 0.0, 0.0, 0.000, 0.0, 0.0, 0.0, 0.125, 0.125, 0.000]
         ! write(STDOUT, "(3a9, 2a16)") " ", " ", "     Year", "Expected", "Calculated"
         do Ind = 0, Data%RecPed%nInd
-          ! write(STDOUT, "(i8, 1x, a9, i9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%Yob%Yob(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind)
-          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Inb(Ind), "Pedigree inbreeding is not calculated correctly with iterative recursive algorithm - tiny example")
+          ! write(STDOUT, "(i8, 1x, a9, i9, 2f16.8)") Ind, Data%RecPed%OriginalId(Ind), Data%Yob%Yob(Ind), ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind)
+          @AssertEqual(ExpPedInbreeding(Ind), Data%PedInbreeding%Value(Ind), "Pedigree inbreeding is not calculated correctly with iterative recursive algorithm - tiny example")
         end do
         deallocate(ExpPedInbreeding)
         call Data%Destroy
@@ -1768,7 +1768,7 @@ module TestAlphaRelateModule
         ! This application of PedNrmTimesVector() is to get the 7th column of Pedigree NRM
         x = [0, 0, 0, 0, 0, 0, 0, 1]
         CalPedNrmColumn = PedNrmTimesVector(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd,&
-                                            Inbreeding=Data%PedInbreeding%Inb,&
+                                            Inbreeding=Data%PedInbreeding%Value,&
                                             Vector=x)
         ExpPedNrmColumn(0:Data%RecPed%nInd) = [0.00, 0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250]
 
@@ -1873,7 +1873,7 @@ module TestAlphaRelateModule
         allocate(ExpPedNrmInv(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
 
         call Data%CalcPedInbreeding()
-        CalPedNrmInv = PedNrmInv(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd, Inbreeding=Data%PedInbreeding%Inb)
+        CalPedNrmInv = PedNrmInv(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd, Inbreeding=Data%PedInbreeding%Value)
         ExpPedNrmInv(0:Data%RecPed%nInd, 0) = [0.0,  0.0,  0.0000000,  0.0,  0.0,  0.0,  0.0000000,  0.000000]
         ExpPedNrmInv(0:Data%RecPed%nInd, 1) = [0.0,  2.0,  0.5000000,  0.5, -1.0, -1.0,  0.0000000,  0.000000]
         ExpPedNrmInv(0:Data%RecPed%nInd, 2) = [0.0,  0.5,  2.0333333,  0.0, -1.0,  0.0,  0.5333333, -1.066667]
@@ -2759,8 +2759,8 @@ module TestAlphaRelateModule
         ! call Data%Write
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%GenInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%GenInbreeding%OriginalId(Ind), ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind)
-          @AssertEqual(ExpGenInbreeding(Ind), Data%GenInbreeding%Inb(Ind), 0.000001d0, "Genotype inbreeding is not calculated correctly - tiny example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%GenInbreeding%OriginalId(Ind), ExpGenInbreeding(Ind), Data%GenInbreeding%Value(Ind)
+          @AssertEqual(ExpGenInbreeding(Ind), Data%GenInbreeding%Value(Ind), 0.000001d0, "Genotype inbreeding is not calculated correctly - tiny example")
         end do
         deallocate(ExpGenInbreeding)
         call Data%Destroy
@@ -3013,8 +3013,8 @@ module TestAlphaRelateModule
         ! call Data%Write
         ! write(STDOUT, "(2a9, 2a16)") " ", " ", "Expected", "Calculated"
         do Ind = 0, Data%HapIbdInbreeding%nInd
-          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%HapIbdInbreeding%OriginalId(Ind), ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Inb(Ind)
-          @AssertEqual(ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Inb(Ind), 0.000001d0, "Haplotype IBD inbreeding is not calculated correctly - tiny example")
+          ! write(STDOUT, "(i8, a1, a9, 2f16.8)") Ind, Data%HapIbdInbreeding%OriginalId(Ind), ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Value(Ind)
+          @AssertEqual(ExpHapIbdInbreeding(Ind), Data%HapIbdInbreeding%Value(Ind), 0.000001d0, "Haplotype IBD inbreeding is not calculated correctly - tiny example")
         end do
         deallocate(ExpHapIbdInbreeding)
         call Data%Destroy

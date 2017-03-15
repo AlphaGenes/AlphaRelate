@@ -202,7 +202,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:)            :: Inb
+    real(real64), allocatable, dimension(:)            :: Value
     contains
       procedure :: Init    => InitInbreeding
       procedure :: Destroy => DestroyInbreeding
@@ -709,15 +709,15 @@ module AlphaRelateModule
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
-        if (allocated(This%Inb)) then
-          deallocate(This%Inb)
+        if (allocated(This%Value)) then
+          deallocate(This%Value)
         end if
-        allocate(This%Inb(0:nInd))
-        This%Inb(0) = -1.0d0
+        allocate(This%Value(0:nInd))
+        This%Value(0) = -1.0d0
         if (present(InbInput)) then
-          This%Inb(1:nInd) = InbInput
+          This%Value(1:nInd) = InbInput
         else
-          This%Inb(1:nInd) = 0.0d0
+          This%Value(1:nInd) = 0.0d0
         end if
       end subroutine
 
@@ -738,8 +738,8 @@ module AlphaRelateModule
         if (allocated(This%Id)) then
          deallocate(This%Id)
         end if
-        if (allocated(This%Inb)) then
-         deallocate(This%Inb)
+        if (allocated(This%Value)) then
+         deallocate(This%Value)
         end if
       end subroutine
 
@@ -801,7 +801,7 @@ module AlphaRelateModule
         end if
         Fmt = "(a"//Int2Char(IDLENGTH)//", "//OutputFormatInternal//")"
         do Ind = 1, This%nInd
-          write(Unit, Fmt) This%OriginalId(Ind), This%Inb(Ind)
+          write(Unit, Fmt) This%OriginalId(Ind), This%Value(Ind)
         end do
         if (present(File)) then
           close(Unit)
@@ -826,7 +826,7 @@ module AlphaRelateModule
         call This%Init(nInd=nInd)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, nInd
-          read(Unit, *) This%OriginalId(Ind), This%Inb(Ind)
+          read(Unit, *) This%OriginalId(Ind), This%Value(Ind)
         end do
         close(Unit)
       end subroutine
@@ -1083,7 +1083,7 @@ module AlphaRelateModule
         call Inb%Init(nInd=This%nInd)
         Inb%OriginalId = This%OriginalId
         do Ind = 1, Inb%nInd
-          Inb%Inb(Ind) = This%Value(Ind, Ind) - 1.0d0
+          Inb%Value(Ind) = This%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
@@ -3033,14 +3033,14 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
         call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
-        This%PedInbreeding%Inb = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
+        This%PedInbreeding%Value = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
         ! if (.not. allocated(This%Yob%OriginalId)) then
-        !   This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
-        !                                                   nInd=This%PedInbreeding%nInd)
+        !   This%PedInbreeding%Value = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+        !                                                     nInd=This%PedInbreeding%nInd)
         ! else
-        !   This%PedInbreeding%Inb = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
-        !                                                   nInd=This%PedInbreeding%nInd, &
-        !                                                   Yob=This%Yob%Yob)
+        !   This%PedInbreeding%Value = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
+        !                                                     nInd=This%PedInbreeding%nInd, &
+        !                                                     Yob=This%Yob%Yob)
         ! end if
       end subroutine
 
@@ -3074,7 +3074,7 @@ module AlphaRelateModule
               xPos = This%PedNrmSubset%Id(Ind)
               x(xPos) = 1.0d0
               NrmCol = PedNrmTimesVector(RecPed=This%RecPed%Id, nInd=This%RecPed%nInd,&
-                                         Inbreeding=This%PedInbreeding%Inb, Vector=x)
+                                         Inbreeding=This%PedInbreeding%Value, Vector=x)
               This%PedNrm%Value(0:This%PedNrm%nInd, Ind) = NrmCol(This%PedNrmSubset%Id)
               x(xPos) = 0.0d0
             end do
@@ -3147,13 +3147,13 @@ module AlphaRelateModule
       pure subroutine CalcPedNrmInvAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-        if (.not. allocated(This%PedInbreeding%Inb)) then
+        if (.not. allocated(This%PedInbreeding%Value)) then
           call This%CalcPedInbreeding
         end if
         call This%PedNrmInv%Init(nInd=This%RecPed%nInd)
         This%PedNrmInv%OriginalId = This%RecPed%OriginalId
         This%PedNrmInv%Value = PedNrmInv(RecPed=This%RecPed%Id, nInd=This%PedNrmInv%nInd,&
-                                         Inbreeding=This%PedInbreeding%Inb)
+                                         Inbreeding=This%PedInbreeding%Value)
       end subroutine
 
       !#########################################################################
@@ -3439,7 +3439,7 @@ module AlphaRelateModule
         This%GenInbreeding%OriginalId = This%GenNrm%OriginalId
         This%GenInbreeding%Id = This%GenNrm%Id
         do Ind = 1, This%GenInbreeding%nInd
-          This%GenInbreeding%Inb(Ind) = This%GenNrm%Value(Ind, Ind) - 1.0d0
+          This%GenInbreeding%Value(Ind) = This%GenNrm%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
@@ -3581,7 +3581,7 @@ module AlphaRelateModule
         This%HapIbdInbreeding%OriginalId = This%HapIbdNrm%OriginalId
         This%HapIbdInbreeding%Id = This%HapIbdNrm%Id
         do Ind = 1, This%HapIbdInbreeding%nInd
-          This%HapIbdInbreeding%Inb(Ind) = This%HapIbdNrm%Value(Ind, Ind) - 1.0d0
+          This%HapIbdInbreeding%Value(Ind) = This%HapIbdNrm%Value(Ind, Ind) - 1.0d0
         end do
       end subroutine
 
