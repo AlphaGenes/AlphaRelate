@@ -104,7 +104,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    integer(int32), allocatable, dimension(:)          :: Yob
+    integer(int32), allocatable, dimension(:)          :: Value
     contains
       procedure :: Init    => InitYob
       procedure :: Destroy => DestroyYob
@@ -540,15 +540,15 @@ module AlphaRelateModule
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
-        if (allocated(This%Yob)) then
-          deallocate(This%Yob)
+        if (allocated(This%Value)) then
+          deallocate(This%Value)
         end if
-        allocate(This%Yob(0:nInd))
-        This%Yob(0) = 0
+        allocate(This%Value(0:nInd))
+        This%Value(0) = 0
         if (present(YobInput)) then
-          This%Yob(1:nInd) = YobInput
+          This%Value(1:nInd) = YobInput
         else
-          This%Yob(1:nInd) = 0
+          This%Value(1:nInd) = 0
         end if
       end subroutine
 
@@ -569,8 +569,8 @@ module AlphaRelateModule
         if (allocated(This%Id)) then
          deallocate(This%Id)
         end if
-        if (allocated(This%Yob)) then
-         deallocate(This%Yob)
+        if (allocated(This%Value)) then
+         deallocate(This%Value)
         end if
       end subroutine
 
@@ -625,7 +625,7 @@ module AlphaRelateModule
         end if
         Fmt = "(a"//Int2Char(IDLENGTH)//", i0)"
         do Ind = 1, This%nInd
-          write(Unit, Fmt) This%OriginalId(Ind), This%Yob(Ind)
+          write(Unit, Fmt) This%OriginalId(Ind), This%Value(Ind)
         end do
         if (present(File)) then
           close(Unit)
@@ -650,7 +650,7 @@ module AlphaRelateModule
         call This%Init(nInd=nInd)
         open(newunit=Unit, file=trim(File), action="read", status="old")
         do Ind = 1, nInd
-          read(Unit, *) This%OriginalId(Ind), This%Yob(Ind)
+          read(Unit, *) This%OriginalId(Ind), This%Value(Ind)
         end do
         close(Unit)
       end subroutine
@@ -1079,10 +1079,10 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   March 15, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InbreedingRelMat(This, Inb, Nrm)
+      pure subroutine InbreedingRelMat(This, Out, Nrm)
         implicit none
         class(RelMat), intent(in)     :: This !< RelMat holder
-        type(Inbreeding), intent(out) :: Inb  !< @return Inbreeding holder
+        type(Inbreeding), intent(out) :: Out  !< @return Inbreeding holder
         logical, intent(in), optional :: Nrm  !< Is This a numerator relationship (default) or coancestry matrix?
         logical :: NrmInternal
         integer(int32) :: Ind
@@ -1097,11 +1097,11 @@ module AlphaRelateModule
         else
           Factor = 2.0d0
         end if
-        call Inb%Init(nInd=This%nInd)
-        Inb%OriginalId = This%OriginalId
-        Inb%Id = This%Id
-        do Ind = 1, Inb%nInd
-          Inb%Value(Ind) = (Factor * This%Value(Ind, Ind)) - 1.0d0
+        call Out%Init(nInd=This%nInd)
+        Out%OriginalId = This%OriginalId
+        Out%Id = This%Id
+        do Ind = 1, Out%nInd
+          Out%Value(Ind) = (Factor * This%Value(Ind, Ind)) - 1.0d0
         end do
       end subroutine
 
@@ -2711,7 +2711,7 @@ module AlphaRelateModule
               ! @end todo
               call This%Yob%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId(1:This%RecPed%nInd))
               do Ind = 1, YobTmp%nInd
-                This%Yob%Yob(YobTmp%Id(Ind)) = YobTmp%Yob(Ind)
+                This%Yob%Value(YobTmp%Id(Ind)) = YobTmp%Value(Ind)
               end do
             end block
           end if
@@ -3134,7 +3134,7 @@ module AlphaRelateModule
         ! else
         !   This%PedInbreeding%Value = PedInbreedingRecursive(RecPed=This%RecPed%Id, &
         !                                                     nInd=This%PedInbreeding%nInd, &
-        !                                                     Yob=This%Yob%Yob)
+        !                                                     Yob=This%Yob%Value)
         ! end if
       end subroutine
 
