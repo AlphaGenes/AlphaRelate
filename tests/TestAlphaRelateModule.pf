@@ -877,12 +877,12 @@ module TestAlphaRelateModule
 
     !###########################################################################
 
-    ! Inbreeding type tests
+    ! InbVec type tests
 
       !#########################################################################
 
       @test
-      subroutine TestReadWriteInbreeding
+      subroutine TestReadWriteInbVec
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data, Data2
@@ -921,9 +921,9 @@ module TestAlphaRelateModule
       !#########################################################################
 
       @test
-      subroutine TestMatchInbreeding
+      subroutine TestMatchInbVec
         implicit none
-        type(Inbreeding) :: x
+        type(InbVec) :: x
         character(len=IDLENGTH), allocatable, dimension(:) :: Id1, Id2
         integer(int32) :: i
         integer(int32), allocatable, dimension(:) :: IdExp
@@ -939,13 +939,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 1")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 1b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 1b")
         end do
 
         call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
@@ -953,13 +953,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 2")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 2b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 2b")
         end do
 
         deallocate(Id2)
@@ -970,13 +970,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 3")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 3b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 3b")
         end do
 
         call x%MatchId(OriginalIdSuperset=Id2, Skip=1)
@@ -984,13 +984,13 @@ module TestAlphaRelateModule
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 4")
         end do
         call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
-          @AssertEqual(x%Id(i), IdExp(i), "MatchInbreeding broken 4b")
+          @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 4b")
         end do
         deallocate(Id1)
         deallocate(Id2)
@@ -1137,7 +1137,7 @@ module TestAlphaRelateModule
         implicit none
         type(AlphaRelateSpec) :: Spec
         type(AlphaRelateData) :: Data
-        type(Inbreeding) :: Inb
+        type(InbVec) :: Inb
         integer :: Ind
 
         call CreateTinyPedigreeFile

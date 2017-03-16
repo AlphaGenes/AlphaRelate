@@ -80,7 +80,7 @@ module AlphaRelateModule
 
   private
   ! Types
-  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, Inbreeding
+  public :: AlphaRelateTitle, AlphaRelateSpec, AlphaRelateData, IndSet, Yob, InbVec
   public :: RelMat, AlleleFreq, LocusWeight, GenotypeArray, HaplotypeIbdArray !HaplotypeArray
   ! Functions
   public :: PedInbreedingRecursive, PedInbreedingMeuwissenLuo, PedGeneFlow, PedNrm, PedNrmTimesVector, PedNrmInv
@@ -100,7 +100,8 @@ module AlphaRelateModule
 
   !> @brief Year of birth/generation holder
   type Yob
-    ! @todo this should go into the type individual
+    ! @todo this should be really called IndSetIntVec or better go into the type individual
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
@@ -196,19 +197,20 @@ module AlphaRelateModule
       procedure :: Read    => ReadHaplotypeIbdArray
   end type
 
-  !> @brief Inbreeding holder
-  type Inbreeding
+  !> @brief Inbreeding vector holder
+  type InbVec
     ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo this should be really called IndSetRealVec or better go into the type individual
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     real(real64), allocatable, dimension(:)            :: Value
     contains
-      procedure :: Init    => InitInbreeding
-      procedure :: Destroy => DestroyInbreeding
-      procedure :: MatchId => MatchIdInbreeding
-      procedure :: Write   => WriteInbreeding
-      procedure :: Read    => ReadInbreeding
+      procedure :: Init    => InitInbVec
+      procedure :: Destroy => DestroyInbVec
+      procedure :: MatchId => MatchIdInbVec
+      procedure :: Write   => WriteInbVec
+      procedure :: Read    => ReadInbVec
   end type
 
   !> @brief Numerator relationship matrix (or its inverse) holder
@@ -270,7 +272,7 @@ module AlphaRelateModule
     type(RecodedPedigreeArray) :: RecPed
     type(Yob)                  :: Yob
     type(IndSet)               :: PedNrmSubset
-    type(Inbreeding)           :: PedInbreeding
+    type(InbVec)               :: PedInbreeding
     type(RelMat)               :: PedNrm
     type(RelMat)               :: PedNrmInv
     ! Genome stuff
@@ -278,17 +280,17 @@ module AlphaRelateModule
     type(LocusWeight)          :: LocusWeight
     ! Genotype stuff
     type(GenotypeArray)        :: Gen
-    type(Inbreeding)           :: GenInbreeding
+    type(InbVec)               :: GenInbreeding
     type(RelMat)               :: GenNrm
     type(RelMat)               :: GenNrmInv
     ! Haplotype stuff
     ! type(HaplotypeArray)       :: Hap
-    ! type(Inbreeding)           :: HapInbreeding
+    ! type(InbVec)               :: HapInbreeding
     ! type(RelMat)               :: HapNrm
     ! type(RelMat)               :: HapNrmInv
     ! Haplotype IBD stuff
     type(HaplotypeIbdArray)    :: HapIbd
-    type(Inbreeding)           :: HapIbdInbreeding
+    type(InbVec)               :: HapIbdInbreeding
     type(RelMat)               :: HapIbdNrm
     type(RelMat)               :: HapIbdNrmInv
 
@@ -659,20 +661,20 @@ module AlphaRelateModule
 
     !###########################################################################
 
-    ! Inbreeding type methods
+    ! InbVec type methods
 
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Inbreeding constructor
+      !> @brief  InbVec constructor
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitInbreeding(This, nInd, OriginalId, OriginalIdSuperset, Skip, InbInput)
+      pure subroutine InitInbVec(This, nInd, OriginalId, OriginalIdSuperset, Skip, InbInput)
         implicit none
 
         ! Arguments
-        class(Inbreeding), intent(out) :: This                                 !< @return Inbreeding holder
+        class(InbVec), intent(out) :: This                                     !< @return Inbreeding holder
         integer(int32), intent(in) :: nInd                                     !< Number of individuals in the set
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
@@ -728,13 +730,13 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Inbreeding destructor
+      !> @brief  InbVec destructor
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine DestroyInbreeding(This)
+      pure subroutine DestroyInbVec(This)
         implicit none
-        class(Inbreeding), intent(inout) :: This !< @return Inbreeding holder
+        class(InbVec), intent(inout) :: This !< @return Inbreeding holder
         This%nInd = 0
         if (allocated(This%OriginalId)) then
          deallocate(This%OriginalId)
@@ -754,11 +756,11 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine MatchIdInbreeding(This, OriginalIdSuperset, Skip)
+      pure subroutine MatchIdInbVec(This, OriginalIdSuperset, Skip)
         implicit none
 
         ! Arguments
-        class(Inbreeding), intent(inout) :: This                     !< @return Inbreeding holder
+        class(InbVec), intent(inout) :: This                         !< @return Inbreeding holder
         character(len=IDLENGTH), intent(in) :: OriginalIdSuperset(:) !< The superset of individual ids
         integer(int32), intent(in), optional :: Skip                 !< How many elements of OriginalIdSuperset to skip
 
@@ -779,13 +781,13 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Write inbreeding to a file or stdout
+      !> @brief  Write InbVec to a file or stdout
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine WriteInbreeding(This, File, OutputFormat) ! not pure due to IO
+      subroutine WriteInbVec(This, File, OutputFormat) ! not pure due to IO
         implicit none
-        class(Inbreeding), intent(in) :: This                  !< Inbreeding holder
+        class(InbVec), intent(in) :: This                      !< Inbreeding holder
         character(len=*), intent(in), optional :: File         !< File that will hold Original Id and inbreeding coefficients
         character(len=*), intent(in), optional :: OutputFormat !< Format for inbreeding coefficients, default is "f"
 
@@ -815,14 +817,14 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Read inbreeding from a file
+      !> @brief  Read InbVec from a file
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadInbreeding(This, File) ! not pure due to IO
+      subroutine ReadInbVec(This, File) ! not pure due to IO
         implicit none
-        class(Inbreeding), intent(out) :: This !< @return Inbreeding holder
-        character(len=*), intent(in) :: File   !< File that holds Original Id and pedigree inbreeding
+        class(InbVec), intent(out) :: This   !< @return Inbreeding holder
+        character(len=*), intent(in) :: File !< File that holds Original Id and pedigree inbreeding
 
         integer(int32) :: nInd, Ind, Unit
 
@@ -1082,7 +1084,7 @@ module AlphaRelateModule
       pure subroutine InbreedingRelMat(This, Out, Nrm)
         implicit none
         class(RelMat), intent(in)     :: This !< RelMat holder
-        type(Inbreeding), intent(out) :: Out  !< @return Inbreeding holder
+        type(InbVec), intent(out) :: Out  !< @return Inbreeding holder
         logical, intent(in), optional :: Nrm  !< Is This a numerator relationship (default) or coancestry matrix?
         logical :: NrmInternal
         integer(int32) :: Ind
