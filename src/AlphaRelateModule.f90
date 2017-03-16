@@ -1041,15 +1041,22 @@ module AlphaRelateModule
         implicit none
         class(RelMat), intent(out) :: This   !< @return RelMat holder
         character(len=*), intent(in) :: File !< File that holds Original Id and RelMat
-        logical, intent(in) :: Ija           !< Read from a sparse ija format?
+        logical, intent(in), optional :: Ija !< Read from a sparse ija format?
 
         integer(int32) :: nInd, Line, nLine, Unit, Unit2, Ind1, Ind2
         character(len=:), allocatable :: Fmt
+        logical :: IjaInternal
+
+        if (present(Ija)) then
+          IjaInternal = Ija
+        else
+          IjaInternal = .false.
+        end if
 
         nLine = CountLines(File)
 
         open(newunit=Unit, file=trim(File), action="read", status="old")
-        if (Ija) then
+        if (IjaInternal) then
           ! No. of individuals
           read(Unit, *) nInd
           call This%Init(nInd=nInd)
