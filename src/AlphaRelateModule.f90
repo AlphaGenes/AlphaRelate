@@ -2091,12 +2091,13 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadAlphaRelateSpec(This, SpecFile) ! not pure due to IO
+      subroutine ReadAlphaRelateSpec(This, SpecFile, LogStdout) ! not pure due to IO
         implicit none
 
         ! Arguments
-        class(AlphaRelateSpec), intent(out) :: This !< @return AlphaRelateSpec holder
-        character(len=*), intent(in) :: SpecFile    !< Spec file; when missing, a stub with defaults is created
+        class(AlphaRelateSpec), intent(out) :: This      !< @return AlphaRelateSpec holder
+        character(len=*), intent(in)        :: SpecFile  !< Spec file; when missing, a stub with defaults is created
+        logical, optional                   :: LogStdout !< Log output to stdout? (default .false.)
 
         ! Other
         character(len=:), allocatable :: DumString
@@ -2105,6 +2106,14 @@ module AlphaRelateModule
         character(len=SPECOPTIONLENGTH), allocatable, dimension(:) :: Second
 
         integer(int32) :: SpecUnit, Stat
+
+        logical :: LogStdoutInternal
+
+        if (present(LogStdout)) then
+          LogStdoutInternal = LogStdout
+        else
+          LogStdoutInternal = .false.
+        end if
 
         ! Defaults
         call This%Init
@@ -2129,11 +2138,15 @@ module AlphaRelateModule
               case ("outputbasename")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using output basename"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using output basename"
+                    end if
                   else
                     write(This%OutputBasename, *) trim(adjustl(Second(1)))
                     This%OutputBasename = adjustl(This%OutputBasename)
-                    write(STDOUT, "(2a)") " Using output basename: ", trim(This%OutputBasename)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using output basename: ", trim(This%OutputBasename)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, i.e., OutputBasename, AnalysisX"
@@ -2144,12 +2157,16 @@ module AlphaRelateModule
               case ("pedigreefile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using pedigree file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using pedigree file"
+                    end if
                   else
                     This%PedigreeGiven = .true.
                     write(This%PedigreeFile, *) trim(adjustl(Second(1)))
                     This%PedigreeFile = adjustl(This%PedigreeFile)
-                    write(STDOUT, "(2a)") " Using pedigree file: ", trim(This%PedigreeFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using pedigree file: ", trim(This%PedigreeFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for PedigreeFile, i.e., PedigreeFile, Pedigree.txt"
@@ -2160,12 +2177,16 @@ module AlphaRelateModule
               case ("yearofbirthfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using year of birth/generation file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using year of birth/generation file"
+                    end if
                   else
                     This%YobGiven = .true.
                     write(This%YobFile, *) trim(adjustl(Second(1)))
                     This%YobFile = adjustl(This%YobFile)
-                    write(STDOUT, "(2a)") " Using year of birth/generation file: ", trim(This%YobFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using year of birth/generation file: ", trim(This%YobFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for YearOfBirthFile, i.e., YearOfBirthFile, YearOfBirth.txt"
@@ -2176,12 +2197,16 @@ module AlphaRelateModule
               case ("genotypefile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using genotype file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using genotype file"
+                    end if
                   else
                     This%GenotypeGiven = .true.
                     write(This%GenotypeFile, *) trim(adjustl(Second(1)))
                     This%GenotypeFile = adjustl(This%GenotypeFile)
-                    write(STDOUT, "(2a)") " Using genotype file: ", trim(This%GenotypeFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using genotype file: ", trim(This%GenotypeFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for GenotypeFile, i.e., GenotypeFile, Genotype.txt"
@@ -2192,12 +2217,16 @@ module AlphaRelateModule
               case ("haplotypeibdfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using haplotype IBD file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using haplotype IBD file"
+                    end if
                   else
                     This%HaplotypeIbdGiven = .true.
                     write(This%HaplotypeIbdFile, *) trim(adjustl(Second(1)))
                     This%HaplotypeIbdFile = adjustl(This%HaplotypeIbdFile)
-                    write(STDOUT, "(2a)") " Using haplotype IBD file: ", trim(This%HaplotypeIbdFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using haplotype IBD file: ", trim(This%HaplotypeIbdFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for HaplotypeIbdFile, i.e., HaplotypeIbdFile, HaplotypeIbd.txt"
@@ -2208,12 +2237,16 @@ module AlphaRelateModule
               case ("locusweightfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using locus weights file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using locus weights file"
+                    end if
                   else
                     This%LocusWeightGiven = .true.
                     write(This%LocusWeightFile, *) trim(adjustl(Second(1)))
                     This%LocusWeightFile = adjustl(This%LocusWeightFile)
-                    write(STDOUT, "(2a)") " Using locus weight file: ", trim(This%LocusWeightFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using locus weight file: ", trim(This%LocusWeightFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for LocusWeightFile, i.e., LocusWeightFile, LocusWeight.txt"
@@ -2224,7 +2257,9 @@ module AlphaRelateModule
               case ("allelefreqfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using precalculated/fixed allele frequencies file"
+                    end if
                   else
                     This%AlleleFreqGiven = .true.
                     if (ToLower(trim(adjustl(Second(1)))) == "fixed") then
@@ -2234,11 +2269,15 @@ module AlphaRelateModule
                       else
                         This%AlleleFreqFixedValue = 0.5d0
                       end if
-                      write(STDOUT, "(2a)") " Using fixed allele frequency: ", Real2Char(This%AlleleFreqFixedValue, "(f6.4)")
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(2a)") " Using fixed allele frequency: ", Real2Char(This%AlleleFreqFixedValue, "(f6.4)")
+                      end if
                     else
                       write(This%AlleleFreqFile, *) trim(adjustl(Second(1)))
                       This%AlleleFreqFile = adjustl(This%AlleleFreqFile)
-                      write(STDOUT, "(2a)") " Using allele frequencies file: ", trim(This%AlleleFreqFile)
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(2a)") " Using allele frequencies file: ", trim(This%AlleleFreqFile)
+                      end if
                     end if
                   end if
                 else
@@ -2250,7 +2289,9 @@ module AlphaRelateModule
               case ("numberofloci")
                 if (allocated(Second)) then
                   This%nLoc = Char2Int(trim(adjustl(Second(1))))
-                  write(STDOUT, "(a, i0)") " Number of loci: ", This%nLoc
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a, i0)") " Number of loci: ", This%nLoc
+                  end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfLoci, i.e., NumberOfLoci, 10"
                   write(STDERR, "(a)") ""
@@ -2260,7 +2301,9 @@ module AlphaRelateModule
               ! case ("numberoftraits")
               !   if (allocated(Second)) then
               !     This%nTrait = Char2Int(trim(adjustl(Second(1))))
-              !     write(STDOUT, "(a, i)") " Number of traits: ", This%nTrait
+              !     if (LogStdoutInternal) then
+              !       write(STDOUT, "(a, i)") " Number of traits: ", This%nTrait
+              !     end if
               !   else
               !     write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfTraits, i.e., NumberOfTraits, 1"
               !     write(STDERR, "(a)") ""
@@ -2271,7 +2314,9 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   write(This%OutputFormat, *) trim(adjustl(Second(1)))
                   This%OutputFormat = adjustl(This%OutputFormat)
-                  write(STDOUT, "(2a)") " Output precision: ", trim(This%OutputFormat)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(2a)") " Output precision: ", trim(This%OutputFormat)
+                  end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Fortran format for OutputFormat, i.e., OutputFormat, f16.8"
                   write(STDERR, "(a)") ""
@@ -2282,9 +2327,13 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%PedInbreeding = .true.
-                    write(STDOUT, "(a)") " Calculate pedigree inbreeding: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree inbreeding: Yes"
+                    end if
                   else
-                    write(STDOUT, "(a)") " Calculate pedigree inbreeding: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree inbreeding: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No for PedInbreeding, i.e., PedInbreeding, Yes"
@@ -2296,17 +2345,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%PedNrm = .true.
-                    write(STDOUT, "(a)") " Calculate pedigree NRM: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree NRM: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%PedNrmIja = .true.
-                        write(STDOUT, "(a)") " Write pedigree NRM format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write pedigree NRM format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write pedigree NRM format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate pedigree NRM: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree NRM: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Ija] for PedNrm, i.e., PedNrm, Yes or PedNrm, Yes, Ija"
@@ -2317,12 +2374,16 @@ module AlphaRelateModule
               case ("pednrmsubsetfile")
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "none") then
-                    write(STDOUT, "(a)") " Not using pedigree NRM set file"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Not using pedigree NRM set file"
+                    end if
                   else
                     This%PedNrmSubsetGiven = .true.
                     write(This%PedNrmSubsetFile, *) trim(adjustl(Second(1)))
                     This%PedNrmSubsetFile = adjustl(This%PedNrmSubsetFile)
-                    write(STDOUT, "(2a)") " Using pedigree NRM set file: ", trim(This%PedNrmSubsetFile)
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(2a)") " Using pedigree NRM set file: ", trim(This%PedNrmSubsetFile)
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for PedNrmSubsetFile, i.e., PedNrmSubsetFile, PedNrmSubset.txt"
@@ -2333,11 +2394,13 @@ module AlphaRelateModule
               ! @todo
               ! n = CountLines(This%SpecFile)
               ! if (n > 25) then
-              !   write(STDOUT, "(a)") " BEWARE: Using an old A matrix is an experimental feature"
-              !   write(STDOUT, "(a)") " BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
-              !   write(STDOUT, "(a)") " BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
-              !   write(STDOUT, "(a)") " BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
-              !   write(STDOUT, "(a)") " "
+              !   if (LogStdoutInternal) then
+              !     write(STDOUT, "(a)") " BEWARE: Using an old A matrix is an experimental feature"
+              !     write(STDOUT, "(a)") " BEWARE: - It requires id of individuals to be numeric and sequential and no unknown parents"
+              !     write(STDOUT, "(a)") " BEWARE: - It requires the old A matrix between the parents of individuals whose A matrix will be built"
+              !     write(STDOUT, "(a)") " BEWARE: - It switches off creation of other matrices (exit after AMat is done)"
+              !     write(STDOUT, "(a)") " "
+              !   end if
               !   read(SpecUnit, *) DumC, This%OldAMatFile, This%OldAMatNInd
               !   This%OldPedNrmFile = .true.
               ! end if
@@ -2346,17 +2409,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%PedNrmInv = .true.
-                    write(STDOUT, "(a)") " Calculate pedigree NRM inverse: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree NRM inverse: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%PedNrmInvIja = .true.
-                        write(STDOUT, "(a)") " Write pedigree NRM inverse format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write pedigree NRM inverse format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write pedigree NRM inverse format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate pedigree NRM inverse: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate pedigree NRM inverse: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for PedNrmInv, i.e., PedNrmInv, Yes or PedNrmInv, Yes, Ija"
@@ -2368,17 +2439,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%GenNrm = .true.
-                    write(STDOUT, "(a)") " Calculate genotype NRM: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype NRM: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%GenNrmIja = .true.
-                        write(STDOUT, "(a)") " Write genotype NRM format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write genotype NRM format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write genotype NRM format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write genotype NRM format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate genotype NRM: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype NRM: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Ija] for GenNrm, i.e., GenNrm, Yes or GenNrm, Yes, Ija"
@@ -2404,7 +2483,9 @@ module AlphaRelateModule
                   if (trim(This%GenNrmType) == "vanraden") then
                     This%GenNrmType = "vanraden1"
                   end if
-                  write(STDOUT, "(2a)") " Genotype NRM type: ", trim(This%GenNrmType)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(2a)") " Genotype NRM type: ", trim(This%GenNrmType)
+                  end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a method for GenNrmType, i.e., GenNrmType, VanRaden"
                   write(STDERR, "(a)") ""
@@ -2415,7 +2496,9 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   This%FudgeGenNrmDiag = .true.
                   This%FudgeGenNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-                  write(STDOUT, "(2a)") " Fudge genotype NRM diagonal: ", Real2Char(This%FudgeGenNrmDiagValue, "(f6.4)")
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(2a)") " Fudge genotype NRM diagonal: ", Real2Char(This%FudgeGenNrmDiagValue, "(f6.4)")
+                  end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a value for FudgeGenNrmDiag, i.e., FudgeGenNrmDiag, 0.001"
                   write(STDERR, "(a)") ""
@@ -2429,7 +2512,9 @@ module AlphaRelateModule
                     This%BlendGenNrmWithPedNrm = .true.
                     This%BlendGenNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
                     This%BlendGenNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
-                    write(STDOUT, "(a, 2f)") " Blend genotype NRM with pedigree NRM: ", This%BlendGenNrmWithPedNrmFactor
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a, 2f)") " Blend genotype NRM with pedigree NRM: ", This%BlendGenNrmWithPedNrmFactor
+                    end if
                   else
                     write(STDERR, "(a)") " ERROR: Must specify two values for BlendGenNrmWithPedNrm, i.e., BlendGenNrmWithPedNrm, 0.95, 0.05"
                     write(STDERR, "(a)") ""
@@ -2445,17 +2530,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%GenNrmInv = .true.
-                    write(STDOUT, "(a)") " Calculate genotype NRM inverse: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype NRM inverse: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%GenNrmInvIja = .true.
-                        write(STDOUT, "(a)") " Write genotype NRM inverse format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write genotype NRM inverse format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write genotype NRM inverse format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write genotype NRM inverse format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate genotype NRM inverse: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype NRM inverse: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for GenNrmInv, i.e., GenNrmInv, Yes or GenNrmInv, Yes, Ija"
@@ -2467,9 +2560,13 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%GenInbreeding = .true.
-                    write(STDOUT, "(a)") " Calculate genotype inbreeding: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype inbreeding: Yes"
+                    end if
                   else
-                    write(STDOUT, "(a)") " Calculate genotype inbreeding: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate genotype inbreeding: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No for GenInbreeding, i.e., GenInbreeding, Yes"
@@ -2481,17 +2578,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%HapIbdNrm = .true.
-                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD NRM: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%HapIbdNrmIja = .true.
-                        write(STDOUT, "(a)") " Write haplotype IBD NRM format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write haplotype IBD NRM format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write haplotype IBD NRM format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write haplotype IBD NRM format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD NRM: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Ija] for HapIbdNrm, i.e., HapIbdNrm, Yes or hapIbdNrm, Yes, Ija"
@@ -2503,7 +2608,9 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   This%FudgeHapIbdNrmDiag = .true.
                   This%FudgeHapIbdNrmDiagValue = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
-                  write(STDOUT, "(2a)") " Fudge haplotype IBD NRM diagonal: ", Real2Char(This%FudgeHapIbdNrmDiagValue, "(f6.4)")
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(2a)") " Fudge haplotype IBD NRM diagonal: ", Real2Char(This%FudgeHapIbdNrmDiagValue, "(f6.4)")
+                  end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a value for FudgeHapIbdNrmDiag, i.e., FudgeHapIbdNrmDiag, 0.001"
                   write(STDERR, "(a)") ""
@@ -2517,7 +2624,9 @@ module AlphaRelateModule
                     This%BlendHapIbdNrmWithPedNrm = .true.
                     This%BlendHapIbdNrmWithPedNrmFactor(1) = Char2Double(trim(adjustl(Second(1))), "(f20.16)")
                     This%BlendHapIbdNrmWithPedNrmFactor(2) = Char2Double(trim(adjustl(Second(2))), "(f20.16)")
-                    write(STDOUT, "(a, 2f)") " Blend haplotype IBD NRM with pedigree NRM: ", This%BlendHapIbdNrmWithPedNrmFactor
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a, 2f)") " Blend haplotype IBD NRM with pedigree NRM: ", This%BlendHapIbdNrmWithPedNrmFactor
+                    end if
                   else
                     write(STDERR, "(a)") " ERROR: Must specify two values for BlendHapIbdNrmWithPedNrm, i.e., BlendHapIbdNrmWithPedNrm, 0.95, 0.05"
                     write(STDERR, "(a)") ""
@@ -2533,17 +2642,25 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%HapIbdNrmInv = .true.
-                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: Yes"
+                    end if
                     if (size(Second) > 1) then
                       if (ToLower(trim(adjustl(Second(2)))) == "ija") then
                         This%HapIbdNrmInvIja = .true.
-                        write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: ija"
+                        if (LogStdoutInternal) then
+                          write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: ija"
+                        end if
                       end if
                     else
-                      write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: matrix"
+                      if (LogStdoutInternal) then
+                        write(STDOUT, "(a)") " Write haplotype IBD NRM inverse format: matrix"
+                      end if
                     end if
                   else
-                    write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD NRM inverse: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No[,Format] for HapIbdNrmInv, i.e., HapIbdNrmInv, Yes or HapIbdNrmInv, Yes, Ija"
@@ -2555,9 +2672,13 @@ module AlphaRelateModule
                 if (allocated(Second)) then
                   if (ToLower(trim(adjustl(Second(1)))) == "yes") then
                     This%HapIbdInbreeding = .true.
-                    write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: Yes"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: Yes"
+                    end if
                   else
-                    write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: No"
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Calculate haplotype IBD inbreeding: No"
+                    end if
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify Yes/No for HapIbdInbreeding, i.e., HapIbdInbreeding, Yes"
@@ -2585,13 +2706,17 @@ module AlphaRelateModule
               ! end if
 
               case ("stop")
-                write(STDOUT, "(3a)") " NOTE: Encountered Stop specification - the rest of specifications will be ignored"
-                write(STDOUT, "(a)") " "
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(3a)") " NOTE: Encountered Stop specification - the rest of specifications will be ignored"
+                  write(STDOUT, "(a)") " "
+                end if
                 exit
 
               case default
-                write(STDOUT, "(3a)") " NOTE: Specification '", trim(Line), "' was ignored"
-                write(STDOUT, "(a)") " "
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(3a)") " NOTE: Specification '", trim(Line), "' was ignored"
+                  write(STDOUT, "(a)") " "
+                end if
             end select
           end if
         end do ReadSpec
@@ -2645,8 +2770,8 @@ module AlphaRelateModule
         end if
 
         ! if ((This%MakeG .or. This%MakeInvG .or. This%MakeH .or. This%MakeInvH) .and. .not. This%GenotypeGiven) then
-        !   write(STDOUT, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
-        !   write(STDOUT, "(a)") " "
+        !   write(STDERR, "(a)") " NOTE: To create G or H matrix, a genotype file must be given --> ommited G or H."
+        !   write(STDERR, "(a)") " "
         !   This%MakeG    = .false.
         !   This%MakeInvG = .false.
         !   This%MakeH    = .false.
@@ -2654,8 +2779,8 @@ module AlphaRelateModule
         ! end if
 
         ! if ((This%MakeA .or. This%MakeInvA .or. This%MakeH .or. This%MakeInvH) .and. .not. This%PedigreeGiven) then
-        !   write(STDOUT, "(a)") " NOTE: To create A or H matrix, a pedigree file must be given --> ommited A or H."
-        !   write(STDOUT, "(a)") " "
+        !   write(STDERR, "(a)") " NOTE: To create A or H matrix, a pedigree file must be given --> ommited A or H."
+        !   write(STDERR, "(a)") " "
         !   This%MakeA    = .false.
         !   This%MakeInvA = .false.
         !   This%MakeH    = .false.
@@ -2674,15 +2799,23 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      subroutine ReadAlphaRelateData(This, Spec) ! not pure due to IO
+      subroutine ReadAlphaRelateData(This, Spec, LogStdout) ! not pure due to IO
         implicit none
 
         ! Arguments
-        class(AlphaRelateData), intent(out) :: This !< @return AlphaRelateData holder
-        type(AlphaRelateSpec), intent(in) :: Spec   !< Specifications
+        class(AlphaRelateData), intent(out) :: This      !< @return AlphaRelateData holder
+        type(AlphaRelateSpec), intent(in)   :: Spec      !< Specifications
+        logical, optional                   :: LogStdout !< Log process on stdout (default .false.)
 
         ! Other
         type(PedigreeHolder) :: PedObj
+        logical :: LogStdoutInternal
+
+        if (present(LogStdout)) then
+          LogStdoutInternal = LogStdout
+        else
+          LogStdoutInternal = .false.
+        end if
 
         if (Spec%PedigreeGiven) then
           ! Read in the pedigree
@@ -2690,7 +2823,9 @@ module AlphaRelateModule
 
           ! Sort and recode pedigree
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
-          write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a1, i8, a)") " ", This%RecPed%nInd," individuals in pedigree"
+          end if
 
           ! Free some memory
           call PedObj%DestroyPedigree
@@ -2703,7 +2838,9 @@ module AlphaRelateModule
               integer(int32) :: Ind
               logical :: IdMatchNotFound
               call YobTmp%Read(File=Spec%YobFile)
-              write(STDOUT, "(a1, i8, a)") " ", YobTmp%nInd," individuals in the year of birth/generation file"
+              if (LogStdoutInternal) then
+                write(STDOUT, "(a1, i8, a)") " ", YobTmp%nInd," individuals in the year of birth/generation file"
+              end if
               call YobTmp%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
               ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               IdMatchNotFound = .false.
@@ -2728,7 +2865,9 @@ module AlphaRelateModule
           ! Handle subset
           if (Spec%PedNrmSubsetGiven) then
             call This%PedNrmSubset%Read(File=Spec%PedNrmSubsetFile)
-            write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset file"
+            if (LogStdoutInternal) then
+              write(STDOUT, "(a1, i8, a)") " ", This%PedNrmSubset%nInd," individuals in the pedigree NRM subset file"
+            end if
             call This%PedNrmSubset%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
             block ! @todo make this block a subroutine - it is 99% copied bellow - perhaps Pedigree&Individual types handle this much better?
               integer(int32) :: Ind
@@ -2751,7 +2890,9 @@ module AlphaRelateModule
         if (Spec%GenotypeGiven) then
 
           call This%Gen%Read(File=Spec%GenotypeFile, nLoc=Spec%nLoc)
-          write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a1, i8, a)") " ", This%Gen%nInd," individuals in the genotype file"
+          end if
 
           if (Spec%PedigreeGiven) then
             call This%Gen%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
@@ -2778,7 +2919,9 @@ module AlphaRelateModule
 
         if (Spec%HaplotypeIbdGiven) then
           call This%HapIbd%Read(File=Spec%HaplotypeIbdFile, nLoc=Spec%nLoc)
-          write(STDOUT, "(a1, i8, a)") " ", This%HapIbd%nInd," individuals in the haplotype IBD file"
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a1, i8, a)") " ", This%HapIbd%nInd," individuals in the haplotype IBD file"
+          end if
 
           if (Spec%PedigreeGiven) then
             call This%HapIbd%MatchId(OriginalIdSuperset=This%RecPed%OriginalId, Skip=1) ! skip=1 because of the "0th margin" in This%RecPed%OriginalId
@@ -2845,8 +2988,10 @@ module AlphaRelateModule
         !       This%nAnisH = This%nAnisH + 1
         !       This%MapAnimal(This%nAnisH) = i
         !       This%MapToG(This%nAnisH) = .true.
-        !       write(STDOUT, "(2a)") " Genotyped individual not in the pedigree file: ", trim(This%IdGeno(i))
-        !       write(STDOUT, "(a)")  " "
+        !       if (LogStdoutInternal) then
+        !         write(STDOUT, "(2a)") " Genotyped individual not in the pedigree file: ", trim(This%IdGeno(i))
+        !         write(STDOUT, "(a)")  " "
+        !       end if
         !       ! stop 1
         !     end if
         !   end do
