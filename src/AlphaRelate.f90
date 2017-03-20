@@ -71,7 +71,7 @@ program AlphaRelate
   call AlphaRelateTitle
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Processing specifications ..."
+  write(STDOUT, "(a)") " Specifications ..."
   nArg = command_argument_count()
   if (nArg > 0) then
     call get_command_argument(1, SpecFile)
@@ -82,7 +82,7 @@ program AlphaRelate
   call Spec%Read(SpecFile=SpecFile, LogStdout=.true.)
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Processing data ..."
+  write(STDOUT, "(a)") " Data ..."
   call Data%Read(Spec=Spec, LogStdout=.true.)
   if (Spec%PedigreeGiven) then
     call Data%RecPed%Write(File=trim(Spec%OutputBasename)//trim(Spec%PedigreeFile)//"_Recoded.txt")
@@ -90,28 +90,28 @@ program AlphaRelate
 
   if (Spec%PedInbreeding) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating pedigree inbreeding ..."
+    write(STDOUT, "(a)") " Pedigree inbreeding ..."
     call Data%CalcPedInbreeding
     call Data%PedInbreeding%Write(File=trim(Spec%OutputBasename)//"PedigreeInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
   if (Spec%PedNrm) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating pedigree NRM ..."
+    write(STDOUT, "(a)") " Pedigree NRM ..."
     call Data%CalcPedNrm(Spec=Spec)
     call Data%PedNrm%Write(File=trim(Spec%OutputBasename)//"PedigreeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmIja)
   end if
 
   if (Spec%PedNrmInv) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating pedigree NRM inverse ..."
+    write(STDOUT, "(a)") " Pedigree NRM inverse ..."
     call Data%CalcPedNrmInv
     call Data%PedNrmInv%Write(File=trim(Spec%OutputBasename)//"PedigreeNrmInv.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%PedNrmInvIja)
   end if
 
   if (Spec%GenNrm) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating genotype NRM ..."
+    write(STDOUT, "(a)") " Genotype NRM ..."
     call Data%CalcGenNrm(Spec=Spec)
     call Data%GenNrm%Write(File=trim(Spec%OutputBasename)//"GenotypeNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%GenNrmIja)
     if ((trim(Spec%GenNrmType) == "vanraden1" .or. &
@@ -124,14 +124,14 @@ program AlphaRelate
 
   if (Spec%GenInbreeding) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating genotype inbreeding ..."
+    write(STDOUT, "(a)") " Genotype inbreeding ..."
     call Data%CalcGenInbreeding(Spec=Spec)
     call Data%GenInbreeding%Write(File=trim(Spec%OutputBasename)//"GenotypeInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
   if (Spec%GenNrmInv) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating genotype NRM inverse ..."
+    write(STDOUT, "(a)") " Genotype NRM inverse ..."
     call Data%CalcGenNrmInv(Spec=Spec, Info=InversionSucceded)
     if (InversionSucceded) then
       call Data%GenNrmInv%Write(File=trim(Spec%OutputBasename)//"GenotypeNrmInv.txt", OutputFormat=Spec%OutputFormat)
@@ -144,21 +144,21 @@ program AlphaRelate
 
   if (Spec%HapIbdNrm) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating haplotype IBD NRM ..."
+    write(STDOUT, "(a)") " Haplotype IBD NRM ..."
     call Data%CalcHapIbdNrm(Spec=Spec)
     call Data%HapIbdNrm%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdNrm.txt", OutputFormat=Spec%OutputFormat, Ija=Spec%HapIbdNrmIja)
   end if
 
   if (Spec%HapIbdInbreeding) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating haplotype IBD inbreeding ..."
+    write(STDOUT, "(a)") " Haplotype IBD inbreeding ..."
     call Data%CalcHapIbdInbreeding(Spec=Spec)
     call Data%HapIbdInbreeding%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdInbreeding.txt", OutputFormat=Spec%OutputFormat)
   end if
 
   if (Spec%HapIbdNrmInv) then
     write(STDOUT, "(a)") ""
-    write(STDOUT, "(a)") " Calculating haplotype IBD NRM inverse ..."
+    write(STDOUT, "(a)") " Haplotype IBD NRM inverse ..."
     call Data%CalcHapIbdNrmInv(Spec=Spec, Info=InversionSucceded)
     if (InversionSucceded) then
       call Data%HapIbdNrmInv%Write(File=trim(Spec%OutputBasename)//"HaplotypeIbdNrmInv.txt", OutputFormat=Spec%OutputFormat)
