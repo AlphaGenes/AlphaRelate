@@ -339,7 +339,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
+        call x%Initialise(nInd=4, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -347,7 +347,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 1")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -361,7 +361,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 2")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -378,7 +378,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 3")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -392,7 +392,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdIndSet broken 4")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -412,7 +412,7 @@ module TestAlphaRelateModule
         integer(int32) :: i, Unit
         character(len=IDLENGTH) :: Ids(4)
         Ids = ["B", "A", "D", "C"]
-        call x%Init(nInd=4, OriginalId=Ids)
+        call x%Initialise(nInd=4, OriginalId=Ids)
         call x%Write(File="TestIndSet.txt")
         call y%Read(File="TestIndSet.txt")
         @AssertEqual(x%nInd, y%nInd, "ReadWriteIndSet broken 1")
@@ -512,7 +512,7 @@ module TestAlphaRelateModule
         integer(int32), allocatable, dimension(:) :: GenotypeExp, GenotypeObs
 
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 2
@@ -565,7 +565,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -573,7 +573,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdGenotypeArray broken 1")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -587,7 +587,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdGenotypeArray broken 2")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -604,7 +604,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdGenotypeArray broken 3")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -618,7 +618,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdGenotypeArray broken 4")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -645,7 +645,7 @@ module TestAlphaRelateModule
         integer(int32) :: Ind, Hap, Loc
 
         call CreateTinyHaplotypeIbdFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%HaplotypeIbdGiven = .true.
         Spec%HaplotypeIbdFile = TESTHAPIBDFILE
         Spec%nLoc = 2
@@ -693,7 +693,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -701,7 +701,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 1")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -715,7 +715,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 2")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -732,7 +732,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 3")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -746,7 +746,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdHaplotypeIbdArray broken 4")
         end do
-        call x%Init(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, nLoc=1, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -809,7 +809,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
+        call x%Initialise(nInd=4, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -817,7 +817,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 1")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -831,7 +831,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 2")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -848,7 +848,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 3")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -862,7 +862,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchYob broken 4")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -889,7 +889,7 @@ module TestAlphaRelateModule
         integer(int32) :: Ind, Unit
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -933,7 +933,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
+        call x%Initialise(nInd=4, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -941,7 +941,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 1")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -955,7 +955,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 2")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -972,7 +972,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 3")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -986,7 +986,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchInbVec broken 4")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -1014,7 +1014,7 @@ module TestAlphaRelateModule
         logical :: Ija(2)
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1066,7 +1066,7 @@ module TestAlphaRelateModule
         allocate(IdExp(4))
         Id1 = ["D", "C", "A", "X"]
         Id2 = ["A", "B", "C", "D", "E", "F"]
-        call x%Init(nInd=4, OriginalId=Id1)
+        call x%Initialise(nInd=4, OriginalId=Id1)
         call x%MatchId(OriginalIdSuperset=Id2)
         IdExp = [4, 3, 1, 0]
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
@@ -1074,7 +1074,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 1")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -1088,7 +1088,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 2")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -1105,7 +1105,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 3")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -1119,7 +1119,7 @@ module TestAlphaRelateModule
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
           @AssertEqual(x%Id(i), IdExp(i), "MatchIdRelMat broken 4")
         end do
-        call x%Init(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
+        call x%Initialise(nInd=4, OriginalId=Id1, OriginalIdSuperset=Id2, Skip=1)
         ! write(STDOUT, "(3a9)") " ", "Observed", "Expected"
         do i = 1, 4
           ! write(STDOUT, "(i8, a1, 2i9)") i, "", x%Id(i), IdExp(i)
@@ -1141,7 +1141,7 @@ module TestAlphaRelateModule
         integer :: Ind
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1179,7 +1179,7 @@ module TestAlphaRelateModule
         integer(int32) :: Ind
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1216,11 +1216,11 @@ module TestAlphaRelateModule
         type(RelMat) :: Nrm, ExpNrmInv
         integer(int32) :: Ind1, Ind2
 
-        call Nrm%Init(nInd=2)
+        call Nrm%Initialise(nInd=2)
         Nrm%Value(1:2, 1) = [1.0d0, 0.5d0]
         Nrm%Value(1:2, 2) = [0.5d0, 1.0d0]
 
-        call ExpNrmInv%Init(nInd=2)
+        call ExpNrmInv%Initialise(nInd=2)
         ExpNrmInv%Value(1:2, 1) = [ 4.0d0 / 3.0d0, -2.0d0 / 3.0d0]
         ExpNrmInv%Value(1:2, 2) = [-2.0d0 / 3.0d0,  4.0d0 / 3.0d0]
 
@@ -1252,7 +1252,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1287,7 +1287,7 @@ module TestAlphaRelateModule
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1345,7 +1345,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
 
         call CreateTinyPedigreeFileExpanded
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1381,7 +1381,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: CalPedInbreeding, ExpPedInbreeding
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1416,7 +1416,7 @@ module TestAlphaRelateModule
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1473,7 +1473,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: ExpPedInbreeding
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1505,7 +1505,7 @@ module TestAlphaRelateModule
         ! inbreeding(Ped)
 
         call CreatePedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1562,7 +1562,7 @@ module TestAlphaRelateModule
 
         call CreateTinyPedigreeFileExpanded
         call CreateTinyYobFileExpanded
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         Spec%YobGiven = .true.
@@ -1598,7 +1598,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: CalPedNrm, ExpPedNrm
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1657,7 +1657,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: ExpPedNrm
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1702,7 +1702,7 @@ module TestAlphaRelateModule
         ! getA(Ped)
 
         call CreatePedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1783,7 +1783,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: CalPedGeneFlow, ExpPedGeneFlow
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1831,7 +1831,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: CalPedNrmColumn, ExpPedNrmColumn, x
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -1883,7 +1883,7 @@ module TestAlphaRelateModule
 
         call CreateTinyPedigreeFile
         call CreateTinyPedNrmSubsetFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         ! call Data%Read(Spec=Spec)
@@ -1943,7 +1943,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: CalPedNrmInv, ExpPedNrmInv
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -2002,7 +2002,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: ExpPedNrmInv
 
         call CreateTinyPedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -2046,7 +2046,7 @@ module TestAlphaRelateModule
         ! getAInv(Ped)
 
         call CreatePedigreeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         call Data%Read(Spec=Spec)
@@ -2127,7 +2127,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: AlleleFreqExp
 
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 2
@@ -2145,7 +2145,7 @@ module TestAlphaRelateModule
         deallocate(AlleleFreqExp)
 
         call CreateTinyGenotypeFileWithMissing
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 4
@@ -2179,7 +2179,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: ExpGenNrm
 
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         allocate(ExpGenNrm(0:3, 0:3))
@@ -2385,7 +2385,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: ExpGenNrm
 
         call CreateTinyGenotypeFileWithFixedMarker
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         allocate(ExpGenNrm(0:3, 0:3))
@@ -2496,7 +2496,7 @@ module TestAlphaRelateModule
 
         call CreateTinyGenotypeFile
         call CreateLocusWeightFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%LocusWeightGiven = .true.
@@ -2716,7 +2716,7 @@ module TestAlphaRelateModule
 
         call CreateTinyPedigreeFile
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%PedigreeGiven = .true.
         Spec%PedigreeFile = TESTPEDFILE
         Spec%GenotypeGiven = .true.
@@ -2777,7 +2777,7 @@ module TestAlphaRelateModule
         logical :: InversionSucceded
 
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 1
@@ -2825,7 +2825,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: ExpGenInbreeding
 
         call CreateTinyGenotypeFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%GenotypeGiven = .true.
         Spec%GenotypeFile = TESTGENFILE
         Spec%nLoc = 1
@@ -2857,7 +2857,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:, :) :: ExpHapIbdNrm
 
         call CreateTinyHaplotypeIbdFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%HaplotypeIbdGiven = .true.
         Spec%HaplotypeIbdFile = TESTHAPIBDFILE
         Spec%nLoc = 2
@@ -2905,7 +2905,7 @@ module TestAlphaRelateModule
 
       !   call CreateTinyHaplotypeIbdFile
       !   call CreateLocusWeightFile
-      !   call Spec%Init
+      !   call Spec%Initialise
       !   Spec%HaplotypeIbdGiven = .true.
       !   Spec%HaplotypeIbdFile = TESTHAPIBDFILE
       !   Spec%LocusWeightGiven = .true.
@@ -2973,7 +2973,7 @@ module TestAlphaRelateModule
 
       !   call CreateTinyPedigreeFile
       !   call CreateTinyGenotypeFile
-      !   call Spec%Init
+      !   call Spec%Initialise
       !   Spec%PedigreeGiven = .true.
       !   Spec%PedigreeFile = TESTPEDFILE
       !   Spec%GenotypeGiven = .true.
@@ -3034,7 +3034,7 @@ module TestAlphaRelateModule
         logical :: InversionSucceded
 
         call CreateTinyHaplotypeIbdFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%HaplotypeIbdGiven = .true.
         Spec%HaplotypeIbdFile = TESTHAPIBDFILE
         Spec%nLoc = 2
@@ -3080,7 +3080,7 @@ module TestAlphaRelateModule
         real(real64), allocatable, dimension(:) :: ExpHapIbdInbreeding
 
         call CreateTinyHaplotypeIbdFile
-        call Spec%Init
+        call Spec%Initialise
         Spec%HaplotypeIbdGiven = .true.
         Spec%HaplotypeIbdFile = TESTHAPIBDFILE
         Spec%nLoc = 2

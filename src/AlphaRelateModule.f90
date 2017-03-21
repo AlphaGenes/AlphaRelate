@@ -91,27 +91,27 @@ module AlphaRelateModule
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     contains
-      procedure :: Init    => InitIndSet
-      procedure :: Destroy => DestroyIndSet
-      procedure :: MatchId => MatchIdIndSet
-      procedure :: Write   => WriteIndSet
-      procedure :: Read    => ReadIndSet
+      procedure :: Initialise => InitialiseIndSet
+      procedure :: Destroy    => DestroyIndSet
+      procedure :: MatchId    => MatchIdIndSet
+      procedure :: Write      => WriteIndSet
+      procedure :: Read       => ReadIndSet
   end type
 
   !> @brief Year of birth/generation holder
   type Yob
     ! @todo this should be really called IndSetIntVec or better go into the type individual
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     integer(int32), allocatable, dimension(:)          :: Value
     contains
-      procedure :: Init    => InitYob
-      procedure :: Destroy => DestroyYob
-      procedure :: MatchId => MatchIdYob
-      procedure :: Write   => WriteYob
-      procedure :: Read    => ReadYob
+      procedure :: Initialise => InitialiseYob
+      procedure :: Destroy    => DestroyYob
+      procedure :: MatchId    => MatchIdYob
+      procedure :: Write      => WriteYob
+      procedure :: Read       => ReadYob
   end type
 
   ! @brief Allele frequencies
@@ -119,10 +119,10 @@ module AlphaRelateModule
     integer(int32)                          :: nLoc
     real(real64), allocatable, dimension(:) :: Value
     contains
-      procedure :: Init    => InitAlleleFreq
-      procedure :: Destroy => DestroyAlleleFreq
-      procedure :: Write   => WriteAlleleFreq
-      procedure :: Read    => ReadAlleleFreq
+      procedure :: Initialise => InitialiseAlleleFreq
+      procedure :: Destroy    => DestroyAlleleFreq
+      procedure :: Write      => WriteAlleleFreq
+      procedure :: Read       => ReadAlleleFreq
   end type
 
   ! @brief Locus weights
@@ -130,15 +130,15 @@ module AlphaRelateModule
     integer(int32)                          :: nLoc
     real(real64), allocatable, dimension(:) :: Value
     contains
-      procedure :: Init    => InitLocusWeight
-      procedure :: Destroy => DestroyLocusWeight
-      procedure :: Write   => WriteLocusWeight
-      procedure :: Read    => ReadLocusWeight
+      procedure :: Initialise => InitialiseLocusWeight
+      procedure :: Destroy    => DestroyLocusWeight
+      procedure :: Write      => WriteLocusWeight
+      procedure :: Read       => ReadLocusWeight
   end type
 
   !> @brief Genotype data set holder
   type GenotypeArray
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
@@ -146,7 +146,7 @@ module AlphaRelateModule
     type(Genotype), allocatable, dimension(:)          :: Genotype
     real(real64), allocatable, dimension(:, :)         :: GenotypeReal
     contains
-      procedure :: Init                       => InitGenotypeArray
+      procedure :: Initialise                 => InitialiseGenotypeArray
       procedure :: Destroy                    => DestroyGenotypeArray
       procedure :: MatchId                    => MatchIdGenotypeArray
       procedure :: Write                      => WriteGenotypeArray
@@ -161,7 +161,7 @@ module AlphaRelateModule
 
   !> @brief Haplotype data set holder
   ! type HaplotypeArray
-  !   ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+  !   ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
   !   integer(int32)                                     :: nInd
   !   character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
   !   integer(int32), allocatable, dimension(:)          :: Id
@@ -169,7 +169,7 @@ module AlphaRelateModule
   !   type(Haplotype), allocatable, dimension(:)         :: Haplotype
   !   real(real64), allocatable, dimension(:, :)         :: HaplotypeReal
   !   contains
-  !     ! procedure :: Init                       => InitHaplotypeArray
+  !     ! procedure :: Initialise                 => InitialiseHaplotypeArray
   !     ! procedure :: Destroy                    => DestroyHaplotypeArray
   !     ! procedure :: MatchId                    => MatchIdHaplotypeArray
   !     ! procedure :: Write                      => WriteHaplotypeArray
@@ -183,39 +183,39 @@ module AlphaRelateModule
 
   !> @brief HaplotypeIbd data set holder
   type HaplotypeIbdArray
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     integer(int32)                                     :: nLoc
     integer(int32), allocatable, dimension(:, :, :)    :: Haplotype
     contains
-      procedure :: Init    => InitHaplotypeIbdArray
-      procedure :: Destroy => DestroyHaplotypeIbdArray
-      procedure :: MatchId => MatchIdHaplotypeIbdArray
-      procedure :: Write   => WriteHaplotypeIbdArray
-      procedure :: Read    => ReadHaplotypeIbdArray
+      procedure :: Initialise => InitialiseHaplotypeIbdArray
+      procedure :: Destroy    => DestroyHaplotypeIbdArray
+      procedure :: MatchId    => MatchIdHaplotypeIbdArray
+      procedure :: Write      => WriteHaplotypeIbdArray
+      procedure :: Read       => ReadHaplotypeIbdArray
   end type
 
   !> @brief Inbreeding vector holder
   type InbVec
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
     ! @todo this should be really called IndSetRealVec or better go into the type individual
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     real(real64), allocatable, dimension(:)            :: Value
     contains
-      procedure :: Init    => InitInbVec
-      procedure :: Destroy => DestroyInbVec
-      procedure :: MatchId => MatchIdInbVec
-      procedure :: Write   => WriteInbVec
-      procedure :: Read    => ReadInbVec
+      procedure :: Initialise => InitialiseInbVec
+      procedure :: Destroy    => DestroyInbVec
+      procedure :: MatchId    => MatchIdInbVec
+      procedure :: Write      => WriteInbVec
+      procedure :: Read       => ReadInbVec
   end type
 
   !> @brief Numerator relationship matrix (or its inverse) holder
   type RelMat
-    ! @todo howto to extend the IndSet class and inherit some of the methods (Init and MatchId are pretty much the same)
+    ! @todo howto to extend the IndSet class and inherit some of the methods (Initialise and MatchId are pretty much the same)
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
@@ -225,7 +225,7 @@ module AlphaRelateModule
     ! - see https://software.intel.com/en-us/node/471382#C62A5095-C2EE-4AAD-AAA6-589230521A55
     ! @todo: create dense and sparse version?
     contains
-      procedure :: Init           => InitRelMat
+      procedure :: Initialise     => InitialiseRelMat
       procedure :: Destroy        => DestroyRelMat
       procedure :: MatchId        => MatchIdRelMat
       procedure :: Write          => WriteRelMat
@@ -262,8 +262,8 @@ module AlphaRelateModule
     ! real(real64) :: FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
     real(real64) :: FudgeHapIbdNrmDiagValue, BlendHapIbdNrmWithPedNrmFactor(2)
     contains
-      procedure :: Init => InitAlphaRelateSpec
-      procedure :: Read => ReadAlphaRelateSpec
+      procedure :: Initialise => InitialiseAlphaRelateSpec
+      procedure :: Read       => ReadAlphaRelateSpec
   end type
 
   !> @brief AlphaRelate data
@@ -343,7 +343,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitIndSet(This, nInd, OriginalId, OriginalIdSuperset, Skip)
+      pure subroutine InitialiseIndSet(This, nInd, OriginalId, OriginalIdSuperset, Skip)
         implicit none
 
         ! Arguments
@@ -476,7 +476,7 @@ module AlphaRelateModule
         integer(int32) :: nInd, Ind, Unit
 
         nInd = CountLines(File)
-        call This%Init(nInd=nInd)
+        call This%Initialise(nInd=nInd)
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, nInd
           read(Unit, *) This%OriginalId(Ind)
@@ -497,7 +497,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 22, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitYob(This, nInd, OriginalId, OriginalIdSuperset, Skip, YobInput)
+      pure subroutine InitialiseYob(This, nInd, OriginalId, OriginalIdSuperset, Skip, YobInput)
         implicit none
 
         ! Arguments
@@ -649,7 +649,7 @@ module AlphaRelateModule
         integer(int32) :: nInd, Ind, Unit
 
         nInd = CountLines(File)
-        call This%Init(nInd=nInd)
+        call This%Initialise(nInd=nInd)
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, nInd
           read(Unit, *) This%OriginalId(Ind), This%Value(Ind)
@@ -670,7 +670,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitInbVec(This, nInd, OriginalId, OriginalIdSuperset, Skip, InbInput)
+      pure subroutine InitialiseInbVec(This, nInd, OriginalId, OriginalIdSuperset, Skip, InbInput)
         implicit none
 
         ! Arguments
@@ -829,7 +829,7 @@ module AlphaRelateModule
         integer(int32) :: nInd, Ind, Unit
 
         nInd = CountLines(File)
-        call This%Init(nInd=nInd)
+        call This%Initialise(nInd=nInd)
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, nInd
           read(Unit, *) This%OriginalId(Ind), This%Value(Ind)
@@ -850,7 +850,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitRelMat(This, nInd, OriginalId, OriginalIdSuperset, Skip, Input)
+      pure subroutine InitialiseRelMat(This, nInd, OriginalId, OriginalIdSuperset, Skip, Input)
         implicit none
 
         ! Arguments
@@ -1059,7 +1059,7 @@ module AlphaRelateModule
         if (IjaInternal) then
           ! No. of individuals
           read(Unit, *) nInd
-          call This%Init(nInd=nInd)
+          call This%Initialise(nInd=nInd)
           open(newunit=Unit2, file=trim(File)//"_IdMap", action="read", status="old")
           Fmt = "(i"//Int2Char(IDINTLENGTH)//", a"//Int2Char(IDLENGTH)//")"
           do Ind1 = 1, nInd
@@ -1073,7 +1073,7 @@ module AlphaRelateModule
           end do
         else
           nInd = nLine
-          call This%Init(nInd=nInd)
+          call This%Initialise(nInd=nInd)
           do Ind1 = 1, nInd
             read(Unit, *) This%OriginalId(Ind1), This%Value(1:nInd, Ind1)
           end do
@@ -1091,7 +1091,7 @@ module AlphaRelateModule
       pure subroutine InbreedingRelMat(This, Out, Nrm)
         implicit none
         class(RelMat), intent(in)     :: This !< RelMat holder
-        type(InbVec), intent(out) :: Out  !< @return Inbreeding holder
+        type(InbVec), intent(out)     :: Out  !< @return Inbreeding holder
         logical, intent(in), optional :: Nrm  !< Is This a numerator relationship (default) or coancestry matrix?
         logical :: NrmInternal
         integer(int32) :: Ind
@@ -1106,7 +1106,7 @@ module AlphaRelateModule
         else
           Factor = 2.0d0
         end if
-        call Out%Init(nInd=This%nInd)
+        call Out%Initialise(nInd=This%nInd)
         Out%OriginalId = This%OriginalId
         Out%Id = This%Id
         do Ind = 1, Out%nInd
@@ -1203,7 +1203,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitAlleleFreq(This, nLoc, AlleleFreqInput)
+      pure subroutine InitialiseAlleleFreq(This, nLoc, AlleleFreqInput)
         implicit none
 
         ! Arguments
@@ -1211,10 +1211,10 @@ module AlphaRelateModule
         integer(int32), intent(in) :: nLoc                          !< Number of loci
         real(real64), intent(in), optional :: AlleleFreqInput(nLoc) !< Allele frequencies
 
-        ! Init numbers
+        ! Initialise numbers
         This%nLoc = nLoc
 
-        ! Init Value
+        ! Initialise Value
         if (allocated(This%Value)) then
           deallocate(This%Value)
         end if
@@ -1285,9 +1285,9 @@ module AlphaRelateModule
         integer(int32) :: Unit, LocLoop, Loc
 
         if (present(nLoc)) then
-          call This%Init(nLoc=nLoc)
+          call This%Initialise(nLoc=nLoc)
         else
-          call This%Init(nLoc=CountLines(File))
+          call This%Initialise(nLoc=CountLines(File))
         end if
         open(newunit=Unit, file=File, action="read", status="old")
         do LocLoop = 1, This%nLoc
@@ -1309,7 +1309,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitLocusWeight(This, nLoc, LocusWeightInput)
+      pure subroutine InitialiseLocusWeight(This, nLoc, LocusWeightInput)
         implicit none
 
         ! Arguments
@@ -1317,10 +1317,10 @@ module AlphaRelateModule
         integer(int32), intent(in) :: nLoc                           !< Number of loci
         real(real64), intent(in), optional :: LocusWeightInput(nLoc) !< Locus weights
 
-        ! Init numbers
+        ! Initialise numbers
         This%nLoc = nLoc
 
-        ! Init Value
+        ! Initialise Value
         if (allocated(This%Value)) then
           deallocate(This%Value)
         end if
@@ -1391,9 +1391,9 @@ module AlphaRelateModule
         integer(int32) :: Unit, LocLoop, Loc
 
         if (present(nLoc)) then
-          call This%Init(nLoc=nLoc)
+          call This%Initialise(nLoc=nLoc)
         else
-          call This%Init(nLoc=CountLines(File))
+          call This%Initialise(nLoc=CountLines(File))
         end if
 
         open(newunit=Unit, file=File, action="read", status="old")
@@ -1416,7 +1416,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitGenotypeArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, IntegerInput, GenotypeInput)
+      pure subroutine InitialiseGenotypeArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, IntegerInput, GenotypeInput)
         implicit none
 
         ! Arguments
@@ -1440,11 +1440,11 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        ! Init numbers
+        ! Initialise numbers
         This%nInd = nInd
         This%nLoc = nLoc
 
-        ! Init OriginalId
+        ! Initialise OriginalId
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
@@ -1456,7 +1456,7 @@ module AlphaRelateModule
           This%OriginalId(1:nInd) = EMPTYID
         end if
 
-        ! Init Id
+        ! Initialise Id
         if (allocated(This%Id)) then
           deallocate(This%Id)
         end if
@@ -1469,7 +1469,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
-        ! Init Genotype
+        ! Initialise Genotype
         ! NOTE: this one is allocated here as it is the way we primarily store genotypes
         if (allocated(This%Genotype)) then
           deallocate(This%Genotype)
@@ -1495,7 +1495,7 @@ module AlphaRelateModule
           end do
         end if
 
-        ! Init GenotypeReal
+        ! Initialise GenotypeReal
         ! NOTE: this one is not allocated here as it is not the way we primarily store genotypes and can be potentially quite memory consuming
         ! Use call This%MakeGenotypeReal() if needed
         if (allocated(This%GenotypeReal)) then
@@ -1635,7 +1635,7 @@ module AlphaRelateModule
         integer(int8) :: Temp(nLoc)
 
         nInd = CountLines(File)
-        call This%Init(nInd=nInd, nLoc=nLoc)
+        call This%Initialise(nInd=nInd, nLoc=nLoc)
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, This%nInd
           read(Unit, *) This%OriginalId(Ind), Temp
@@ -1660,7 +1660,7 @@ module AlphaRelateModule
         integer(int32) :: nInd, Ind, Unit
 
         nInd = CountLines(File)
-        call This%Init(nInd=nInd, nLoc=nLoc)
+        call This%Initialise(nInd=nInd, nLoc=nLoc)
         allocate(This%GenotypeReal(nLoc, 0:nInd))
         This%GenotypeReal(:, 0) = 0.0d0
         open(newunit=Unit, file=File, action="read", status="old")
@@ -1818,7 +1818,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   February 23, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitHaplotypeIbdArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, Input)
+      pure subroutine InitialiseHaplotypeIbdArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, Input)
         implicit none
 
         ! Arguments
@@ -1839,11 +1839,11 @@ module AlphaRelateModule
           Start = 1
         end if
 
-        ! Init numbers
+        ! Initialise numbers
         This%nInd = nInd
         This%nLoc = nLoc
 
-        ! Init OriginalId
+        ! Initialise OriginalId
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
@@ -1855,7 +1855,7 @@ module AlphaRelateModule
           This%OriginalId(1:nInd) = EMPTYID
         end if
 
-        ! Init Id
+        ! Initialise Id
         if (allocated(This%Id)) then
           deallocate(This%Id)
         end if
@@ -1868,7 +1868,7 @@ module AlphaRelateModule
           This%Id(1:nInd) = [(Ind, Ind = 1, nInd)]
         end if
 
-        ! Init Haplotype
+        ! Initialise Haplotype
         if (allocated(This%Haplotype)) then
           deallocate(This%Haplotype)
         end if
@@ -1987,7 +1987,7 @@ module AlphaRelateModule
         integer(int32) :: nInd, Ind, Hap, Unit
 
         nInd = CountLines(File) / 2
-        call This%Init(nInd=nInd, nLoc=nLoc)
+        call This%Initialise(nInd=nInd, nLoc=nLoc)
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, This%nInd
           do Hap = 1, 2
@@ -2010,7 +2010,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   December 22, 2016
       !-------------------------------------------------------------------------
-      pure subroutine InitAlphaRelateSpec(This)
+      pure subroutine InitialiseAlphaRelateSpec(This)
         implicit none
 
         ! Arguments
@@ -2120,7 +2120,7 @@ module AlphaRelateModule
         end if
 
         ! Defaults
-        call This%Init
+        call This%Initialise
 
         This%SpecFile = SpecFile
         open(newunit=SpecUnit, file=This%SpecFile, action="read", status="old")
@@ -2800,7 +2800,7 @@ module AlphaRelateModule
                 stop 1
               end if
               ! @end todo
-              call This%Yob%Init(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId(1:This%RecPed%nInd))
+              call This%Yob%Initialise(nInd=This%RecPed%nInd, OriginalId=This%RecPed%OriginalId(1:This%RecPed%nInd))
               do Ind = 1, YobTmp%nInd
                 This%Yob%Value(YobTmp%Id(Ind)) = YobTmp%Value(Ind)
               end do
@@ -2891,7 +2891,7 @@ module AlphaRelateModule
 
         if (Spec%AlleleFreqGiven) then
           if (Spec%AlleleFreqFixed) then
-            call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+            call This%AlleleFreq%Initialise(nLoc=This%Gen%nLoc)
             This%AlleleFreq%Value = Spec%AlleleFreqFixedValue
           else
             call This%AlleleFreq%Read(File=Spec%AlleleFreqFile, nLoc=This%Gen%nLoc)
@@ -3224,7 +3224,7 @@ module AlphaRelateModule
       pure subroutine CalcPedInbreedingAlphaRelateData(This)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%PedInbreeding(0) = -1.0!!!
-        call This%PedInbreeding%Init(nInd=This%RecPed%nInd)
+        call This%PedInbreeding%Initialise(nInd=This%RecPed%nInd)
         This%PedInbreeding%OriginalId = This%RecPed%OriginalId
         This%PedInbreeding%Value = PedInbreedingMeuwissenLuo(RecPed=This%RecPed%Id, nInd=This%PedInbreeding%nInd)
         ! if (.not. allocated(This%Yob%OriginalId)) then
@@ -3251,7 +3251,7 @@ module AlphaRelateModule
 
         if (Spec%PedNrmSubsetGiven) then
           ! Using the Colleau/Tier method to get Nrm for a subset of individuals
-          call This%PedNrm%Init(nInd=This%PedNrmSubset%nInd)
+          call This%PedNrm%Initialise(nInd=This%PedNrmSubset%nInd)
           This%PedNrm%OriginalId = This%PedNrmSubset%OriginalId
           This%PedNrm%Id = This%PedNrmSubset%Id
           block
@@ -3324,7 +3324,7 @@ module AlphaRelateModule
           !                                      MinOldId=MinOldId, MaxOldId=MaxOldId)
         else
           ! Standard method for all individuals
-          call This%PedNrm%Init(nInd=This%RecPed%nInd)
+          call This%PedNrm%Initialise(nInd=This%RecPed%nInd)
           This%PedNrm%OriginalId = This%RecPed%OriginalId
           This%PedNrm%Value = PedNrm(RecPed=This%RecPed%Id, nInd=This%PedNrm%nInd)
         end if
@@ -3343,7 +3343,7 @@ module AlphaRelateModule
         if (.not. allocated(This%PedInbreeding%Value)) then
           call This%CalcPedInbreeding
         end if
-        call This%PedNrmInv%Init(nInd=This%RecPed%nInd)
+        call This%PedNrmInv%Initialise(nInd=This%RecPed%nInd)
         This%PedNrmInv%OriginalId = This%RecPed%OriginalId
         This%PedNrmInv%Value = PedNrmInv(RecPed=This%RecPed%Id, nInd=This%PedNrmInv%nInd,&
                                          Inbreeding=This%PedInbreeding%Value)
@@ -3363,7 +3363,7 @@ module AlphaRelateModule
         integer(int32) :: Ind, Loc
         integer(int32), allocatable, dimension(:) :: nObs
 
-        call This%AlleleFreq%Init(nLoc=This%Gen%nLoc)
+        call This%AlleleFreq%Initialise(nLoc=This%Gen%nLoc)
         ! @todo can we build a method that works on type(Genotype) so we would not need GenotypeReal for allele freq calculation?
         if (.not. allocated(This%Gen%GenotypeReal)) then
           call This%Gen%MakeGenotypeReal
@@ -3408,7 +3408,7 @@ module AlphaRelateModule
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
         type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
 
-        call This%GenNrm%Init(nInd=This%Gen%nInd)
+        call This%GenNrm%Initialise(nInd=This%Gen%nInd)
         This%GenNrm%OriginalId = This%Gen%OriginalId
         This%GenNrm%Id = This%Gen%Id
 
@@ -3618,7 +3618,7 @@ module AlphaRelateModule
       pure subroutine CalcGenInbreedingAlphaRelateData(This, Spec)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder, note This%GenInbreeding(0) = -1.0!!!
-        type(AlphaRelateSpec), intent(in) :: Spec     !< Specifications
+        type(AlphaRelateSpec), intent(in)     :: Spec !< Specifications
         ! @todo: no need to do whole matrix just for inbreeding, could we be more clever here?
         if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
@@ -3636,13 +3636,13 @@ module AlphaRelateModule
       pure subroutine CalcGenNrmInvAlphaRelateData(This, Spec, Info)
         implicit none
         class(AlphaRelateData), intent(inout) :: This !< @return AlphaRelateData holder
-        class(AlphaRelateSpec), intent(in) :: Spec    !< AlphaRelateSpecs
-        logical, intent(out) :: Info                  !< @return Success of inversion (.true.) or failure (.false.)
+        class(AlphaRelateSpec), intent(in)    :: Spec !< AlphaRelateSpecs
+        logical, intent(out)                  :: Info !< @return Success of inversion (.true.) or failure (.false.)
 
         if (.not. allocated(This%GenNrm%Value)) then
           call This%CalcGenNrm(Spec=Spec)
         end if
-        call This%GenNrmInv%Init(nInd=This%GenNrm%nInd)
+        call This%GenNrmInv%Initialise(nInd=This%GenNrm%nInd)
         This%GenNrmInv%OriginalId = This%GenNrm%OriginalId
         This%GenNrmInv%Id = This%GenNrm%Id
         This%GenNrmInv%Value = This%GenNrm%Value
@@ -3666,7 +3666,7 @@ module AlphaRelateModule
         integer(int32) :: Hap11(This%HapIbd%nLoc), Hap12(This%HapIbd%nLoc)
         integer(int32) :: Hap21(This%HapIbd%nLoc), Hap22(This%HapIbd%nLoc)
 
-        call This%HapIbdNrm%Init(nInd=This%HapIbd%nInd)
+        call This%HapIbdNrm%Initialise(nInd=This%HapIbd%nInd)
         This%HapIbdNrm%OriginalId = This%HapIbd%OriginalId
         This%HapIbdNrm%Id = This%HapIbd%Id
 
@@ -3744,7 +3744,7 @@ module AlphaRelateModule
         if (.not. allocated(This%HapIbdNrm%Value)) then
           call This%CalcHapIbdNrm(Spec=Spec)
         end if
-        call This%HapIbdNrmInv%Init(nInd=This%HapIbdNrm%nInd)
+        call This%HapIbdNrmInv%Initialise(nInd=This%HapIbdNrm%nInd)
         This%HapIbdNrmInv%OriginalId = This%HapIbdNrm%OriginalId
         This%HapIbdNrmInv%Id = This%HapIbdNrm%Id
         This%HapIbdNrmInv%Value = This%HapIbdNrm%Value
