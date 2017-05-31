@@ -2436,8 +2436,8 @@ module AlphaRelateModule
                       trim(This%GenNrmType) /= "yang"            .and. &
                       trim(This%GenNrmType) /= "nejati-javaremi") then
                       ! trim(This%GenNrmType) /= "day-williams") then
-                    write(STDERR, "(a)")  " ERROR: GenNrmType must be either VanRaden=VanRaden1, VanRaden2, Yang, or Nejati-Javaremi"
-                    write(STDERR, "(a)") " ERROR: |"//trim(This%GenNrmType)//"|"
+                    write(STDERR, "(a)") " ERROR: GenNrmType must be either VanRaden=VanRaden1, VanRaden2, Yang, or Nejati-Javaremi"
+                    write(STDERR, "(a)") " ERROR: "//trim(This%GenNrmType)
                     write(STDERR, "(a)") ""
                     stop 1
                   end if
