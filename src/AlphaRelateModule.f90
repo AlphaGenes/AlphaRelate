@@ -72,8 +72,8 @@ module AlphaRelateModule
   use GenotypeModule, only : Genotype
   ! use HaplotypeModule, only : Haplotype
   use OrderPackModule, only : UniqueRank => UniInv, Unique => UniSta, Rank => MrgRnk
-  use Blas95
-  use Lapack95
+  use Blas95, only : dot, gemm
+  use Lapack95, only : potrf, potri
   use F95_precision
 
   implicit none
