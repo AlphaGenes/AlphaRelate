@@ -1,0 +1,4 @@
+                ChromId          NbOfSegSites      NbOfInclSegSites
+           1                  5250                   480
+           2                  5281                   540
+           3                  5146                   480

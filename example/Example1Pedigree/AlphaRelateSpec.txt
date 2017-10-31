@@ -1,0 +1,7 @@
+PedigreeFile , ../Data/ExamplePedigree.txt
+PedInbreeding, Yes
+PedNrm       , Yes
+OutputFormat , f5.2
+Stop
+
+YearOfBirthFile, ../Data/ExampleGeneration.txt
