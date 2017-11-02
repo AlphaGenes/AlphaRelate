@@ -68,7 +68,8 @@ module AlphaRelateModule
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char,&
                             ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc,&
                             Match
-  use PedigreeModule, only : PedigreeHolder, RecodedPedigreeArray, MakeRecodedPedigreeArray
+  use PedigreeModule, only : PedigreeHolder, InitPedigree, RecodedPedigreeArray, &
+                             MakeRecodedPedigreeArray, DestroyPedigree
   use GenotypeModule, only : Genotype
   ! use HaplotypeModule, only : Haplotype
   use OrderPackModule, only : UniqueRank => UniInv, Unique => UniSta, Rank => MrgRnk
@@ -1416,7 +1417,7 @@ module AlphaRelateModule
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 4, 2017
       !-------------------------------------------------------------------------
-      pure subroutine InitialiseGenotypeArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, IntegerInput, GenotypeInput)
+      subroutine InitialiseGenotypeArray(This, nInd, nLoc, OriginalId, OriginalIdSuperset, Skip, IntegerInput, GenotypeInput)
         implicit none
 
         ! Arguments
@@ -1476,12 +1477,12 @@ module AlphaRelateModule
         end if
         allocate(This%Genotype(0:nInd))
         TempInt = MISSINGGENOTYPECODE
-        TempGeno = Genotype(Geno=TempInt)
+        call TempGeno%NewGenotypeInt(Geno=TempInt)
         This%Genotype(0) = TempGeno
         if (present(IntegerInput) .or. present(GenotypeInput)) then
           if (present(IntegerInput)) then
             do Ind = 1, nInd
-              This%Genotype(Ind) = Genotype(Geno=IntegerInput(:, Ind))
+              call This%Genotype(Ind)%NewGenotypeInt(Geno=IntegerInput(:, Ind))
             end do
           end if
           if (present(GenotypeInput)) then
@@ -1639,7 +1640,7 @@ module AlphaRelateModule
         open(newunit=Unit, file=File, action="read", status="old")
         do Ind = 1, This%nInd
           read(Unit, *) This%OriginalId(Ind), Temp
-          This%Genotype(Ind) = Genotype(Geno=Temp)
+          call This%Genotype(Ind)%NewGenotypeInt(Geno=Temp)
         end do
         close(Unit)
       end subroutine
@@ -2764,7 +2765,7 @@ module AlphaRelateModule
 
         if (Spec%PedigreeGiven) then
           ! Read in the pedigree
-          PedObj = PedigreeHolder(Spec%PedigreeFile)
+          call InitPedigree(PedStructure=PedObj, FileIn=Spec%PedigreeFile)
 
           ! Sort and recode pedigree
           call PedObj%MakeRecodedPedigreeArray(RecPed=This%RecPed)
@@ -2773,7 +2774,7 @@ module AlphaRelateModule
           end if
 
           ! Free some memory
-          call PedObj%DestroyPedigree
+          call DestroyPedigree(PedObj)
 
           ! Read in the year of birth/generation
           if (Spec%YobGiven) then
