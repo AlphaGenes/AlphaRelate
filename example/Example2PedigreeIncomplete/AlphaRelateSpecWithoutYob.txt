@@ -1,0 +1,5 @@
+PedigreeFile   , ../Data/ExamplePedigreeIncomplete.txt
+PedInbreeding  , Yes
+PedNrm         , Yes
+OutputFormat   , f5.2
+Stop
