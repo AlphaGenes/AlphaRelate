@@ -2352,7 +2352,7 @@ module AlphaRelateModule
                     write(This%PedNrmSubsetFile, *) trim(adjustl(Second(1)))
                     This%PedNrmSubsetFile = adjustl(This%PedNrmSubsetFile)
                     if (LogStdoutInternal) then
-                      write(STDOUT, "(2a)") " Pedigree NRM set file: ", trim(This%PedNrmSubsetFile)
+                      write(STDOUT, "(2a)") " Pedigree NRM subset file: ", trim(This%PedNrmSubsetFile)
                     end if
                   end if
                 else
