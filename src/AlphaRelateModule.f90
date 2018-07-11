@@ -369,6 +369,7 @@ module AlphaRelateModule
 
         This%nInd = nInd
 
+
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
@@ -876,6 +877,8 @@ module AlphaRelateModule
 
         This%nInd = nInd
 
+
+        call this%OriginalIdDict%DictStructure(int(nInd,8))
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
