@@ -50,6 +50,7 @@
 !
 !> @version  0.1.0 (alpha)
 !
+!> @todo Use hashes everywhere!?
 !> @todo Add largish examples
 !> @todo Add A22 inverse function for PCG using the successive multiplication trick (Stranden and Mantysaari)
 !> @todo Add Single-step H matrix
@@ -63,11 +64,12 @@
 !-------------------------------------------------------------------------------
 module AlphaRelateModule
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
-  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH,&
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH, &
                              EMPTYID, MISSINGGENOTYPECODE
-  use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char,&
-                            ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, FindLoc,&
+  use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
+                            ParseToFirstWhitespace, SplitLineIntoTwoParts, ToLower, &
                             Match
+  use HashModule
   use PedigreeModule, only : PedigreeHolder, InitPedigree, RecodedPedigreeArray, &
                              MakeRecodedPedigreeArray, DestroyPedigree
   use GenotypeModule, only : Genotype
@@ -76,8 +78,6 @@ module AlphaRelateModule
   use Blas95, only : dot, gemm
   use Lapack95, only : potrf, potri
   use F95_precision
-  
-  use HashModule
 
   implicit none
 
@@ -877,8 +877,8 @@ module AlphaRelateModule
 
         This%nInd = nInd
 
+        call This%OriginalIdDict%DictStructure(size=int(nInd, 8))
 
-        call this%OriginalIdDict%DictStructure(int(nInd,8))
         if (allocated(This%OriginalId)) then
           deallocate(This%OriginalId)
         end if
@@ -1071,8 +1071,7 @@ module AlphaRelateModule
           Fmt = "(i"//Int2Char(IDINTLENGTH)//", a"//Int2Char(IDLENGTH)//")"
           do Ind1 = 1, nInd
             read(Unit2, *) Ind2, This%OriginalId(Ind2)
-
-            call This%OriginalIdDict%addKey(This%OriginalId(Ind2), ind2)
+            call This%OriginalIdDict%AddKey(key=This%OriginalId(Ind2), value=Ind2)
           end do
           close(Unit2)
           ! Triplets
@@ -1085,7 +1084,7 @@ module AlphaRelateModule
           call This%Initialise(nInd=nInd)
           do Ind1 = 1, nInd
             read(Unit, *) This%OriginalId(Ind1), This%Value(1:nInd, Ind1)
-            call This%OriginalIdDict%addKey(This%OriginalId(Ind1), ind1)
+            call This%OriginalIdDict%AddKey(key=This%OriginalId(Ind1), value=Ind1)
           end do
         end if
         close(Unit)
