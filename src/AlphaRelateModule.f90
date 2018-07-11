@@ -76,6 +76,8 @@ module AlphaRelateModule
   use Blas95, only : dot, gemm
   use Lapack95, only : potrf, potri
   use F95_precision
+  
+  use HashModule
 
   implicit none
 
@@ -221,6 +223,7 @@ module AlphaRelateModule
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
     real(real64), allocatable, dimension(:, :)         :: Value
+    type(DictStructure)                                :: OriginalIdDict
     ! @todo use packed storage?
     ! - see https://software.intel.com/en-us/node/468672
     ! - see https://software.intel.com/en-us/node/471382#C62A5095-C2EE-4AAD-AAA6-589230521A55
@@ -1065,6 +1068,8 @@ module AlphaRelateModule
           Fmt = "(i"//Int2Char(IDINTLENGTH)//", a"//Int2Char(IDLENGTH)//")"
           do Ind1 = 1, nInd
             read(Unit2, *) Ind2, This%OriginalId(Ind2)
+
+            call This%OriginalIdDict%addKey(This%OriginalId(Ind2), ind2)
           end do
           close(Unit2)
           ! Triplets
@@ -1077,6 +1082,7 @@ module AlphaRelateModule
           call This%Initialise(nInd=nInd)
           do Ind1 = 1, nInd
             read(Unit, *) This%OriginalId(Ind1), This%Value(1:nInd, Ind1)
+            call This%OriginalIdDict%addKey(This%OriginalId(Ind1), ind1)
           end do
         end if
         close(Unit)
