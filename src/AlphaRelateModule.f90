@@ -1,3 +1,15 @@
+#ifdef SINGLEPRECAH
+#define FLOATTYPE real32
+#define DescStatType DescStatReal32
+#define DescStatMatrixType DescStatMatrixReal32
+#define CONVERSIONFUNCTION REAL
+#else 
+#define FLOATTYPE real64
+#define DescStatType DescStatReal64
+#define DescStatMatrixType DescStatMatrixReal64
+#define CONVERSIONFUNCTION DBLE
+#endif
+
 #ifdef _WIN32
 
 #define STRINGIFY(x)#x
@@ -120,7 +132,7 @@ module AlphaRelateModule
   ! @brief Allele frequencies
   type AlleleFreq
     integer(int32)                          :: nLoc
-    real(real64), allocatable, dimension(:) :: Value
+    real(FLOATTYPE), allocatable, dimension(:) :: Value
     contains
       procedure :: Initialise => InitialiseAlleleFreq
       procedure :: Destroy    => DestroyAlleleFreq
@@ -131,7 +143,7 @@ module AlphaRelateModule
   ! @brief Locus weights
   type LocusWeight
     integer(int32)                          :: nLoc
-    real(real64), allocatable, dimension(:) :: Value
+    real(FLOATTYPE), allocatable, dimension(:) :: Value
     contains
       procedure :: Initialise => InitialiseLocusWeight
       procedure :: Destroy    => DestroyLocusWeight
@@ -147,7 +159,7 @@ module AlphaRelateModule
     integer(int32), allocatable, dimension(:)          :: Id
     integer(int32)                                     :: nLoc
     type(Genotype), allocatable, dimension(:)          :: Genotype
-    real(real64), allocatable, dimension(:, :)         :: GenotypeReal
+    real(FLOATTYPE), allocatable, dimension(:, :)         :: GenotypeReal
     contains
       procedure :: Initialise                 => InitialiseGenotypeArray
       procedure :: Destroy                    => DestroyGenotypeArray
@@ -170,7 +182,7 @@ module AlphaRelateModule
   !   integer(int32), allocatable, dimension(:)          :: Id
   !   integer(int32)                                     :: nLoc
   !   type(Haplotype), allocatable, dimension(:)         :: Haplotype
-  !   real(real64), allocatable, dimension(:, :)         :: HaplotypeReal
+  !   real(FLOATTYPE), allocatable, dimension(:, :)         :: HaplotypeReal
   !   contains
   !     ! procedure :: Initialise                 => InitialiseHaplotypeArray
   !     ! procedure :: Destroy                    => DestroyHaplotypeArray
@@ -207,7 +219,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:)            :: Value
+    real(FLOATTYPE), allocatable, dimension(:)            :: Value
     contains
       procedure :: Initialise => InitialiseInbVec
       procedure :: Destroy    => DestroyInbVec
@@ -222,7 +234,7 @@ module AlphaRelateModule
     integer(int32)                                     :: nInd
     character(len=IDLENGTH), allocatable, dimension(:) :: OriginalId
     integer(int32), allocatable, dimension(:)          :: Id
-    real(real64), allocatable, dimension(:, :)         :: Value
+    real(FLOATTYPE), allocatable, dimension(:, :)         :: Value
     type(DictStructure)                                :: OriginalIdDict
     ! @todo use packed storage?
     ! - see https://software.intel.com/en-us/node/468672
@@ -261,10 +273,10 @@ module AlphaRelateModule
 
     integer(int32) :: nLoc
 
-    real(real64) :: AlleleFreqFixedValue
-    real(real64) :: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)
-    ! real(real64) :: FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
-    real(real64) :: FudgeHapIbdNrmDiagValue, BlendHapIbdNrmWithPedNrmFactor(2)
+    real(FLOATTYPE) :: AlleleFreqFixedValue
+    real(FLOATTYPE) :: FudgeGenNrmDiagValue, BlendGenNrmWithPedNrmFactor(2)
+    ! real(FLOATTYPE) :: FudgeHapNrmDiagValue, BlendHapNrmWithPedNrmFactor(2)
+    real(FLOATTYPE) :: FudgeHapIbdNrmDiagValue, BlendHapIbdNrmWithPedNrmFactor(2)
     contains
       procedure :: Initialise => InitialiseAlphaRelateSpec
       procedure :: Read       => ReadAlphaRelateSpec
@@ -684,7 +696,7 @@ module AlphaRelateModule
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients (note that this should not have 0th margin)
+        real(FLOATTYPE), intent(in), optional :: InbInput(nInd)                   !< Inbreeding coefficients (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -864,7 +876,7 @@ module AlphaRelateModule
         character(len=IDLENGTH), intent(in), optional :: OriginalId(nInd)      !< Original Id of individuals in the      set (note that this should not have 0th margin)
         character(len=IDLENGTH), intent(in), optional :: OriginalIdSuperset(:) !< Original Id of individuals in the superset
         integer(int32), intent(in), optional :: Skip                           !< How many elements of OriginalIdSuperset to skip
-        real(real64), intent(in), optional :: Input(nInd, nInd)             !< Relationship coefficients (note that this should not have 0th margin)
+        real(FLOATTYPE), intent(in), optional :: Input(nInd, nInd)             !< Relationship coefficients (note that this should not have 0th margin)
 
         ! Other
         integer(int32) :: Ind, Start
@@ -1104,7 +1116,7 @@ module AlphaRelateModule
         logical, intent(in), optional :: Nrm  !< Is This a numerator relationship (default) or coancestry matrix?
         logical :: NrmInternal
         integer(int32) :: Ind
-        real(real64) :: Factor
+        real(FLOATTYPE) :: Factor
         if (present(Nrm)) then
           NrmInternal = Nrm
         else
@@ -1218,7 +1230,7 @@ module AlphaRelateModule
         ! Arguments
         class(AlleleFreq), intent(out) :: This                      !< @return AlleleFreq holder
         integer(int32), intent(in) :: nLoc                          !< Number of loci
-        real(real64), intent(in), optional :: AlleleFreqInput(nLoc) !< Allele frequencies
+        real(FLOATTYPE), intent(in), optional :: AlleleFreqInput(nLoc) !< Allele frequencies
 
         ! Initialise numbers
         This%nLoc = nLoc
@@ -1324,7 +1336,7 @@ module AlphaRelateModule
         ! Arguments
         class(LocusWeight), intent(out) :: This                      !< @return LocusWeight holder
         integer(int32), intent(in) :: nLoc                           !< Number of loci
-        real(real64), intent(in), optional :: LocusWeightInput(nLoc) !< Locus weights
+        real(FLOATTYPE), intent(in), optional :: LocusWeightInput(nLoc) !< Locus weights
 
         ! Initialise numbers
         This%nLoc = nLoc
@@ -1682,7 +1694,7 @@ module AlphaRelateModule
       !#########################################################################
 
       !-------------------------------------------------------------------------
-      !> @brief  Make genotypes real (build real64 array of genotypes)
+      !> @brief  Make genotypes real (build FLOATTYPE array of genotypes)
       !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
       !> @date   January 9, 2016
       !-------------------------------------------------------------------------
@@ -1697,10 +1709,10 @@ module AlphaRelateModule
         end if
         allocate(This%GenotypeReal(This%nLoc, 0:This%nInd))
 
-        This%GenotypeReal(:, 0) = dble(MISSINGGENOTYPECODE)
+        This%GenotypeReal(:, 0) = CONVERSIONFUNCTION(MISSINGGENOTYPECODE)
         ! @todo could we handle missing genotypes here somehow?
         do Ind = 1, This%nInd
-          This%GenotypeReal(:, Ind) = dble(This%Genotype(Ind)%ToIntegerArray())
+          This%GenotypeReal(:, Ind) = CONVERSIONFUNCTION(This%Genotype(Ind)%ToIntegerArray())
         end do
       end subroutine
 
@@ -1714,10 +1726,10 @@ module AlphaRelateModule
       pure subroutine CenterGenotypeReal(This, AlleleFreq)
         implicit none
         class(GenotypeArray), intent(inout) :: This                  !< @return GenotypeArray holder
-        real(real64), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering
+        real(FLOATTYPE), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering
 
         integer(int32) :: Ind, Loc
-        real(real64), allocatable, dimension(:) :: Mean
+        real(FLOATTYPE), allocatable, dimension(:) :: Mean
 
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
@@ -1754,10 +1766,10 @@ module AlphaRelateModule
       pure subroutine CenterAndScaleGenotypeReal(This, AlleleFreq)
         implicit none
         class(GenotypeArray), intent(inout) :: This                  !< @return GenotypeArray holder
-        real(real64), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering and scaling
+        real(FLOATTYPE), intent(in), dimension(This%nLoc) :: AlleleFreq !< Allele frequencies for centering and scaling
 
         integer(int32) :: Ind, Loc
-        real(real64), allocatable, dimension(:) :: Mean, StDev
+        real(FLOATTYPE), allocatable, dimension(:) :: Mean, StDev
 
         if (.not. allocated(This%GenotypeReal)) then
           call This%MakeGenotypeReal
@@ -1802,7 +1814,7 @@ module AlphaRelateModule
       pure subroutine WeightGenotypeReal(This, Weight)
         implicit none
         class(GenotypeArray), intent(inout) :: This              !< @return GenotypeArray holder
-        real(real64), intent(in), dimension(This%nLoc) :: Weight !< Locus weights
+        real(FLOATTYPE), intent(in), dimension(This%nLoc) :: Weight !< Locus weights
 
         integer(int32) :: Ind
 
@@ -3265,7 +3277,7 @@ module AlphaRelateModule
           This%PedNrm%Id = This%PedNrmSubset%Id
           block
             integer(int32) :: Ind, xPos
-            real(real64), allocatable, dimension(:) :: x, NrmCol
+            real(FLOATTYPE), allocatable, dimension(:) :: x, NrmCol
             allocate(     x(0:This%RecPed%nInd))
             allocate(NrmCol(0:This%RecPed%nInd))
             call This%CalcPedInbreeding
@@ -3384,7 +3396,7 @@ module AlphaRelateModule
         ! do Ind = 1, This%Gen%nInd
         !   This%AlleleFreq%Value = This%AlleleFreq%Value + This%Gen%GenotypeReal(:, Ind)
         ! end do
-        ! This%AlleleFreq%Value = This%AlleleFreq%Value / (2.0d0 * dble(This%Gen%nInd))
+        ! This%AlleleFreq%Value = This%AlleleFreq%Value / (2.0d0 * CONVERSIONFUNCTION(This%Gen%nInd))
         allocate(nObs(This%Gen%nLoc))
         nObs = 0
         do Ind = 1, This%Gen%nInd
@@ -3397,7 +3409,7 @@ module AlphaRelateModule
         end do
         do Loc = 1, This%Gen%nLoc
           if (nObs(Loc) .gt. 0) then
-            This%AlleleFreq%Value(Loc) = This%AlleleFreq%Value(Loc) / (2.0d0 * dble(nObs(Loc)))
+            This%AlleleFreq%Value(Loc) = This%AlleleFreq%Value(Loc) / (2.0d0 * CONVERSIONFUNCTION(nObs(Loc)))
           else
             This%AlleleFreq%Value(Loc) = 0.0d0
           end if
@@ -3468,15 +3480,15 @@ module AlphaRelateModule
             ! Compute Z'Z
             call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
             ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
-            This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
+            This%GenNrm%Value = This%GenNrm%Value / CONVERSIONFUNCTION(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
 
           case ("yang")
             ! Cov(a|Z) = Average ([Observed covariance between individuals at a locus] / [Expected variance at a locus])
             ! With modification for diagonal to account for the fact that Var(a) = 1 + F
             block
               integer(int32) :: Ind, Loc
-              real(real64) :: Diag(This%Gen%nInd), TwiceAlleleFreq(This%Gen%nLoc), OnePlusTwiceAlleleFreq(This%Gen%nLoc)
-              real(real64) :: TwiceAlleleFreqSquared(This%Gen%nLoc), ExpVar(This%Gen%nLoc), Weight(This%Gen%nLoc)
+              real(FLOATTYPE) :: Diag(This%Gen%nInd), TwiceAlleleFreq(This%Gen%nLoc), OnePlusTwiceAlleleFreq(This%Gen%nLoc)
+              real(FLOATTYPE) :: TwiceAlleleFreqSquared(This%Gen%nLoc), ExpVar(This%Gen%nLoc), Weight(This%Gen%nLoc)
               ! Setup
               if (.not. allocated(This%Gen%GenotypeReal)) then
                 call This%Gen%MakeGenotypeReal
@@ -3519,13 +3531,13 @@ module AlphaRelateModule
                 This%GenNrm%Value(Ind, Ind) = Diag(Ind)
               end do
               ! Average over loci (accounting for non-segregating loci as we tinker with the data in those cases)
-              This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
+              This%GenNrm%Value = This%GenNrm%Value / CONVERSIONFUNCTION(This%Gen%nLoc - count(This%AlleleFreq%Value .eq. 0.0 .or. This%AlleleFreq%Value .eq. 1.0))
             end block
 
           case ("nejati-javaremi")
             ! Simple 2 * proprotion of shared alternative alleles (calculated via matrix multiplication)
             block
-              real(real64) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
+              real(FLOATTYPE) :: AlleleFreqHalf(This%Gen%nLoc), Tmp
               ! Setup
               if (.not. allocated(This%Gen%GenotypeReal)) then
                 call This%Gen%MakeGenotypeReal
@@ -3540,10 +3552,10 @@ module AlphaRelateModule
               ! Compute Z'Z
               call gemm(A=This%Gen%GenotypeReal, B=This%Gen%GenotypeReal, C=This%GenNrm%Value, TransA="T")
               ! Average over loci (not accounting for non-segregating loci as in other methods, as we do not tinker with the data for those loci)
-              This%GenNrm%Value = This%GenNrm%Value / dble(This%Gen%nLoc)
+              This%GenNrm%Value = This%GenNrm%Value / CONVERSIONFUNCTION(This%Gen%nLoc)
               ! Modify scale from [-1, 1] to [0, 2]
               if (Spec%LocusWeightGiven) then
-                Tmp = sum(This%LocusWeight%Value) / dble(This%Gen%nLoc)
+                Tmp = sum(This%LocusWeight%Value) / CONVERSIONFUNCTION(This%Gen%nLoc)
               else
                 Tmp = 1.0d0
               end if
@@ -3599,19 +3611,19 @@ module AlphaRelateModule
         integer(int32), intent(in) :: nInd                  !< Number of individuals
         integer(int32), intent(in) :: nLoc                  !< Number of loci
         integer(int32), intent(in) :: AlleleFreq(nLoc)      !< Allele frequencies
-        real(real64) :: Nrm(0:nInd, 0:nInd)                 !< @return Genotype NRM
+        real(FLOATTYPE) :: Nrm(0:nInd, 0:nInd)                 !< @return Genotype NRM
 
         integer(int32) :: Ind1, Ind2
-        real(real64) :: Scale, Genotype2(nLoc)
+        real(FLOATTYPE) :: Scale, Genotype2(nLoc)
 
         Scale = 2.0d0 * sum(AlleleFreq * (1.0d0 - AlleleFreq))
         Nrm(0:nInd, 0) = 0.0d0
         Nrm(0, 0:nInd) = 0.0d0
         do Ind2 = 1, nInd
-          Genotype2 = dble(GenotypeInput(Ind2)%ToIntegerArray()) - AlleleFreq
+          Genotype2 = CONVERSIONFUNCTION(GenotypeInput(Ind2)%ToIntegerArray()) - AlleleFreq
           Nrm(Ind2, Ind2) = dot(Genotype2, Genotype2) / Scale
           do Ind1 = Ind2 + 1, nInd
-            Nrm(Ind1, Ind2) = dot(dble(GenotypeInput(Ind1)%ToIntegerArray()) - AlleleFreq, Genotype2) / Scale
+            Nrm(Ind1, Ind2) = dot(CONVERSIONFUNCTION(GenotypeInput(Ind1)%ToIntegerArray()) - AlleleFreq, Genotype2) / Scale
             Nrm(Ind2, Ind1) = Nrm(Ind1, Ind2)
           end do
         end do
@@ -3788,8 +3800,8 @@ module AlphaRelateModule
       !   integer(int32) :: i,j,k,m,p,q,div,t1,t2,whichMat,nBoth
       !   integer(int32),allocatable :: MapToA11(:), MapToA22(:) !Gmap(:),
 
-      !   real(real64) :: GMatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
-      !   real(real64),allocatable :: Gdiag(:), Hrow(:), A22(:,:), InvA22(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
+      !   real(FLOATTYPE) :: GMatavg, nom, denom, slope, intercept, Gmean, Amean, Hii
+      !   real(FLOATTYPE),allocatable :: Gdiag(:), Hrow(:), A22(:,:), InvA22(:,:), G22(:,:), A11(:,:), A12(:,:), tmp(:,:), Gboth(:,:)
 
       !   character(len=1000) :: nChar,fmt1, fmt2,filout
       !   character(len=IDLENGTH),allocatable :: Ids(:)
@@ -3879,7 +3891,7 @@ module AlphaRelateModule
       !         allocate(Gdiag(0:nBoth))
       !         Gdiag=0.0d0
       !         GMatavg=0.0d0
-      !         div=dble(nBoth**2)
+      !         div=CONVERSIONFUNCTION(nBoth**2)
       !         !allocate(Gmap(nBoth))
 
       !         k = 0
@@ -3901,8 +3913,8 @@ module AlphaRelateModule
       !         ! Now do simple linear regression
       !         nom = 0.0d0
       !         denom = 0.0d0
-      !         Gmean = sum(Gdiag) / dble(size(Gdiag, 1))
-      !         Amean = sum(Adiag) / dble(size(Adiag, 1))
+      !         Gmean = sum(Gdiag) / CONVERSIONFUNCTION(size(Gdiag, 1))
+      !         Amean = sum(Adiag) / CONVERSIONFUNCTION(size(Adiag, 1))
       !         do i=0,ubound(Adiag, 1)
       !           nom = nom + (Adiag(i) - Amean) * (Gdiag(i) - Gmean)
       !           denom = denom + (Adiag(i) - Amean)**2
@@ -4094,7 +4106,7 @@ module AlphaRelateModule
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd)   !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                  !< Number of individuals in pedigree
         integer(int32), intent(in), optional :: Yob(0:nInd) !< Year of birth of individuals (used to correct for inbreeding of unknown parents)
-        real(real64) :: f(0:nInd)                           !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+        real(FLOATTYPE) :: f(0:nInd)                           !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
         integer(int32) :: Ind
@@ -4113,8 +4125,8 @@ module AlphaRelateModule
           block
             integer(int32) :: YobId(0:nInd), nYob, Iter
             integer(int32), allocatable, dimension(:) :: nByYob, YobTable
-            real(real64) :: fOld(0:nInd), Norm
-            real(real64), allocatable, dimension(:) :: AvgByYob, AvgByYobNew
+            real(FLOATTYPE) :: fOld(0:nInd), Norm
+            real(FLOATTYPE), allocatable, dimension(:) :: AvgByYob, AvgByYobNew
             YobId = UniqueRank(Yob)
             ! do Ind = 1, nInd
             !   print*, Ind, RecPed(:, Ind), Yob(Ind), YobId(Ind)
@@ -4147,7 +4159,7 @@ module AlphaRelateModule
               end do
               ! Average
               where (nByYob .gt. 0)
-                AvgByYobNew = AvgByYobNew / dble(nByYob)
+                AvgByYobNew = AvgByYobNew / CONVERSIONFUNCTION(nByYob)
               end where
               Norm = norm2(fOld - f)
               ! block
@@ -4181,7 +4193,7 @@ module AlphaRelateModule
           pure recursive function PedNrmRecursive(Ind1, Ind2) result(r)
             integer(int32), intent(in) :: Ind1 !< First  individual
             integer(int32), intent(in) :: Ind2 !< Second individual
-            real(real64) :: r                  !< @return pedigree relationship between the individuals
+            real(FLOATTYPE) :: r                  !< @return pedigree relationship between the individuals
 
             ! Needs access to f(0:n) and RecPed(3, 0:n)
             ! @todo Can we memoise some of the recursive calls of PedNrmRecursive?
@@ -4216,12 +4228,12 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
-        real(real64) :: f(0:nInd)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
+        real(FLOATTYPE) :: f(0:nInd)                         !< @return Pedigree inbreeding, note PedInbreeding(0) = -1.0!!!
 
         ! Other
         integer(int32) :: i, is, id, j, k, ks, kd
         integer(int32) :: ped(3, 0:nInd), point(0:nInd)
-        real(real64) :: l(nInd), d(nInd), fi, r
+        real(FLOATTYPE) :: l(nInd), d(nInd), fi, r
 
         point = 0
         l = 0.0d0
@@ -4299,7 +4311,7 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
-        real(real64) :: GeneFlow(0:nInd, 0:nInd)          !< @return Pedigree gene flow matrix (as lower triangular matrix!!!)
+        real(FLOATTYPE) :: GeneFlow(0:nInd, 0:nInd)          !< @return Pedigree gene flow matrix (as lower triangular matrix!!!)
 
         ! Other
         integer(int32) :: Ind1, Ind2, Par1, Par2
@@ -4343,7 +4355,7 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
-        real(real64) :: Nrm(0:nInd, 0:nInd)               !< @return Pedigree NRM
+        real(FLOATTYPE) :: Nrm(0:nInd, 0:nInd)               !< @return Pedigree NRM
 
         ! Other
         integer(int32) :: Ind1, Ind2, Par1, Par2
@@ -4376,13 +4388,13 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3, 0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd                !< Number of individuals in pedigree
-        real(real64), intent(in) :: Inbreeding(0:nInd)    !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-        real(real64), intent(in) :: Vector(0:nInd)        !< Vector to multiply NRM with
-        real(real64) :: Result(0:nInd)                    !< @return PedNrm*Vector, i.e., Ax=b
+        real(FLOATTYPE), intent(in) :: Inbreeding(0:nInd)    !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+        real(FLOATTYPE), intent(in) :: Vector(0:nInd)        !< Vector to multiply NRM with
+        real(FLOATTYPE) :: Result(0:nInd)                    !< @return PedNrm*Vector, i.e., Ax=b
 
         ! Other
         integer(int32) :: Ind, Par1, Par2
-        real(real64) :: q(0:nInd), VarM, Tmp
+        real(FLOATTYPE) :: q(0:nInd), VarM, Tmp
 
         Result = 0.0d0
         q = 0.0d0
@@ -4425,11 +4437,11 @@ module AlphaRelateModule
       !   integer(int32), intent(in) :: RecPed(1:3, 0:n)      !< Sorted and recoded pedigree array (unknown parents as 0)
       !   integer(int32), intent(in) :: n                     !< Number of individuals in pedigree
       !   integer(int32), intent(in) :: nNew                  !< Number of new generation individuals
-      !   real(real64), intent(in) :: OldNrm(0:nOld, 0:nOld)  !< Old NRM
+      !   real(FLOATTYPE), intent(in) :: OldNrm(0:nOld, 0:nOld)  !< Old NRM
       !   integer(int32), intent(in) :: nOld                  !< Number of individuals in the old NRM
       !   integer(int32), intent(in) :: MinOldId              !< Minimal sequential id for the old NRM
       !   integer(int32), intent(in) :: MaxOldId              !< Maximal sequential id for the old NRM
-      !   real(real64) :: Nrm(0:n, 0:n)                       !< @return Pedigree NRM for the new generation individuals
+      !   real(FLOATTYPE) :: Nrm(0:n, 0:n)                       !< @return Pedigree NRM for the new generation individuals
       !
       !   ! Other
       !   integer(int32) :: Ind1, Ind2, Par1, Par2
@@ -4499,12 +4511,12 @@ module AlphaRelateModule
         ! Arguments
         integer(int32), intent(in) :: RecPed(1:3,0:nInd) !< Sorted and recoded pedigree array (unknown parents as 0)
         integer(int32), intent(in) :: nInd               !< Number of individuals in pedigree
-        real(real64), intent(in) :: Inbreeding(0:nInd)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
-        real(real64) :: NrmInv(0:nInd, 0:nInd)           !< @return Pedigree NRM inverse
+        real(FLOATTYPE), intent(in) :: Inbreeding(0:nInd)   !< Pedigree inbreeding coefficients; note Inbreeding(0) must be -1.0!
+        real(FLOATTYPE) :: NrmInv(0:nInd, 0:nInd)           !< @return Pedigree NRM inverse
 
         ! Other
         integer(int32) :: Ind, Par1, Par2
-        real(real64) :: PreM
+        real(FLOATTYPE) :: PreM
 
         NrmInv = 0.0d0
         do Ind = 1, nInd
